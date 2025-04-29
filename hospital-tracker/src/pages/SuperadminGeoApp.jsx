@@ -16,6 +16,7 @@ export default function SuperadminGeoApp() {
   const [adminForm, setAdminForm] = useState({
     nombres: "",
     apellidos: "",
+    estado: "",
     curp: "", // Cambiado de rfc a curp
     correo: "",
     telefono: "",
@@ -74,6 +75,7 @@ export default function SuperadminGeoApp() {
     setAdminForm({
       nombres: "",
       apellidos: "",
+      estado: "",
       curp: "", // Asegúrate de limpiar el valor de curp también
       correo: "",
       telefono: "",
@@ -384,6 +386,59 @@ export default function SuperadminGeoApp() {
               />
             </div>
 
+            <div>
+              <label className="block mb-1 text-gray-700">Estado</label>
+              <select
+                name="estado"
+                value={adminForm.estado}
+                onChange={(e) =>
+                  setAdminForm({ ...adminForm, estado: e.target.value })
+                }
+                className="w-full px-4 py-2 border rounded-lg"
+                required
+              >
+                <option value="">Selecciona un estado</option>
+                {[
+                  "Aguascalientes",
+                  "Baja California",
+                  "Baja California Sur",
+                  "Campeche",
+                  "Chiapas",
+                  "Chihuahua",
+                  "Ciudad de México",
+                  "Coahuila",
+                  "Colima",
+                  "Durango",
+                  "Estado de México",
+                  "Guanajuato",
+                  "Guerrero",
+                  "Hidalgo",
+                  "Jalisco",
+                  "Michoacán",
+                  "Morelos",
+                  "Nayarit",
+                  "Nuevo León",
+                  "Oaxaca",
+                  "Puebla",
+                  "Querétaro",
+                  "Quintana Roo",
+                  "San Luis Potosí",
+                  "Sinaloa",
+                  "Sonora",
+                  "Tabasco",
+                  "Tamaulipas",
+                  "Tlaxcala",
+                  "Veracruz",
+                  "Yucatán",
+                  "Zacatecas",
+                ].map((estado) => (
+                  <option key={estado} value={estado}>
+                    {estado}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
             <div>
               <label className="block mb-1 text-gray-700">
                 Hospital asignado
