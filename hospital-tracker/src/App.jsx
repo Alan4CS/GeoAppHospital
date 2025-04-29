@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
 import SuperadminGeoApp from "./pages/SuperadminGeoApp";
 import Dashboard from "./pages/Dashboard";
+import EstadoadminGeoApp from "./pages/EstadoadminGeoApp"; // Importa el componente
 
 function App() {
   return (
@@ -14,6 +15,14 @@ function App() {
           element={
             <ProtectedRoute>
               <SuperadminGeoApp />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/estadoadmin-geoapp"
+          element={
+            <ProtectedRoute>
+              <EstadoadminGeoApp />
             </ProtectedRoute>
           }
         />

@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 
 const fakeUsers = {
   superadmin: { username: "admin", password: "1234" },
+  estado: { username: "estado", password: "1234" },
 };
 
 export default function Login() {
@@ -18,10 +19,21 @@ export default function Login() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const user = fakeUsers.superadmin;
-    if (form.username === user.username && form.password === user.password) {
+
+    const userEntries = Object.entries(fakeUsers);
+    const matched = userEntries.find(
+      ([, user]) =>
+        user.username === form.username && user.password === form.password
+    );
+
+    if (matched) {
+      const [role] = matched;
       setIsAuthenticated(true);
-      navigate("/superadmin-geoapp");
+      if (role === "superadmin") {
+        navigate("/superadmin-geoapp");
+      } else if (role === "estado") {
+        navigate("/estadoadmin-geoapp");
+      }
     } else {
       setError("Credenciales incorrectas");
     }
@@ -35,18 +47,22 @@ export default function Login() {
         </h2>
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Usuario
+            </label>
             <input
               type="text"
               name="username"
               value={form.username}
               onChange={handleChange}
               className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400"
-              placeholder="admin"
+              placeholder="admin o estado"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Contraseña
+            </label>
             <input
               type="password"
               name="password"
@@ -65,7 +81,8 @@ export default function Login() {
           </button>
         </form>
         <p className="mt-4 text-xs text-gray-400 text-center">
-          Acceso exclusivo para personal autorizado del sistema nacional de salud
+          Acceso exclusivo para personal autorizado del sistema nacional de
+          salud
         </p>
       </div>
     </div>
