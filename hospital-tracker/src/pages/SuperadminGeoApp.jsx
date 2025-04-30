@@ -420,13 +420,10 @@ export default function SuperadminGeoApp() {
                 required
               >
                 <option value="">Selecciona una opción</option>
-                <option value="Clínica">Clínica</option>
-                <option value="Hospital General">Hospital General</option>
-                <option value="Centro de Seguridad Social">
-                  Centro de Seguridad Social
-                </option>
-                <option value="Módulo de Atención">Módulo de Atención</option>
-                <option value="Otro">Otro</option>
+                <option value="CLINICA">Clínica</option>
+                <option value="HOSPITAL">Hospital</option>
+                <option value="IMMS BIENESTAR">IMMS Bienestar</option>
+                <option value="UNIDADES MEDICAS">Unidades Médicas</option>
               </select>
             </div>
 
