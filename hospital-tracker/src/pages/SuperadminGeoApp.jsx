@@ -15,12 +15,17 @@ export default function SuperadminGeoApp() {
   const [paginaActual, setPaginaActual] = useState(1);
   const hospitalesPorPagina = 20;
   const [estadoFiltro, setEstadoFiltro] = useState(""); // Para el filtro por estado
-  const [hospitalesFiltradosPorEstado, setHospitalesFiltradosPorEstado] = useState([]);
+  const [hospitalesFiltradosPorEstado, setHospitalesFiltradosPorEstado] =
+    useState([]);
+  // Estado para el modo de edición
+  const [editandoHospital, setEditandoHospital] = useState(false);
+  const [hospitalEditando, setHospitalEditando] = useState(null);
+  const [hospitalIndexEditando, setHospitalIndexEditando] = useState(null);
   const [adminForm, setAdminForm] = useState({
     nombres: "",
     apellidos: "",
     estado: "",
-    curp: "", // Cambiado de rfc a curp
+    curp: "",
     correo: "",
     telefono: "",
     hospital: "",
@@ -41,15 +46,17 @@ export default function SuperadminGeoApp() {
       const { lat, lon } = data[0];
       setMapCenter([parseFloat(lat), parseFloat(lon)]);
     }
-  }
+  };
 
   useEffect(() => {
     const fetchHospitales = async () => {
       try {
-        const response = await fetch("http://localhost:4000/api/superadmin/hospitals");
+        const response = await fetch(
+          "http://localhost:4000/api/superadmin/hospitals"
+        );
         const data = await response.json();
         console.log("Hospitales desde la API:", data);
-  
+
         const hospitalesFormateados = data.map((h) => ({
           nombre: (h.nombre_hospital || "").replace(/\s+/g, " ").trim(),
           estado: (h.estado || "").trim(),
@@ -61,25 +68,81 @@ export default function SuperadminGeoApp() {
             radio: h.radio_geo ?? 0,
           },
         }));
-  
+
         setHospitales(hospitalesFormateados);
       } catch (error) {
         console.error("Error al obtener hospitales:", error);
       }
     };
-  
+
     fetchHospitales();
   }, []);
-  
-  
+
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const nuevoHospital = { ...form, geocerca };
-    setHospitales([...hospitales, nuevoHospital]);
+
+    // Asegurar que geocerca tenga un valor adecuado
+    const geocercaFinal = geocerca || { lat: 0, lng: 0, radio: 0 };
+
+    if (editandoHospital && hospitalIndexEditando !== null) {
+      // Actualizar el hospital existente
+      const nuevosHospitales = [...hospitales];
+      nuevosHospitales[hospitalIndexEditando] = {
+        ...form,
+        geocerca: geocercaFinal,
+      };
+      setHospitales(nuevosHospitales);
+
+      console.log(
+        "Hospital actualizado:",
+        nuevosHospitales[hospitalIndexEditando]
+      );
+
+      // Aquí se podría enviar la actualización al backend
+      // const actualizarHospitalEnBackend = async () => {
+      //   try {
+      //     await fetch(`http://localhost:4000/api/superadmin/hospitals/${id}`, {
+      //       method: 'PUT',
+      //       headers: { 'Content-Type': 'application/json' },
+      //       body: JSON.stringify(nuevosHospitales[hospitalIndexEditando])
+      //     });
+      //   } catch (error) {
+      //     console.error("Error al actualizar hospital:", error);
+      //   }
+      // };
+      // actualizarHospitalEnBackend();
+
+      // Resetear el estado de edición
+      setEditandoHospital(false);
+      setHospitalEditando(null);
+      setHospitalIndexEditando(null);
+    } else {
+      // Crear un nuevo hospital
+      const nuevoHospital = { ...form, geocerca: geocercaFinal };
+      setHospitales([...hospitales, nuevoHospital]);
+
+      console.log("Nuevo hospital creado:", nuevoHospital);
+
+      // Aquí se podría enviar el nuevo hospital al backend
+      // const enviarHospitalABackend = async () => {
+      //   try {
+      //     await fetch('http://localhost:4000/api/superadmin/hospitals', {
+      //       method: 'POST',
+      //       headers: { 'Content-Type': 'application/json' },
+      //       body: JSON.stringify(nuevoHospital)
+      //     });
+      //   } catch (error) {
+      //     console.error("Error al crear hospital:", error);
+      //   }
+      // };
+      // enviarHospitalABackend();
+    }
+
+    // Resetear el formulario
     setForm({ estado: "", nombre: "", tipoUnidad: "", region: "" });
     setGeocerca(null);
     setMostrarFormulario(false);
@@ -88,6 +151,9 @@ export default function SuperadminGeoApp() {
   const handleMostrarFormulario = () => {
     setMostrarFormulario(true);
     setMostrarFormAdmin(false);
+    setEditandoHospital(false); // Asegurarse de que no estamos en modo edición
+    setForm({ estado: "", nombre: "", tipoUnidad: "", region: "" }); // Limpiar el formulario
+    setGeocerca(null);
   };
 
   const handleMostrarFormAdmin = () => {
@@ -99,6 +165,9 @@ export default function SuperadminGeoApp() {
     setForm({ estado: "", nombre: "", tipoUnidad: "", region: "" });
     setGeocerca(null);
     setMostrarFormulario(false);
+    setEditandoHospital(false);
+    setHospitalEditando(null);
+    setHospitalIndexEditando(null);
   };
 
   const handleCancelarAdmin = () => {
@@ -107,7 +176,7 @@ export default function SuperadminGeoApp() {
       nombres: "",
       apellidos: "",
       estado: "",
-      curp: "", // Asegúrate de limpiar el valor de curp también
+      curp: "",
       correo: "",
       telefono: "",
       hospital: "",
@@ -117,6 +186,9 @@ export default function SuperadminGeoApp() {
   const handleInicio = () => {
     setMostrarFormulario(false);
     setMostrarFormAdmin(false);
+    setEditandoHospital(false);
+    setHospitalEditando(null);
+    setHospitalIndexEditando(null);
   };
 
   const handleSubmitAdmin = (e) => {
@@ -126,24 +198,73 @@ export default function SuperadminGeoApp() {
     setAdminForm({
       nombres: "",
       apellidos: "",
-      curp: "", // Limpiar curp al enviar
+      curp: "",
       correo: "",
       telefono: "",
       hospital: "",
     });
   };
 
+  // Función para editar un hospital
+  const handleEditarHospital = (hospital, index) => {
+    setEditandoHospital(true);
+    setHospitalEditando(hospital);
+    setHospitalIndexEditando(index);
+    setMostrarFormulario(true);
+    setMostrarFormAdmin(false);
+
+    // Verificar que todos los campos tengan valores válidos
+    const hospitalProcesado = {
+      estado: hospital.estado || "",
+      nombre: hospital.nombre || "",
+      tipoUnidad: hospital.tipoUnidad || "",
+      region: hospital.region || "",
+    };
+
+    // Llenar el formulario con los datos del hospital
+    setForm(hospitalProcesado);
+
+    // Establecer la geocerca
+    const geocercaValida =
+      hospital.geocerca &&
+      typeof hospital.geocerca === "object" &&
+      (hospital.geocerca.lat !== undefined ||
+        hospital.geocerca.lng !== undefined);
+
+    if (geocercaValida) {
+      setGeocerca(hospital.geocerca);
+    } else {
+      setGeocerca({
+        lat: 0,
+        lng: 0,
+        radio: 0,
+      });
+    }
+
+    // Ajustar el centro del mapa
+    if (geocercaValida && hospital.geocerca.lat && hospital.geocerca.lng) {
+      setMapCenter([hospital.geocerca.lat, hospital.geocerca.lng]);
+    } else if (hospital.estado) {
+      buscarCoordenadasEstado(hospital.estado);
+    }
+
+    console.log("Editando hospital:", hospitalProcesado);
+  };
+
   // FILTRO y PAGINADO
   const hospitalesFiltrados = estadoFiltro
-  ? hospitales.filter((h) => h.estado.toLowerCase() === estadoFiltro.toLowerCase())
-  : hospitales;
+    ? hospitales.filter(
+        (h) => h.estado.toLowerCase() === estadoFiltro.toLowerCase()
+      )
+    : hospitales;
 
   const indexInicio = (paginaActual - 1) * hospitalesPorPagina;
   const indexFin = indexInicio + hospitalesPorPagina;
   const hospitalesPagina = hospitalesFiltrados.slice(indexInicio, indexFin);
 
-  const totalPaginas = Math.ceil(hospitalesFiltrados.length / hospitalesPorPagina);
- 
+  const totalPaginas = Math.ceil(
+    hospitalesFiltrados.length / hospitalesPorPagina
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
@@ -215,7 +336,7 @@ export default function SuperadminGeoApp() {
       {mostrarFormulario && (
         <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-6 mt-8">
           <h2 className="text-2xl font-semibold text-blue-600 mb-4">
-            📋 Nuevo Hospital
+            {editandoHospital ? "✏️ Editar Hospital" : "📋 Nuevo Hospital"}
           </h2>
           <form
             onSubmit={handleSubmit}
@@ -324,6 +445,7 @@ export default function SuperadminGeoApp() {
             <GeocercaMap
               onCoordsChange={setGeocerca}
               centerFromOutside={mapCenter}
+              initialGeocerca={geocerca}
             />
 
             <div className="col-span-2 flex justify-between mt-4">
@@ -339,7 +461,7 @@ export default function SuperadminGeoApp() {
                 type="submit"
                 className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700"
               >
-                Guardar hospital
+                {editandoHospital ? "Actualizar hospital" : "Guardar hospital"}
               </button>
             </div>
           </form>
@@ -437,10 +559,12 @@ export default function SuperadminGeoApp() {
                 onChange={(e) => {
                   const estadoSeleccionado = e.target.value;
                   setAdminForm({ ...adminForm, estado: estadoSeleccionado });
-                
+
                   // Filtra los hospitales según el estado seleccionado
                   const hospitalesDelEstado = hospitales.filter(
-                    (h) => h.estado.toLowerCase() === estadoSeleccionado.toLowerCase()
+                    (h) =>
+                      h.estado.toLowerCase() ===
+                      estadoSeleccionado.toLowerCase()
                   );
                   setHospitalesFiltradosPorEstado(hospitalesDelEstado);
                 }}
@@ -488,7 +612,7 @@ export default function SuperadminGeoApp() {
                 ))}
               </select>
             </div>
-            
+
             <div>
               <label className="block mb-1 text-gray-700">
                 Hospital asignado
@@ -543,7 +667,9 @@ export default function SuperadminGeoApp() {
 
                 {/* Filtro por estado */}
                 <div className="mb-4 flex justify-between items-center">
-                  <label className="text-gray-700 font-medium">Filtrar por estado:</label>
+                  <label className="text-gray-700 font-medium">
+                    Filtrar por estado:
+                  </label>
                   <select
                     value={estadoFiltro}
                     onChange={(e) => {
@@ -553,14 +679,14 @@ export default function SuperadminGeoApp() {
                     className="ml-2 px-4 py-2 border rounded-lg"
                   >
                     <option value="">Todos</option>
-                    {[...new Set(hospitales.map(h => h.estado))]
+                    {[...new Set(hospitales.map((h) => h.estado))]
                       .filter(Boolean)
                       .sort()
                       .map((estado) => (
                         <option key={estado} value={estado}>
                           {estado}
                         </option>
-                    ))}
+                      ))}
                   </select>
                 </div>
 
@@ -577,27 +703,50 @@ export default function SuperadminGeoApp() {
                           <th className="p-2 border-b">Lat</th>
                           <th className="p-2 border-b">Lng</th>
                           <th className="p-2 border-b">Radio (m)</th>
+                          <th className="p-2 border-b">Acciones</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {hospitalesPagina.map((h, i) => (
-                          <tr key={i} className="hover:bg-blue-50">
-                            <td className="p-2 border-b">{h.nombre}</td>
-                            <td className="p-2 border-b">{h.estado}</td>
-                            <td className="p-2 border-b">{h.tipoUnidad}</td>
-                            <td className="p-2 border-b">{h.region}</td>
-                            <td className="p-2 border-b">{h.geocerca?.lat?.toFixed(4) ?? "N/A"}</td>
-                            <td className="p-2 border-b">{h.geocerca?.lng?.toFixed(4) ?? "N/A"}</td>
-                            <td className="p-2 border-b">{h.geocerca?.radio ?? "N/A"}</td>
-                          </tr>
-                        ))}
+                        {hospitalesPagina.map((h, i) => {
+                          // Calcular el índice real en la lista completa
+                          const indiceReal = indexInicio + i;
+                          return (
+                            <tr key={i} className="hover:bg-blue-50">
+                              <td className="p-2 border-b">{h.nombre}</td>
+                              <td className="p-2 border-b">{h.estado}</td>
+                              <td className="p-2 border-b">{h.tipoUnidad}</td>
+                              <td className="p-2 border-b">{h.region}</td>
+                              <td className="p-2 border-b">
+                                {h.geocerca?.lat?.toFixed(4) ?? "N/A"}
+                              </td>
+                              <td className="p-2 border-b">
+                                {h.geocerca?.lng?.toFixed(4) ?? "N/A"}
+                              </td>
+                              <td className="p-2 border-b">
+                                {h.geocerca?.radio ?? "N/A"}
+                              </td>
+                              <td className="p-2 border-b">
+                                <button
+                                  onClick={() =>
+                                    handleEditarHospital(h, indiceReal)
+                                  }
+                                  className="text-blue-600 hover:text-blue-800 transition-colors"
+                                >
+                                  ✏️ Editar
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
 
                     {/* Controles de paginación */}
                     <div className="mt-4 flex justify-center space-x-2">
                       <button
-                        onClick={() => setPaginaActual(p => Math.max(p - 1, 1))}
+                        onClick={() =>
+                          setPaginaActual((p) => Math.max(p - 1, 1))
+                        }
                         disabled={paginaActual === 1}
                         className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
                       >
@@ -607,7 +756,9 @@ export default function SuperadminGeoApp() {
                         Página {paginaActual} de {totalPaginas}
                       </span>
                       <button
-                        onClick={() => setPaginaActual(p => Math.min(p + 1, totalPaginas))}
+                        onClick={() =>
+                          setPaginaActual((p) => Math.min(p + 1, totalPaginas))
+                        }
                         disabled={paginaActual === totalPaginas}
                         className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
                       >
@@ -616,7 +767,9 @@ export default function SuperadminGeoApp() {
                     </div>
                   </>
                 ) : (
-                  <p className="text-gray-500">No hay hospitales registrados.</p>
+                  <p className="text-gray-500">
+                    No hay hospitales registrados.
+                  </p>
                 )}
               </div>
             )}
