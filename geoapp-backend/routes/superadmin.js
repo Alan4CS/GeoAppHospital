@@ -61,7 +61,7 @@ router.post("/create-admin", async (req, res) => {
 
     // 2. Insertar en user_credentials
     await client.query(
-      `INSERT INTO user_credentials (id_user, user, pass)
+      `INSERT INTO user_credentials (id_user, "user", pass)
        VALUES ($1, $2, $3)`,
       [newUserId, user, pass]
     );
@@ -91,6 +91,31 @@ router.post("/create-admin", async (req, res) => {
     res.status(500).json({ error: "Error al crear el administrador" });
   } finally {
     client.release();
+  }
+});
+
+// GET /api/superadmin/estadoadmins
+router.get("/estadoadmins", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        u.id_user,
+        u.nombre,
+        u.ap_paterno,
+        u.ap_materno,
+        u."RFC",
+        r.role_name
+      FROM user_data u
+      JOIN user_roles ur ON u.id_user = ur.id_user
+      JOIN roles r ON ur.id_role = r.id_role
+      WHERE r.role_name = 'estadoadmin'
+      ORDER BY u.id_user
+    `);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("❌ Error al obtener estadoadmins:", error);
+    res.status(500).json({ error: "Error al obtener administradores de estado" });
   }
 });
 
