@@ -193,7 +193,33 @@ export default function SuperadminGeoApp() {
 
   const handleSubmitAdmin = (e) => {
     e.preventDefault();
+  
+    // Generar usuario: primera letra del nombre + apellidos (en minúsculas, sin espacios)
+    const usuario =
+      adminForm.nombres.trim().charAt(0).toLowerCase() +
+      adminForm.apellidos.trim().toLowerCase().replace(/\s+/g, "");
+  
+    // Generar una contraseña aleatoria de 10 caracteres
+    const generarPassword = () => {
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()";
+      let password = "";
+      for (let i = 0; i < 10; i++) {
+        password += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return password;
+    };
+  
+    const contraseña = generarPassword();
+  
+    // Mostrar por consola
     console.log("Administrador creado:", adminForm);
+    console.log("Usuario generado:", usuario);
+    console.log("Contraseña generada:", contraseña);
+  
+    // También puedes usar alert si quieres feedback inmediato
+    alert(`Usuario generado: ${usuario}\n Contraseña: ${contraseña}`);
+  
+    // Ocultar formulario y limpiar
     setMostrarFormAdmin(false);
     setAdminForm({
       nombres: "",
@@ -201,10 +227,10 @@ export default function SuperadminGeoApp() {
       curp: "",
       correo: "",
       telefono: "",
-      hospital: "",
+      estado: "",
     });
   };
-
+  
   // Función para editar un hospital
   const handleEditarHospital = (hospital, index) => {
     setEditandoHospital(true);
@@ -605,28 +631,6 @@ export default function SuperadminGeoApp() {
                 ].map((estado) => (
                   <option key={estado} value={estado}>
                     {estado}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block mb-1 text-gray-700">
-                Hospital asignado
-              </label>
-              <select
-                name="hospital"
-                value={adminForm.hospital}
-                onChange={(e) =>
-                  setAdminForm({ ...adminForm, hospital: e.target.value })
-                }
-                className="w-full px-4 py-2 border rounded-lg"
-                required
-              >
-                <option value="">Selecciona un hospital</option>
-                {hospitalesFiltradosPorEstado.map((hosp, index) => (
-                  <option key={index} value={hosp.nombre}>
-                    {hosp.nombre}
                   </option>
                 ))}
               </select>
