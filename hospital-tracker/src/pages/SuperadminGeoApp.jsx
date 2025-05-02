@@ -23,12 +23,11 @@ export default function SuperadminGeoApp() {
   const [hospitalIndexEditando, setHospitalIndexEditando] = useState(null);
   const [adminForm, setAdminForm] = useState({
     nombres: "",
-    apellidos: "",
-    estado: "",
-    curp: "",
-    correo: "",
+    ap_paterno: "",
+    ap_materno: "",
+    RFC: "",
     telefono: "",
-    hospital: "",
+    estado: "",
   });
   const [form, setForm] = useState({
     estado: "",
@@ -174,12 +173,11 @@ export default function SuperadminGeoApp() {
     setMostrarFormAdmin(false);
     setAdminForm({
       nombres: "",
-      apellidos: "",
-      estado: "",
-      curp: "",
-      correo: "",
+      ap_paterno: "",
+      ap_materno: "",
+      RFC: "",
       telefono: "",
-      hospital: "",
+      estado: "",
     });
   };
 
@@ -191,45 +189,61 @@ export default function SuperadminGeoApp() {
     setHospitalIndexEditando(null);
   };
 
-  const handleSubmitAdmin = (e) => {
+  const handleSubmitAdmin = async (e) => {
     e.preventDefault();
   
-    // Generar usuario: primera letra del nombre + apellidos (en minúsculas, sin espacios)
-    const usuario =
+    // Generar usuario: primera letra del nombre + apellido paterno
+    const user =
       adminForm.nombres.trim().charAt(0).toLowerCase() +
-      adminForm.apellidos.trim().toLowerCase().replace(/\s+/g, "");
+      adminForm.ap_paterno.trim().toLowerCase().replace(/\s+/g, "");
   
-    // Generar una contraseña aleatoria de 10 caracteres
+    // Generar contraseña aleatoria simple
     const generarPassword = () => {
-      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()";
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
       let password = "";
       for (let i = 0; i < 10; i++) {
         password += chars.charAt(Math.floor(Math.random() * chars.length));
       }
       return password;
     };
+    const pass = generarPassword();
   
-    const contraseña = generarPassword();
+    try {
+      const response = await fetch("http://localhost:4000/api/superadmin/create-admin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          nombre: adminForm.nombres,
+          ap_paterno: adminForm.ap_paterno,
+          ap_materno: adminForm.ap_materno,
+          RFC: adminForm.RFC,
+          user,
+          pass,
+          role_name: "estadoadmin", // fijo según tu ejemplo
+        }),
+      });
   
-    // Mostrar por consola
-    console.log("Administrador creado:", adminForm);
-    console.log("Usuario generado:", usuario);
-    console.log("Contraseña generada:", contraseña);
+      if (!response.ok) throw new Error("Fallo al crear el administrador");
   
-    // También puedes usar alert si quieres feedback inmediato
-    alert(`Usuario generado: ${usuario}\n Contraseña: ${contraseña}`);
+      const data = await response.json();
+      alert(`✅ ${data.message}\n🆔 Usuario: ${user}\n🔑 Contraseña: ${pass}`);
   
-    // Ocultar formulario y limpiar
-    setMostrarFormAdmin(false);
-    setAdminForm({
-      nombres: "",
-      apellidos: "",
-      curp: "",
-      correo: "",
-      telefono: "",
-      estado: "",
-    });
-  };
+      setMostrarFormAdmin(false);
+      setAdminForm({
+        nombres: "",
+        ap_paterno: "",
+        ap_materno: "",
+        RFC: "",
+        telefono: "",
+        estado: "",
+      });
+    } catch (error) {
+      console.error("❌ Error:", error);
+      alert("❌ Error al crear el administrador.");
+    }
+  };  
   
   // Función para editar un hospital
   const handleEditarHospital = (hospital, index) => {
@@ -515,13 +529,13 @@ export default function SuperadminGeoApp() {
             </div>
 
             <div>
-              <label className="block mb-1 text-gray-700">Apellidos</label>
+              <label className="block mb-1 text-gray-700">Apellido paterno</label>
               <input
                 type="text"
-                name="apellidos"
-                value={adminForm.apellidos}
+                name="ap_paterno"
+                value={adminForm.ap_paterno}
                 onChange={(e) =>
-                  setAdminForm({ ...adminForm, apellidos: e.target.value })
+                  setAdminForm({ ...adminForm, ap_paterno: e.target.value })
                 }
                 className="w-full px-4 py-2 border rounded-lg"
                 required
@@ -529,13 +543,13 @@ export default function SuperadminGeoApp() {
             </div>
 
             <div>
-              <label className="block mb-1 text-gray-700">CURP</label>
+              <label className="block mb-1 text-gray-700">Apellido materno</label>
               <input
                 type="text"
-                name="curp"
-                value={adminForm.curp}
+                name="ap_materno"
+                value={adminForm.ap_materno}
                 onChange={(e) =>
-                  setAdminForm({ ...adminForm, curp: e.target.value })
+                  setAdminForm({ ...adminForm, ap_materno: e.target.value })
                 }
                 className="w-full px-4 py-2 border rounded-lg"
                 required
@@ -543,15 +557,13 @@ export default function SuperadminGeoApp() {
             </div>
 
             <div>
-              <label className="block mb-1 text-gray-700">
-                Correo electrónico
-              </label>
+              <label className="block mb-1 text-gray-700">RFC</label>
               <input
-                type="email"
-                name="correo"
-                value={adminForm.correo}
+                type="text"
+                name="RFC"
+                value={adminForm.RFC}
                 onChange={(e) =>
-                  setAdminForm({ ...adminForm, correo: e.target.value })
+                  setAdminForm({ ...adminForm, RFC: e.target.value })
                 }
                 className="w-full px-4 py-2 border rounded-lg"
                 required
@@ -559,9 +571,7 @@ export default function SuperadminGeoApp() {
             </div>
 
             <div>
-              <label className="block mb-1 text-gray-700">
-                Número de teléfono
-              </label>
+              <label className="block mb-1 text-gray-700">Número de teléfono</label>
               <input
                 type="tel"
                 name="telefono"
@@ -583,11 +593,9 @@ export default function SuperadminGeoApp() {
                   const estadoSeleccionado = e.target.value;
                   setAdminForm({ ...adminForm, estado: estadoSeleccionado });
 
-                  // Filtra los hospitales según el estado seleccionado
                   const hospitalesDelEstado = hospitales.filter(
                     (h) =>
-                      h.estado.toLowerCase() ===
-                      estadoSeleccionado.toLowerCase()
+                      h.estado.toLowerCase() === estadoSeleccionado.toLowerCase()
                   );
                   setHospitalesFiltradosPorEstado(hospitalesDelEstado);
                 }}
