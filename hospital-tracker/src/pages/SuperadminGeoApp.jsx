@@ -7,6 +7,7 @@ export default function SuperadminGeoApp() {
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [hospitales, setHospitales] = useState([]);
   const [geocerca, setGeocerca] = useState(null);
+  const [administradores, setAdministradores] = useState([]);
   const [mapCenter, setMapCenter] = useState([23.6345, -102.5528]);
   const [activeTab, setActiveTab] = useState("hospitales");
   const [mostrarFormAdmin, setMostrarFormAdmin] = useState(false);
@@ -75,6 +76,23 @@ export default function SuperadminGeoApp() {
     };
 
     fetchHospitales();
+  }, []);
+
+  useEffect(() => {
+    const fetchAdministradores = async () => {
+      try {
+        const response = await fetch(
+          "http://localhost:4000/api/superadmin/estadoadmins"
+        );
+        const data = await response.json();
+        console.log("Administradores:", data);
+        setAdministradores(data);
+      } catch (error) {
+        console.error("Error al obtener administradores:", error);
+      }
+    };
+
+    fetchAdministradores();
   }, []);
 
   const handleChange = (e) => {
@@ -813,9 +831,68 @@ export default function SuperadminGeoApp() {
                 <h3 className="text-xl font-semibold text-blue-700 mb-4">
                   👤 Administradores registrados
                 </h3>
-                <p className="text-gray-500">
-                  No hay administradores registrados todavía.
-                </p>
+                {administradores.length > 0 ? (
+                  <>
+                    {[
+                      ...new Set(
+                        administradores.map((a) => a.estado || "Sin estado")
+                      ),
+                    ]
+                      .sort()
+                      .map((estadoNombre) => {
+                        const adminsDelEstado = administradores.filter(
+                          (a) => (a.estado || "Sin estado") === estadoNombre
+                        );
+                        return (
+                          <div key={estadoNombre} className="mb-6">
+                            <h4 className="text-lg font-semibold text-blue-700 mb-2 border-b border-blue-300 pb-1">
+                              Estado: {estadoNombre}
+                            </h4>
+                            <table className="w-full table-auto border-collapse">
+                              <thead>
+                                <tr className="bg-blue-100 text-blue-800 text-left">
+                                  <th className="p-2 border-b">Nombre</th>
+                                  <th className="p-2 border-b">
+                                    Apellido paterno
+                                  </th>
+                                  <th className="p-2 border-b">
+                                    Apellido materno
+                                  </th>
+                                  <th className="p-2 border-b">RFC</th>
+                                  <th className="p-2 border-b">Rol</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {adminsDelEstado.map((admin, i) => (
+                                  <tr key={i} className="hover:bg-blue-50">
+                                    <td className="p-2 border-b">
+                                      {admin.nombre}
+                                    </td>
+                                    <td className="p-2 border-b">
+                                      {admin.ap_paterno}
+                                    </td>
+                                    <td className="p-2 border-b">
+                                      {admin.ap_materno}
+                                    </td>
+                                    <td className="p-2 border-b">
+                                      {admin.RFC}
+                                    </td>
+                                    <td className="p-2 border-b">
+                                      {admin.role_name}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        );
+                      })}
+                  </>
+                ) : (
+                  <p className="text-gray-500">
+                    No hay administradores registrados todavía.
+                  </p>
+                )}
               </div>
             )}
           </>
