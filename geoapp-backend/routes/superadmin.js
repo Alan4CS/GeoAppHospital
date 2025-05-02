@@ -28,4 +28,18 @@ router.get("/hospitals", async (req, res) => {
   }
 });
 
+router.get("/estados", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        *
+      FROM estados
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error al obtener estados del superadmin:", error);
+    res.status(500).json({ error: "Error al consultar hospitales" });
+  }
+});
+
 export default router;
