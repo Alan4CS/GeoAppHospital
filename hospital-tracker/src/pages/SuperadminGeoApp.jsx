@@ -191,15 +191,16 @@ export default function SuperadminGeoApp() {
 
   const handleSubmitAdmin = async (e) => {
     e.preventDefault();
-  
+
     // Generar usuario: primera letra del nombre + apellido paterno
     const user =
       adminForm.nombres.trim().charAt(0).toLowerCase() +
       adminForm.ap_paterno.trim().toLowerCase().replace(/\s+/g, "");
-  
+
     // Generar contraseña aleatoria simple
     const generarPassword = () => {
-      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+      const chars =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
       let password = "";
       for (let i = 0; i < 10; i++) {
         password += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -207,29 +208,32 @@ export default function SuperadminGeoApp() {
       return password;
     };
     const pass = generarPassword();
-  
+
     try {
-      const response = await fetch("http://localhost:4000/api/superadmin/create-admin", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          nombre: adminForm.nombres,
-          ap_paterno: adminForm.ap_paterno,
-          ap_materno: adminForm.ap_materno,
-          RFC: adminForm.RFC,
-          user,
-          pass,
-          role_name: "estadoadmin", // fijo según tu ejemplo
-        }),
-      });
-  
+      const response = await fetch(
+        "http://localhost:4000/api/superadmin/create-admin",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            nombre: adminForm.nombres,
+            ap_paterno: adminForm.ap_paterno,
+            ap_materno: adminForm.ap_materno,
+            RFC: adminForm.RFC,
+            user,
+            pass,
+            role_name: "estadoadmin", // fijo según tu ejemplo
+          }),
+        }
+      );
+
       if (!response.ok) throw new Error("Fallo al crear el administrador");
-  
+
       const data = await response.json();
       alert(`✅ ${data.message}\n🆔 Usuario: ${user}\n🔑 Contraseña: ${pass}`);
-  
+
       setMostrarFormAdmin(false);
       setAdminForm({
         nombres: "",
@@ -243,9 +247,10 @@ export default function SuperadminGeoApp() {
       console.error("❌ Error:", error);
       alert("❌ Error al crear el administrador.");
     }
-  };  
-  
+  };
+
   // Función para editar un hospital
+  // Modify the handleEditarHospital function to normalize the state name
   const handleEditarHospital = (hospital, index) => {
     setEditandoHospital(true);
     setHospitalEditando(hospital);
@@ -253,9 +258,23 @@ export default function SuperadminGeoApp() {
     setMostrarFormulario(true);
     setMostrarFormAdmin(false);
 
+    // Function to normalize state names (convert to title case)
+    const normalizeStateName = (stateName) => {
+      if (!stateName) return "";
+      // Convert state name to title case (first letter uppercase, rest lowercase)
+      return stateName
+        .toLowerCase()
+        .split(" ")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+    };
+
+    // Normalize the state name to match the format in the dropdown
+    const estadoNormalizado = normalizeStateName(hospital.estado);
+
     // Verificar que todos los campos tengan valores válidos
     const hospitalProcesado = {
-      estado: hospital.estado || "",
+      estado: estadoNormalizado,
       nombre: hospital.nombre || "",
       tipoUnidad: hospital.tipoUnidad || "",
       region: hospital.region || "",
@@ -285,12 +304,11 @@ export default function SuperadminGeoApp() {
     if (geocercaValida && hospital.geocerca.lat && hospital.geocerca.lng) {
       setMapCenter([hospital.geocerca.lat, hospital.geocerca.lng]);
     } else if (hospital.estado) {
-      buscarCoordenadasEstado(hospital.estado);
+      buscarCoordenadasEstado(estadoNormalizado);
     }
 
     console.log("Editando hospital:", hospitalProcesado);
   };
-
   // FILTRO y PAGINADO
   const hospitalesFiltrados = estadoFiltro
     ? hospitales.filter(
@@ -430,7 +448,7 @@ export default function SuperadminGeoApp() {
                   "Zacatecas",
                 ].map((estado) => (
                   <option key={estado} value={estado}>
-                    {estado}
+                    {estado.toUpperCase()} {/* Esta línea fue modificada */}
                   </option>
                 ))}
               </select>
@@ -460,10 +478,10 @@ export default function SuperadminGeoApp() {
                 required
               >
                 <option value="">Selecciona una opción</option>
-                <option value="CLINICA">Clínica</option>
-                <option value="HOSPITAL">Hospital</option>
-                <option value="IMMS BIENESTAR">IMMS Bienestar</option>
-                <option value="UNIDADES MEDICAS">Unidades Médicas</option>
+                <option value="CLINICA">CLINICA</option>
+                <option value="HOSPITAL">HOSPITAL</option>
+                <option value="IMMS BIENESTAR">IMMS BIENESTAR</option>
+                <option value="UNIDADES MEDICAS">UNIDADES MEDICAS</option>
               </select>
             </div>
 
@@ -529,7 +547,9 @@ export default function SuperadminGeoApp() {
             </div>
 
             <div>
-              <label className="block mb-1 text-gray-700">Apellido paterno</label>
+              <label className="block mb-1 text-gray-700">
+                Apellido paterno
+              </label>
               <input
                 type="text"
                 name="ap_paterno"
@@ -543,7 +563,9 @@ export default function SuperadminGeoApp() {
             </div>
 
             <div>
-              <label className="block mb-1 text-gray-700">Apellido materno</label>
+              <label className="block mb-1 text-gray-700">
+                Apellido materno
+              </label>
               <input
                 type="text"
                 name="ap_materno"
@@ -571,7 +593,9 @@ export default function SuperadminGeoApp() {
             </div>
 
             <div>
-              <label className="block mb-1 text-gray-700">Número de teléfono</label>
+              <label className="block mb-1 text-gray-700">
+                Número de teléfono
+              </label>
               <input
                 type="tel"
                 name="telefono"
@@ -595,7 +619,8 @@ export default function SuperadminGeoApp() {
 
                   const hospitalesDelEstado = hospitales.filter(
                     (h) =>
-                      h.estado.toLowerCase() === estadoSeleccionado.toLowerCase()
+                      h.estado.toLowerCase() ===
+                      estadoSeleccionado.toLowerCase()
                   );
                   setHospitalesFiltradosPorEstado(hospitalesDelEstado);
                 }}
