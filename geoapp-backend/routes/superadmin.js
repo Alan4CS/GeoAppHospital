@@ -52,7 +52,7 @@ router.post("/create-admin", async (req, res) => {
 
     // 1. Insertar en user_data
     const userDataResult = await client.query(
-      `INSERT INTO user_data (nombre, ap_paterno, ap_materno, RFC)
+      `INSERT INTO user_data (nombre, ap_paterno, ap_materno, "RFC")
        VALUES ($1, $2, $3, $4)
        RETURNING id_user`,
       [nombre, ap_paterno, ap_materno, RFC]
