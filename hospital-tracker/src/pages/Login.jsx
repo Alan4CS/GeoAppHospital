@@ -1,4 +1,5 @@
-import { useState } from "react";
+// src/pages/Login.js
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
@@ -13,6 +14,20 @@ export default function Login() {
   const navigate = useNavigate();
   const { setIsAuthenticated } = useAuth();
 
+  // Redirige si ya está autenticado
+  useEffect(() => {
+    const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
+    const role = localStorage.getItem("userRole");
+
+    if (isAuthenticated) {
+      if (role === "superadmin") {
+        navigate("/superadmin-geoapp");
+      } else if (role === "estado") {
+        navigate("/estadoadmin-geoapp");
+      }
+    }
+  }, [navigate]);
+
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
@@ -20,15 +35,17 @@ export default function Login() {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    const userEntries = Object.entries(fakeUsers);
-    const matched = userEntries.find(
+    const matched = Object.entries(fakeUsers).find(
       ([, user]) =>
         user.username === form.username && user.password === form.password
     );
 
     if (matched) {
       const [role] = matched;
+      localStorage.setItem("isAuthenticated", "true");
+      localStorage.setItem("userRole", role);
       setIsAuthenticated(true);
+
       if (role === "superadmin") {
         navigate("/superadmin-geoapp");
       } else if (role === "estado") {

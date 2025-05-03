@@ -78,22 +78,19 @@ export default function SuperadminGeoApp() {
     fetchHospitales();
   }, []);
 
+  const fetchAdministradores = async () => {
+    try {
+      const response = await fetch("http://localhost:4000/api/superadmin/estadoadmins");
+      const data = await response.json();
+      setAdministradores(data);
+    } catch (error) {
+      console.error("Error al obtener administradores:", error);
+    }
+  };
+  
   useEffect(() => {
-    const fetchAdministradores = async () => {
-      try {
-        const response = await fetch(
-          "http://localhost:4000/api/superadmin/estadoadmins"
-        );
-        const data = await response.json();
-        console.log("Administradores:", data);
-        setAdministradores(data);
-      } catch (error) {
-        console.error("Error al obtener administradores:", error);
-      }
-    };
-
     fetchAdministradores();
-  }, []);
+  }, []);  
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -209,50 +206,51 @@ export default function SuperadminGeoApp() {
 
   const handleSubmitAdmin = async (e) => {
     e.preventDefault();
-
-    // Generar usuario: primera letra del nombre + apellido paterno
+  
+    // Generar nombre de usuario: primera letra del nombre + apellido paterno (todo en minúsculas, sin espacios)
     const user =
       adminForm.nombres.trim().charAt(0).toLowerCase() +
       adminForm.ap_paterno.trim().toLowerCase().replace(/\s+/g, "");
-
-    // Generar contraseña aleatoria simple
+  
+    // Generar contraseña aleatoria de 10 caracteres
     const generarPassword = () => {
-      const chars =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
       let password = "";
       for (let i = 0; i < 10; i++) {
         password += chars.charAt(Math.floor(Math.random() * chars.length));
       }
       return password;
     };
+  
     const pass = generarPassword();
-
+  
     try {
-      const response = await fetch(
-        "http://localhost:4000/api/superadmin/create-admin",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            nombre: adminForm.nombres,
-            ap_paterno: adminForm.ap_paterno,
-            ap_materno: adminForm.ap_materno,
-            RFC: adminForm.RFC,
-            user,
-            pass,
-            role_name: "estadoadmin", // fijo según tu ejemplo
-          }),
-        }
-      );
-
+      const response = await fetch("http://localhost:4000/api/superadmin/create-admin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          nombre: adminForm.nombres,
+          ap_paterno: adminForm.ap_paterno,
+          ap_materno: adminForm.ap_materno,
+          RFC: adminForm.RFC,
+          user,
+          pass,
+          role_name: "estadoadmin",
+          estado: adminForm.estado,
+        }),
+      });
+  
       if (!response.ok) throw new Error("Fallo al crear el administrador");
-
+  
       const data = await response.json();
       alert(`✅ ${data.message}\n🆔 Usuario: ${user}\n🔑 Contraseña: ${pass}`);
-
-      setMostrarFormAdmin(false);
+  
+      // 🔁 Actualizar la lista de administradores desde la base de datos
+      await fetchAdministradores();
+  
+      // Limpiar el formulario
       setAdminForm({
         nombres: "",
         ap_paterno: "",
@@ -261,6 +259,7 @@ export default function SuperadminGeoApp() {
         telefono: "",
         estado: "",
       });
+      setMostrarFormAdmin(false);
     } catch (error) {
       console.error("❌ Error:", error);
       alert("❌ Error al crear el administrador.");
@@ -372,6 +371,8 @@ export default function SuperadminGeoApp() {
           </button>
           <button
             onClick={() => {
+              localStorage.removeItem("isAuthenticated");
+              localStorage.removeItem("userRole");
               setIsAuthenticated(false);
               navigate("/");
             }}
