@@ -15,6 +15,7 @@ router.post("/login", async (req, res) => {
       );
 
       if (credResult.rowCount === 0) {
+        
         // 🔴 Usuario o contraseña incorrectos
         return res.status(200).json({ mensaje: "Usuario no existe" });
       }
