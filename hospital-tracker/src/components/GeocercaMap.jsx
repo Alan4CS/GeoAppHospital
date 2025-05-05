@@ -1,77 +1,135 @@
-import { useState } from "react";
-import { MapContainer, TileLayer, Circle, useMapEvents } from "react-leaflet";
+// GeocercaMap.jsx
+import { useEffect, useState } from "react"
+import { MapContainer, TileLayer, Circle, Marker, useMapEvents } from "react-leaflet"
+import L from "leaflet"
 
-// Componente que coloca el marcador en el lugar donde se hace clic
-function LocationMarker({ onLocationChange }) {
-  const [position, setPosition] = useState(null);
-
+function LocationSelector({ editable, onHospitalCoordsChange, onGeocercaCoordsChange }) {
   useMapEvents({
     click(e) {
-      onLocationChange(e.latlng);
+      if (editable) {
+        onHospitalCoordsChange(e.latlng)
+      } else {
+        onGeocercaCoordsChange(e.latlng)
+      }
     },
-  });
-
-  return position ? (
-    <Circle center={position} radius={500} pathOptions={{ color: "blue" }} />
-  ) : null;
+  })
+  return null
 }
 
-// Componente principal del mapa con geocerca
-export default function GeocercaMap({ onCoordsChange, centerFromOutside }) {
-  const [radio, setRadio] = useState(500);
-  const [center, setCenter] = useState(null);
+export default function GeocercaMap({
+  editableHospitalCoords,
+  editableGeocerca,
+  centerFromOutside,
+  initialHospitalCoords,
+  initialGeocerca,
+  onHospitalCoordsChange,
+  onCoordsChange,
+}) {
+  const [geocercaCenter, setGeocercaCenter] = useState(null)
+  const [radio, setRadio] = useState(100)
 
-  const position = centerFromOutside || [23.6345, -102.5528]; // Default México
+  const validCoords = (coords) => coords && !isNaN(coords.lat) && !isNaN(coords.lng)
+
+  const hospitalPosition = validCoords(initialHospitalCoords)
+    ? [initialHospitalCoords.lat, initialHospitalCoords.lng]
+    : centerFromOutside || [23.6345, -102.5528]
+
+  // Actualiza centro de geocerca automáticamente al definir hospital
+  useEffect(() => {
+    if (validCoords(initialGeocerca)) {
+      setGeocercaCenter({ lat: initialGeocerca.lat, lng: initialGeocerca.lng })
+      setRadio(initialGeocerca.radio || 100)
+    } else if (validCoords(initialHospitalCoords)) {
+      const coords = {
+        lat: initialHospitalCoords.lat,
+        lng: initialHospitalCoords.lng,
+      }
+      setGeocercaCenter(coords)
+      setRadio(100)
+      onCoordsChange({ ...coords, radio: 100 })
+    }
+  }, [initialGeocerca, initialHospitalCoords])
+
+  const handleGeocercaMove = (coords) => {
+    setGeocercaCenter(coords)
+    onCoordsChange({ ...coords, radio })
+  }
+
+  const handleRadioChange = (e) => {
+    const value = parseInt(e.target.value)
+    if (!isNaN(value) && value > 0) {
+      setRadio(value)
+      if (geocercaCenter) onCoordsChange({ ...geocercaCenter, radio: value })
+    }
+  }
+
+  const hospitalIcon = new L.Icon({
+    iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
+    shadowSize: [41, 41],
+  })
 
   return (
-    <div className="mt-6 space-y-4 col-span-2">
-      <label className="block font-semibold text-gray-700">Ubicación y Geocerca (haz clic en el mapa)</label>
+    <div className="space-y-4">
+      <label className="block font-semibold text-gray-700">
+        {editableHospitalCoords
+          ? "Haz clic para seleccionar ubicación del hospital"
+          : "Haz clic para mover la geocerca"}
+      </label>
 
       <MapContainer
-        center={position}
-        zoom={13}
+        center={hospitalPosition}
+        zoom={16}
         style={{ height: "300px", width: "100%" }}
         className="rounded-xl overflow-hidden border shadow"
-        key={position.toString()} // Fuerza recarga del mapa al cambiar el estado
+        key={hospitalPosition.join(',')}
       >
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-        <LocationMarker
-          onLocationChange={(coords) => {
-            setCenter(coords);
-            onCoordsChange({ ...coords, radio });
+        <LocationSelector
+          editable={editableHospitalCoords}
+          onHospitalCoordsChange={(coords) => {
+            onHospitalCoordsChange(coords)
+            if (!initialGeocerca) {
+              setGeocercaCenter(coords)
+              setRadio(100)
+              onCoordsChange({ ...coords, radio: 100 })
+            }
           }}
+          onGeocercaCoordsChange={handleGeocercaMove}
         />
 
-        {center && (
-          <Circle center={center} radius={radio} pathOptions={{ color: "blue" }} />
+        {validCoords(initialHospitalCoords) && (
+          <Marker
+            position={[initialHospitalCoords.lat, initialHospitalCoords.lng]}
+            icon={hospitalIcon}
+          />
+        )}
+
+        {geocercaCenter && (
+          <Circle center={geocercaCenter} radius={radio} pathOptions={{ color: "blue" }} />
         )}
       </MapContainer>
 
-      {center && (
-        <div className="space-y-1">
-            <label className="block text-sm text-gray-600 font-medium">
+      {geocercaCenter && (
+        <div>
+          <label className="block text-sm text-gray-600 font-medium">
             Radio de la geocerca (en metros)
-            </label>
-            <input
+          </label>
+          <input
             type="number"
             min={1}
             max={1000}
             step={1}
             value={radio}
-            onChange={(e) => {
-                const value = parseInt(e.target.value);
-                if (!isNaN(value) && value > 0) {
-                setRadio(value);
-                onCoordsChange({ ...center, radio: value });
-                }
-            }}
+            onChange={handleRadioChange}
             className="border rounded-lg px-4 py-2 w-full max-w-xs"
-            placeholder="Ej. 30, 50, 100"
-            />
+          />
         </div>
-    )}
-
+      )}
     </div>
-  );
+  )
 }

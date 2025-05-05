@@ -43,7 +43,7 @@ router.get("/estados", async (req, res) => {
 });
 
 router.post("/create-admin", async (req, res) => {
-  const { nombre, ap_paterno, ap_materno, RFC, user, pass, role_name } = req.body;
+  const { nombre, ap_paterno, ap_materno, CURP, user, pass, role_name } = req.body;
 
   const client = await pool.connect();
 
@@ -52,10 +52,10 @@ router.post("/create-admin", async (req, res) => {
 
     // 1. Insertar en user_data
     const userDataResult = await client.query(
-      `INSERT INTO user_data (nombre, ap_paterno, ap_materno, "RFC")
+      `INSERT INTO user_data (nombre, ap_paterno, ap_materno, "curp_user")
        VALUES ($1, $2, $3, $4)
        RETURNING id_user`,
-      [nombre, ap_paterno, ap_materno, RFC]
+      [nombre, ap_paterno, ap_materno, CURP]
     );
     const newUserId = userDataResult.rows[0].id_user;
 
@@ -103,7 +103,7 @@ router.get("/estadoadmins", async (req, res) => {
         u.nombre,
         u.ap_paterno,
         u.ap_materno,
-        u."RFC",
+        u.curp_user,
         r.role_name
       FROM user_data u
       JOIN user_roles ur ON u.id_user = ur.id_user

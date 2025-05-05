@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ClipboardCheck, Key, Save, User, X } from "lucide-react"
 
 export default function AdminForm({ hospitales, onGuardar, onCancelar, setHospitalesFiltradosPorEstado }) {
@@ -6,16 +6,29 @@ export default function AdminForm({ hospitales, onGuardar, onCancelar, setHospit
     nombres: "",
     ap_paterno: "",
     ap_materno: "",
-    RFC: "",
+    CURP: "",
     telefono: "",
     estado: "",
   })
   const [errors, setErrors] = useState({})
   const [touched, setTouched] = useState({})
+  const [estados, setEstados] = useState([])
+
+  useEffect(() => {
+    const fetchEstados = async () => {
+      try {
+        const res = await fetch("http://localhost:4000/api/superadmin/estados")
+        const data = await res.json()
+        setEstados(data)
+      } catch (error) {
+        console.error("Error al obtener estados:", error)
+      }
+    }
+    fetchEstados()
+  }, [])
 
   const validateField = (name, value) => {
     let error = ""
-
     switch (name) {
       case "nombres":
         if (!value) error = "El nombre es obligatorio"
@@ -26,10 +39,10 @@ export default function AdminForm({ hospitales, onGuardar, onCancelar, setHospit
       case "ap_materno":
         if (!value) error = "El apellido materno es obligatorio"
         break
-      case "RFC":
-        if (!value) error = "El RFC es obligatorio"
-        else if (!/^[A-Z&Ñ]{4}[0-9]{6}[A-Z0-9]{3}$/.test(value))
-          error = "El RFC debe tener el formato correcto (AAAA######AAA)"
+      case "CURP":
+        if (!value) error = "El CURP es obligatorio"
+        else if (!/^[A-Z&Ñ]{4}[0-9]{6}[HM][A-Z]{5}[A-Z0-9]{2}$/.test(value))
+          error = "El CURP debe tener el formato correcto (AAAA######AAA)"
         break
       case "telefono":
         if (!value) error = "El teléfono es obligatorio"
@@ -38,31 +51,24 @@ export default function AdminForm({ hospitales, onGuardar, onCancelar, setHospit
       case "estado":
         if (!value) error = "El estado es obligatorio"
         break
-      default:
-        break
     }
-
     return error
   }
 
   const handleChange = (e) => {
     const { name, value } = e.target
-
-    // Para el RFC, convertir a mayúsculas automáticamente
-    const formattedValue = name === "RFC" ? value.toUpperCase() : value
+    const formattedValue = name === "CURP" ? value.toUpperCase() : value
 
     setAdminForm({ ...adminForm, [name]: formattedValue })
-
-    // Marcar el campo como tocado
     setTouched({ ...touched, [name]: true })
 
-    // Validar el campo
     const error = validateField(name, formattedValue)
     setErrors({ ...errors, [name]: error })
 
-    // Si cambia el estado, filtrar los hospitales para ese estado
     if (name === "estado") {
-      const hospitalesDelEstado = hospitales.filter((h) => h.estado.toLowerCase() === value.toLowerCase())
+      const hospitalesDelEstado = hospitales.filter(
+        (h) => h.estado.toLowerCase() === value.toLowerCase()
+      )
       setHospitalesFiltradosPorEstado(hospitalesDelEstado)
     }
   }
@@ -77,7 +83,6 @@ export default function AdminForm({ hospitales, onGuardar, onCancelar, setHospit
   const handleSubmit = (e) => {
     e.preventDefault()
 
-    // Validar todos los campos antes de enviar
     const newErrors = {}
     let isValid = true
 
@@ -94,11 +99,10 @@ export default function AdminForm({ hospitales, onGuardar, onCancelar, setHospit
 
     if (!isValid) return
 
-    // Generar nombre de usuario: primera letra del nombre + apellido paterno (todo en minúsculas, sin espacios)
     const user =
-      adminForm.nombres.trim().charAt(0).toLowerCase() + adminForm.ap_paterno.trim().toLowerCase().replace(/\s+/g, "")
+      adminForm.nombres.trim().charAt(0).toLowerCase() +
+      adminForm.ap_paterno.trim().toLowerCase().replace(/\s+/g, "")
 
-    // Generar contraseña aleatoria de 10 caracteres
     const generarPassword = () => {
       const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
       let password = ""
@@ -110,12 +114,11 @@ export default function AdminForm({ hospitales, onGuardar, onCancelar, setHospit
 
     const pass = generarPassword()
 
-    // Crear el objeto administrador con los datos del formulario
     const adminData = {
       nombre: adminForm.nombres,
       ap_paterno: adminForm.ap_paterno,
       ap_materno: adminForm.ap_materno,
-      RFC: adminForm.RFC,
+      CURP: adminForm.CURP,
       telefono: adminForm.telefono,
       user,
       pass,
@@ -123,7 +126,6 @@ export default function AdminForm({ hospitales, onGuardar, onCancelar, setHospit
       estado: adminForm.estado,
     }
 
-    // Llamar a la función de guardar del componente padre
     onGuardar(adminData)
   }
 
@@ -139,104 +141,54 @@ export default function AdminForm({ hospitales, onGuardar, onCancelar, setHospit
 
       <form onSubmit={handleSubmit} className="p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nombres</label>
-            <input
-              type="text"
-              name="nombres"
-              value={adminForm.nombres}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                errors.nombres && touched.nombres ? "border-red-500" : "border-gray-300"
-              }`}
-              placeholder="Ingrese los nombres"
-              required
-            />
-            {errors.nombres && touched.nombres && <p className="mt-1 text-sm text-red-600">{errors.nombres}</p>}
-          </div>
+          {/* Campos de texto */}
+          {[
+            { name: "nombres", label: "Nombres", placeholder: "Ingrese los nombres" },
+            { name: "ap_paterno", label: "Apellido paterno", placeholder: "Ingrese el apellido paterno" },
+            { name: "ap_materno", label: "Apellido materno", placeholder: "Ingrese el apellido materno" },
+            {
+              name: "CURP",
+              label: "CURP",
+              placeholder: "Ej. GOMC920101HDFLNS09",
+              icon: <ClipboardCheck className="h-4 w-4 mr-1 text-blue-600" />,
+              extraInfo: "Formato: 4 letras, 6 números, 3 caracteres alfanuméricos",
+              maxLength: 18,
+            },
+            {
+              name: "telefono",
+              label: "Número de teléfono",
+              placeholder: "10 dígitos",
+              maxLength: 10,
+            },
+          ].map(({ name, label, placeholder, icon, extraInfo, maxLength }) => (
+            <div key={name}>
+              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                {icon}
+                {label}
+              </label>
+              <input
+                type={name === "telefono" ? "tel" : "text"}
+                name={name}
+                value={adminForm[name]}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  errors[name] && touched[name] ? "border-red-500" : "border-gray-300"
+                }`}
+                placeholder={placeholder}
+                maxLength={maxLength || undefined}
+                required
+              />
+              {errors[name] && touched[name] && (
+                <p className="mt-1 text-sm text-red-600">{errors[name]}</p>
+              )}
+              {!errors[name] && extraInfo && (
+                <p className="mt-1 text-xs text-gray-500">{extraInfo}</p>
+              )}
+            </div>
+          ))}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Apellido paterno</label>
-            <input
-              type="text"
-              name="ap_paterno"
-              value={adminForm.ap_paterno}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                errors.ap_paterno && touched.ap_paterno ? "border-red-500" : "border-gray-300"
-              }`}
-              placeholder="Ingrese el apellido paterno"
-              required
-            />
-            {errors.ap_paterno && touched.ap_paterno && (
-              <p className="mt-1 text-sm text-red-600">{errors.ap_paterno}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Apellido materno</label>
-            <input
-              type="text"
-              name="ap_materno"
-              value={adminForm.ap_materno}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                errors.ap_materno && touched.ap_materno ? "border-red-500" : "border-gray-300"
-              }`}
-              placeholder="Ingrese el apellido materno"
-              required
-            />
-            {errors.ap_materno && touched.ap_materno && (
-              <p className="mt-1 text-sm text-red-600">{errors.ap_materno}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-              <ClipboardCheck className="h-4 w-4 mr-1 text-blue-600" />
-              RFC
-            </label>
-            <input
-              type="text"
-              name="RFC"
-              value={adminForm.RFC}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                errors.RFC && touched.RFC ? "border-red-500" : "border-gray-300"
-              }`}
-              placeholder="Ej. AAAA######AAA"
-              maxLength={13}
-              required
-            />
-            {errors.RFC && touched.RFC ? (
-              <p className="mt-1 text-sm text-red-600">{errors.RFC}</p>
-            ) : (
-              <p className="mt-1 text-xs text-gray-500">Formato: 4 letras, 6 números, 3 caracteres alfanuméricos</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Número de teléfono</label>
-            <input
-              type="tel"
-              name="telefono"
-              value={adminForm.telefono}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                errors.telefono && touched.telefono ? "border-red-500" : "border-gray-300"
-              }`}
-              placeholder="10 dígitos"
-              maxLength={10}
-              required
-            />
-            {errors.telefono && touched.telefono && <p className="mt-1 text-sm text-red-600">{errors.telefono}</p>}
-          </div>
-
+          {/* Select de estados */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
             <select
@@ -250,49 +202,19 @@ export default function AdminForm({ hospitales, onGuardar, onCancelar, setHospit
               required
             >
               <option value="">Selecciona un estado</option>
-              {[
-                "Aguascalientes",
-                "Baja California",
-                "Baja California Sur",
-                "Campeche",
-                "Chiapas",
-                "Chihuahua",
-                "Ciudad de México",
-                "Coahuila",
-                "Colima",
-                "Durango",
-                "Estado de México",
-                "Guanajuato",
-                "Guerrero",
-                "Hidalgo",
-                "Jalisco",
-                "Michoacán",
-                "Morelos",
-                "Nayarit",
-                "Nuevo León",
-                "Oaxaca",
-                "Puebla",
-                "Querétaro",
-                "Quintana Roo",
-                "San Luis Potosí",
-                "Sinaloa",
-                "Sonora",
-                "Tabasco",
-                "Tamaulipas",
-                "Tlaxcala",
-                "Veracruz",
-                "Yucatán",
-                "Zacatecas",
-              ].map((estado) => (
-                <option key={estado} value={estado}>
-                  {estado}
+              {estados.map((estado) => (
+                <option key={estado.id_estado} value={estado.nombre_estado}>
+                  {estado.nombre_estado}
                 </option>
               ))}
             </select>
-            {errors.estado && touched.estado && <p className="mt-1 text-sm text-red-600">{errors.estado}</p>}
+            {errors.estado && touched.estado && (
+              <p className="mt-1 text-sm text-red-600">{errors.estado}</p>
+            )}
           </div>
         </div>
 
+        {/* Info de acceso */}
         <div className="mt-8 bg-gray-50 p-4 rounded-lg border border-gray-200">
           <h3 className="text-sm font-medium text-gray-700 flex items-center mb-2">
             <Key className="h-4 w-4 mr-1 text-blue-600" />
@@ -308,19 +230,19 @@ export default function AdminForm({ hospitales, onGuardar, onCancelar, setHospit
           </ul>
         </div>
 
+        {/* Botones */}
         <div className="mt-8 flex justify-end space-x-4">
           <button
             type="button"
             onClick={onCancelar}
-            className="flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
           >
             <X className="h-4 w-4 mr-2" />
             Cancelar
           </button>
-
           <button
             type="submit"
-            className="flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="flex items-center px-4 py-2 rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
           >
             <Save className="h-4 w-4 mr-2" />
             Guardar Administrador

@@ -1,5 +1,3 @@
-"use client"
-
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
@@ -617,7 +615,7 @@ export default function SuperadminGeoApp() {
                                       Apellido materno
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                      RFC
+                                      CURP
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                       Rol
@@ -630,7 +628,7 @@ export default function SuperadminGeoApp() {
                                       <td className="px-6 py-4 whitespace-nowrap">{admin.nombre}</td>
                                       <td className="px-6 py-4 whitespace-nowrap">{admin.ap_paterno}</td>
                                       <td className="px-6 py-4 whitespace-nowrap">{admin.ap_materno}</td>
-                                      <td className="px-6 py-4 whitespace-nowrap">{admin.RFC}</td>
+                                      <td className="px-6 py-4 whitespace-nowrap">{admin.curp_user}</td>
                                       <td className="px-6 py-4 whitespace-nowrap">
                                         <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                                           {admin.role_name}
