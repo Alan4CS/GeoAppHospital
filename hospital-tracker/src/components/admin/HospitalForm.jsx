@@ -1,7 +1,7 @@
 // HospitalForm.jsx
-import { useState, useEffect } from "react"
-import GeocercaMap from "./GeocercaMap"
-import { Building2, Check, MapPin, Save, X } from "lucide-react"
+import { useState, useEffect } from "react";
+import GeocercaMap from "../GeocercaMap";
+import { Building2, Check, MapPin, Save, X } from "lucide-react";
 
 export default function HospitalForm({
   editandoHospital = false,
@@ -20,11 +20,11 @@ export default function HospitalForm({
     region: "",
     lat: "",
     lng: "",
-  })
+  });
 
-  const [estados, setEstados] = useState([])
-  const [errors, setErrors] = useState({})
-  const [touched, setTouched] = useState({})
+  const [estados, setEstados] = useState([]);
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
 
   useEffect(() => {
     if (editandoHospital && hospitalEditando) {
@@ -35,65 +35,71 @@ export default function HospitalForm({
         region: hospitalEditando.region || "",
         lat: hospitalEditando.geocerca?.lat?.toString() || "",
         lng: hospitalEditando.geocerca?.lng?.toString() || "",
-      })
+      });
     }
-  }, [editandoHospital, hospitalEditando])
+  }, [editandoHospital, hospitalEditando]);
 
   useEffect(() => {
     const fetchEstados = async () => {
       try {
-        const response = await fetch("http://localhost:4000/api/superadmin/estados")
-        const data = await response.json()
-        setEstados(data)
+        const response = await fetch(
+          "http://localhost:4000/api/superadmin/estados"
+        );
+        const data = await response.json();
+        setEstados(data);
       } catch (error) {
-        console.error("Error al obtener estados:", error)
+        console.error("Error al obtener estados:", error);
       }
-    }
-    fetchEstados()
-  }, [])
+    };
+    fetchEstados();
+  }, []);
 
   const handleChange = (e) => {
-    const { name, value } = e.target
-    setForm({ ...form, [name]: value })
-    setTouched({ ...touched, [name]: true })
-    if (name === "estado") onBuscarCoordenadasEstado(value)
-  }
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: value });
+    setTouched({ ...touched, [name]: true });
+    if (name === "estado") onBuscarCoordenadasEstado(value);
+  };
 
   const handleCoordsManually = (e) => {
-    const { name, value } = e.target
-    const newCoords = { ...form, [name]: value }
-    setForm(newCoords)
+    const { name, value } = e.target;
+    const newCoords = { ...form, [name]: value };
+    setForm(newCoords);
     if (name === "lat" || name === "lng") {
-      const lat = parseFloat(newCoords.lat)
-      const lng = parseFloat(newCoords.lng)
-      if (!isNaN(lat) && !isNaN(lng)) handleHospitalCoordsChange({ lat, lng })
+      const lat = parseFloat(newCoords.lat);
+      const lng = parseFloat(newCoords.lng);
+      if (!isNaN(lat) && !isNaN(lng)) handleHospitalCoordsChange({ lat, lng });
     }
-  }
+  };
 
   const handleHospitalCoordsChange = (coords) => {
-    setForm((prev) => ({ ...prev, lat: coords.lat.toString(), lng: coords.lng.toString() }))
-  }
+    setForm((prev) => ({
+      ...prev,
+      lat: coords.lat.toString(),
+      lng: coords.lng.toString(),
+    }));
+  };
 
   const handleSubmit = (e) => {
-    e.preventDefault()
+    e.preventDefault();
     if (!editandoHospital && (!form.lat || !form.lng)) {
-      alert("Debes ingresar coordenadas válidas para el hospital.")
-      return
+      alert("Debes ingresar coordenadas válidas para el hospital.");
+      return;
     }
 
-    const geocercaFinal = geocerca || { lat: 0, lng: 0, radio: 0 }
+    const geocercaFinal = geocerca || { lat: 0, lng: 0, radio: 0 };
 
     const hospitalData = {
       ...form,
       geocerca: geocercaFinal,
-    }
+    };
 
-    onGuardar(hospitalData)
-  }
+    onGuardar(hospitalData);
+  };
 
-  const lat = parseFloat(form.lat)
-  const lng = parseFloat(form.lng)
-  const hasCoords = !isNaN(lat) && !isNaN(lng)
+  const lat = parseFloat(form.lat);
+  const lng = parseFloat(form.lng);
+  const hasCoords = !isNaN(lat) && !isNaN(lng);
 
   return (
     <div className="bg-white rounded-xl shadow-md overflow-hidden">
@@ -107,7 +113,9 @@ export default function HospitalForm({
       <form onSubmit={handleSubmit} className="p-6 space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Estado
+            </label>
             <select
               name="estado"
               value={form.estado}
@@ -125,7 +133,9 @@ export default function HospitalForm({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nombre
+            </label>
             <input
               type="text"
               name="nombre"
@@ -137,7 +147,9 @@ export default function HospitalForm({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de unidad</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tipo de unidad
+            </label>
             <select
               name="tipoUnidad"
               value={form.tipoUnidad}
@@ -154,7 +166,9 @@ export default function HospitalForm({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Región</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Región
+            </label>
             <input
               type="text"
               name="region"
@@ -166,7 +180,9 @@ export default function HospitalForm({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Latitud</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Latitud
+            </label>
             <input
               type="number"
               name="lat"
@@ -180,7 +196,9 @@ export default function HospitalForm({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Longitud</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Longitud
+            </label>
             <input
               type="number"
               name="lng"
@@ -217,13 +235,17 @@ export default function HospitalForm({
             className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
           >
             {editandoHospital ? (
-              <><Save className="h-4 w-4 inline-block mr-1" /> Actualizar</>
+              <>
+                <Save className="h-4 w-4 inline-block mr-1" /> Actualizar
+              </>
             ) : (
-              <><Check className="h-4 w-4 inline-block mr-1" /> Guardar</>
+              <>
+                <Check className="h-4 w-4 inline-block mr-1" /> Guardar
+              </>
             )}
           </button>
         </div>
       </form>
     </div>
-  )
+  );
 }

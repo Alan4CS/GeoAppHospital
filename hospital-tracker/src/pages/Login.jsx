@@ -3,26 +3,19 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-const fakeUsers = {
-  superadmin: { username: "admin", password: "1234" },
-  estado: { username: "estado", password: "1234" },
-};
-
 export default function Login() {
   const [form, setForm] = useState({ username: "", password: "" });
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const { setIsAuthenticated } = useAuth();
 
-  // Redirige si ya está autenticado
   useEffect(() => {
     const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
     const role = localStorage.getItem("userRole");
-
     if (isAuthenticated) {
       if (role === "superadmin") {
         navigate("/superadmin-geoapp");
-      } else if (role === "estado") {
+      } else if (role === "estadoadmin") {
         navigate("/estadoadmin-geoapp");
       }
     }
@@ -32,27 +25,39 @@ export default function Login() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
 
-    const matched = Object.entries(fakeUsers).find(
-      ([, user]) =>
-        user.username === form.username && user.password === form.password
-    );
+    try {
+      const res = await fetch("http://localhost:4000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: form.username, pass: form.password }),
+      });
 
-    if (matched) {
-      const [role] = matched;
+      const data = await res.json();
+
+      if (data.mensaje === "Usuario no existe" || data.error) {
+        setError("Credenciales incorrectas");
+        return;
+      }
+
       localStorage.setItem("isAuthenticated", "true");
-      localStorage.setItem("userRole", role);
+      localStorage.setItem("userRole", data.role);
+      localStorage.setItem("userId", data.id_user);
       setIsAuthenticated(true);
 
-      if (role === "superadmin") {
+      if (data.role === "superadmin") {
         navigate("/superadmin-geoapp");
-      } else if (role === "estado") {
+      } else if (data.role === "estadoadmin") {
         navigate("/estadoadmin-geoapp");
+      } else {
+        setError("Rol no reconocido");
       }
-    } else {
-      setError("Credenciales incorrectas");
+    } catch (err) {
+      console.error("Error en login:", err);
+      setError("Error en el servidor");
     }
   };
 
@@ -73,7 +78,8 @@ export default function Login() {
               value={form.username}
               onChange={handleChange}
               className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400"
-              placeholder="admin o estado"
+              placeholder="Tu usuario"
+              required
             />
           </div>
           <div>
@@ -86,7 +92,8 @@ export default function Login() {
               value={form.password}
               onChange={handleChange}
               className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400"
-              placeholder="1234"
+              placeholder="••••••••"
+              required
             />
           </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
