@@ -1,60 +1,65 @@
 // src/pages/Login.js
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-
-const fakeUsers = {
-  superadmin: { username: "admin", password: "1234" },
-  estado: { username: "estado", password: "1234" },
-};
+import { useState, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
+import { useAuth } from "../context/AuthContext"
 
 export default function Login() {
-  const [form, setForm] = useState({ username: "", password: "" });
-  const [error, setError] = useState("");
-  const navigate = useNavigate();
-  const { setIsAuthenticated } = useAuth();
+  const [form, setForm] = useState({ username: "", password: "" })
+  const [error, setError] = useState("")
+  const navigate = useNavigate()
+  const { setIsAuthenticated } = useAuth()
 
-  // Redirige si ya está autenticado
   useEffect(() => {
-    const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
-    const role = localStorage.getItem("userRole");
-
+    const isAuthenticated = localStorage.getItem("isAuthenticated") === "true"
+    const role = localStorage.getItem("userRole")
     if (isAuthenticated) {
       if (role === "superadmin") {
-        navigate("/superadmin-geoapp");
-      } else if (role === "estado") {
-        navigate("/estadoadmin-geoapp");
+        navigate("/superadmin-geoapp")
+      } else if (role === "estadoadmin") {
+        navigate("/estadoadmin-geoapp")
       }
     }
-  }, [navigate]);
+  }, [navigate])
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
+    setForm({ ...form, [e.target.name]: e.target.value })
+  }
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError("")
 
-    const matched = Object.entries(fakeUsers).find(
-      ([, user]) =>
-        user.username === form.username && user.password === form.password
-    );
+    try {
+      const res = await fetch("http://localhost:4000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: form.username, pass: form.password }),
+      })
 
-    if (matched) {
-      const [role] = matched;
-      localStorage.setItem("isAuthenticated", "true");
-      localStorage.setItem("userRole", role);
-      setIsAuthenticated(true);
+      const data = await res.json()
 
-      if (role === "superadmin") {
-        navigate("/superadmin-geoapp");
-      } else if (role === "estado") {
-        navigate("/estadoadmin-geoapp");
+      if (data.mensaje === "Usuario no existe" || data.error) {
+        setError("Credenciales incorrectas")
+        return
       }
-    } else {
-      setError("Credenciales incorrectas");
+
+      localStorage.setItem("isAuthenticated", "true")
+      localStorage.setItem("userRole", data.role)
+      localStorage.setItem("userId", data.id_user)
+      setIsAuthenticated(true)
+
+      if (data.role === "superadmin") {
+        navigate("/superadmin-geoapp")
+      } else if (data.role === "estadoadmin") {
+        navigate("/estadoadmin-geoapp")
+      } else {
+        setError("Rol no reconocido")
+      }
+    } catch (err) {
+      console.error("Error en login:", err)
+      setError("Error en el servidor")
     }
-  };
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-blue-100 to-blue-300 px-4">
@@ -64,29 +69,27 @@ export default function Login() {
         </h2>
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Usuario
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
             <input
               type="text"
               name="username"
               value={form.username}
               onChange={handleChange}
               className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400"
-              placeholder="admin o estado"
+              placeholder="Tu usuario"
+              required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Contraseña
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
             <input
               type="password"
               name="password"
               value={form.password}
               onChange={handleChange}
               className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400"
-              placeholder="1234"
+              placeholder="••••••••"
+              required
             />
           </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
@@ -98,10 +101,9 @@ export default function Login() {
           </button>
         </form>
         <p className="mt-4 text-xs text-gray-400 text-center">
-          Acceso exclusivo para personal autorizado del sistema nacional de
-          salud
+          Acceso exclusivo para personal autorizado del sistema nacional de salud
         </p>
       </div>
     </div>
-  );
+  )
 }
