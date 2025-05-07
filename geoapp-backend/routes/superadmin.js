@@ -43,30 +43,40 @@ router.get("/estados", async (req, res) => {
 });
 
 router.post("/create-admin", async (req, res) => {
-  const { nombre, ap_paterno, ap_materno, CURP, user, pass, role_name } = req.body;
+  const { nombre, ap_paterno, ap_materno, CURP, user, pass, role_name, estado } = req.body;
 
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
 
-    // 1. Insertar en user_data
+    // 1. Buscar el id_estado a partir del nombre del estado
+    const estadoResult = await client.query(
+      `SELECT id_estado FROM estados WHERE nombre_estado = $1`,
+      [estado]
+    );
+    if (estadoResult.rowCount === 0) {
+      throw new Error("Estado no encontrado");
+    }
+    const id_estado = estadoResult.rows[0].id_estado;
+
+    // 2. Insertar en user_data con el id_estado
     const userDataResult = await client.query(
-      `INSERT INTO user_data (nombre, ap_paterno, ap_materno, "curp_user")
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO user_data (nombre, ap_paterno, ap_materno, curp_user, id_estado)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING id_user`,
-      [nombre, ap_paterno, ap_materno, CURP]
+      [nombre, ap_paterno, ap_materno, CURP, id_estado]
     );
     const newUserId = userDataResult.rows[0].id_user;
 
-    // 2. Insertar en user_credentials
+    // 3. Insertar en user_credentials
     await client.query(
       `INSERT INTO user_credentials (id_user, "user", pass)
        VALUES ($1, $2, $3)`,
       [newUserId, user, pass]
     );
 
-    // 3. Buscar id_role desde el nombre
+    // 4. Obtener id_role
     const roleResult = await client.query(
       `SELECT id_role FROM roles WHERE role_name = $1`,
       [role_name]
@@ -75,7 +85,7 @@ router.post("/create-admin", async (req, res) => {
 
     const roleId = roleResult.rows[0].id_role;
 
-    // 4. Insertar en user_roles con hospital NULL
+    // 5. Insertar en user_roles
     await client.query(
       `INSERT INTO user_roles (id_user, id_role, id_hospital)
        VALUES ($1, $2, NULL)`,
@@ -83,16 +93,17 @@ router.post("/create-admin", async (req, res) => {
     );
 
     await client.query("COMMIT");
-    res.status(201).json({ message: "Administrador creado con éxito" });
+    res.status(201).json({ message: "Administrador de estado creado con éxito" });
 
   } catch (error) {
     await client.query("ROLLBACK");
-    console.error("❌ Error al crear administrador:", error);
-    res.status(500).json({ error: "Error al crear el administrador" });
+    console.error("❌ Error al crear administrador de estado:", error);
+    res.status(500).json({ error: "Error al crear el administrador de estado" });
   } finally {
     client.release();
   }
 });
+
 
 // GET /api/superadmin/estadoadmins
 router.get("/estadoadmins", async (req, res) => {
@@ -104,10 +115,12 @@ router.get("/estadoadmins", async (req, res) => {
         u.ap_paterno,
         u.ap_materno,
         u.curp_user,
+        e.nombre_estado AS estado,
         r.role_name
       FROM user_data u
       JOIN user_roles ur ON u.id_user = ur.id_user
       JOIN roles r ON ur.id_role = r.id_role
+      LEFT JOIN estados e ON u.id_estado = e.id_estado
       WHERE r.role_name = 'estadoadmin'
       ORDER BY u.id_user
     `);
