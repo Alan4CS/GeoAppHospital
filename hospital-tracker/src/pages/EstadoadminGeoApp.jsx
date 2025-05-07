@@ -33,7 +33,8 @@ export default function EstadoAdminDashboard() {
   const [hospitalesFiltradosPorHospital, setHospitalesFiltradosPorHospital] =
     useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [estadoActual, setEstadoActual] = useState("Ciudad de México"); // Esto vendría de la autenticación
+  const [estadoActual, setEstadoActual] = useState(""); // Nombre del estado del administrador
+  const [isLoading, setIsLoading] = useState(true);
 
   // Cambiar los colores de verde a azul en todo el dashboard
   // Cambiar el gradiente del sidebar
@@ -67,49 +68,58 @@ export default function EstadoAdminDashboard() {
   // Cambiar el color de los botones de paginación activos
   const activePageButtonClass = "z-10 bg-blue-50 border-blue-500 text-blue-600";
 
-  // Simular carga de datos
+  // Obtener hospitales y datos relacionados
   useEffect(() => {
-    const fetchHospitales = async () => {
+    const fetchData = async () => {
       try {
-        // En una implementación real, esto vendría de tu API
-        const mockHospitales = [
-          {
-            id: 1,
-            nombre: "Hospital General Regional",
-            tipoUnidad: "HOSPITAL",
-            region: "Norte",
-            geocerca: { lat: 19.4326, lng: -99.1332, radio: 200 },
-            empleadosActivos: 24,
-            empleadosInactivos: 3,
-          },
-          {
-            id: 2,
-            nombre: "Clínica Familiar #42",
-            tipoUnidad: "CLINICA",
-            region: "Centro",
-            geocerca: { lat: 19.4361, lng: -99.1478, radio: 150 },
-            empleadosActivos: 12,
-            empleadosInactivos: 1,
-          },
-          {
-            id: 3,
-            nombre: "IMSS Bienestar Zona Rural",
-            tipoUnidad: "IMMS BIENESTAR",
-            region: "Sur",
-            geocerca: { lat: 19.42, lng: -99.1509, radio: 180 },
-            empleadosActivos: 18,
-            empleadosInactivos: 2,
-          },
-        ];
+        setIsLoading(true);
+        // Obtener el ID del usuario del localStorage
+        const userId = localStorage.getItem("userId");
 
-        setHospitales(mockHospitales);
-      } catch (error) {
-        console.error("Error al obtener hospitales:", error);
-      }
-    };
+        if (!userId) {
+          console.error("No se encontró ID de usuario en localStorage");
+          setIsLoading(false);
+          return;
+        }
 
-    const fetchAdministradores = async () => {
-      try {
+        // Obtener los hospitales asociados a este administrador
+        const hospitalesResponse = await fetch(
+          `http://localhost:4000/api/estadoadmin/hospitals-by-user/${userId}`
+        );
+
+        if (!hospitalesResponse.ok) {
+          throw new Error(`Error HTTP: ${hospitalesResponse.status}`);
+        }
+
+        const hospitalesData = await hospitalesResponse.json();
+        setHospitales(hospitalesData);
+
+        // Extraer el estado del primer hospital (asumiendo que todos los hospitales son del mismo estado)
+        if (hospitalesData.length > 0 && hospitalesData[0].estado_id) {
+          try {
+            // Hacer una llamada a la API para obtener el nombre del estado
+            const estadoResponse = await fetch(
+              `http://localhost:4000/api/estados/${hospitalesData[0].estado_id}`
+            );
+
+            if (estadoResponse.ok) {
+              const estadoData = await estadoResponse.json();
+              setEstadoActual(
+                estadoData.nombre_estado ||
+                  `Estado ${hospitalesData[0].estado_id}`
+              );
+            } else {
+              // Si hay un error, mostrar el ID del estado
+              setEstadoActual(`Estado ${hospitalesData[0].estado_id}`);
+              console.error("Error al obtener el nombre del estado");
+            }
+          } catch (error) {
+            console.error("Error al obtener nombre del estado:", error);
+            setEstadoActual(`Estado ${hospitalesData[0].estado_id}`);
+          }
+        }
+
+        // Simulación de datos de administradores
         // En una implementación real, esto vendría de tu API
         const mockAdmins = [
           {
@@ -131,15 +141,9 @@ export default function EstadoAdminDashboard() {
             role_name: "hospitaladmin",
           },
         ];
-
         setAdministradores(mockAdmins);
-      } catch (error) {
-        console.error("Error al obtener administradores:", error);
-      }
-    };
 
-    const fetchEmpleados = async () => {
-      try {
+        // Simulación de datos de empleados
         // En una implementación real, esto vendría de tu API
         const mockEmpleados = [
           {
@@ -179,16 +183,16 @@ export default function EstadoAdminDashboard() {
             enGeocerca: false,
           },
         ];
-
         setEmpleados(mockEmpleados);
+
+        setIsLoading(false);
       } catch (error) {
-        console.error("Error al obtener empleados:", error);
+        console.error("Error al obtener datos:", error);
+        setIsLoading(false);
       }
     };
 
-    fetchHospitales();
-    fetchAdministradores();
-    fetchEmpleados();
+    fetchData();
   }, []);
 
   const handleMostrarFormulario = () => {
@@ -222,9 +226,9 @@ export default function EstadoAdminDashboard() {
       // Simulamos una respuesta exitosa
       const data = { message: "Administrador creado con éxito" };
 
-      alert(
-        `✅ ${data.message}\n🆔 Usuario: ${nuevoAdmin.user}\n🔑 Contraseña: ${nuevoAdmin.pass}`
-      );
+      alert(`✅ ${data.message}
+🆔 Usuario: ${nuevoAdmin.user}
+🔑 Contraseña: ${nuevoAdmin.pass}`);
 
       // Actualizar la lista de administradores
       setAdministradores([
@@ -249,8 +253,10 @@ export default function EstadoAdminDashboard() {
 
   // FILTRO y PAGINADO para hospitales
   const hospitalesFiltrados = hospitalFiltro
-    ? hospitales.filter((h) =>
-        h.nombre.toLowerCase().includes(hospitalFiltro.toLowerCase())
+    ? hospitales.filter(
+        (h) =>
+          h.nombre_hospital &&
+          h.nombre_hospital.toLowerCase().includes(hospitalFiltro.toLowerCase())
       )
     : hospitales;
 
@@ -327,7 +333,9 @@ export default function EstadoAdminDashboard() {
             {sidebarOpen && (
               <div className="ml-3">
                 <p className="font-medium text-sm">Administrador</p>
-                <p className="text-xs text-blue-200">{estadoActual}</p>
+                <p className="text-xs text-blue-200">
+                  {estadoActual || "Cargando..."}
+                </p>
               </div>
             )}
           </div>
@@ -384,6 +392,7 @@ export default function EstadoAdminDashboard() {
               onClick={() => {
                 localStorage.removeItem("isAuthenticated");
                 localStorage.removeItem("userRole");
+                localStorage.removeItem("userId");
                 setIsAuthenticated(false);
                 navigate("/");
               }}
@@ -411,7 +420,7 @@ export default function EstadoAdminDashboard() {
               {mostrarFormAdmin
                 ? "Crear Administrador de Hospital"
                 : activeTab === "hospitales"
-                ? "Hospitales del Estado"
+                ? `Hospitales de ${estadoActual || "..."}`
                 : "Administradores de Hospital"}
             </h1>
             <div className="flex space-x-2">
@@ -428,15 +437,6 @@ export default function EstadoAdminDashboard() {
                       />
                     </div>
                   )}
-                  {activeTab === "administradores" && (
-                    <button
-                      onClick={handleMostrarFormAdmin}
-                      className={actionButtonClass}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Nuevo Admin
-                    </button>
-                  )}
                 </>
               )}
             </div>
@@ -445,190 +445,104 @@ export default function EstadoAdminDashboard() {
 
         {/* CONTENIDO */}
         <main className="p-6">
-          {/* TARJETAS DE ESTADÍSTICAS */}
-          {!mostrarFormulario && !mostrarFormAdmin && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              <EstadoStatsCard
-                title="Total Hospitales"
-                value={estadisticas.totalHospitales}
-                icon={<Hospital className="h-8 w-8 text-blue-600" />}
-                description={`Hospitales en ${estadoActual}`}
-                color="blue"
-              />
-              <EstadoStatsCard
-                title="Administradores"
-                value={estadisticas.totalAdministradores}
-                icon={<Users className="h-8 w-8 text-purple-600" />}
-                description="Administradores de hospital"
-                color="purple"
-              />
+          {isLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
             </div>
-          )}
-
-          {/* FORMULARIO ADMINISTRADOR DE HOSPITAL */}
-          {mostrarFormAdmin && (
-            <EstadoHospitalAdminForm
-              hospitales={hospitales}
-              onGuardar={handleGuardarAdmin}
-              onCancelar={() => setMostrarFormAdmin(false)}
-            />
-          )}
-
-          {/* CONTENIDO SEGÚN TAB */}
-          {!mostrarFormulario && !mostrarFormAdmin && (
+          ) : (
             <>
-              {activeTab === "hospitales" && (
-                <div className="bg-white shadow-md rounded-xl overflow-hidden">
-                  <div className="p-6 border-b border-gray-200">
-                    <div className="flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
-                      <h3 className="text-xl font-semibold text-gray-800 flex items-center">
-                        <Hospital className={iconClass} />
-                        Hospitales en {estadoActual}
-                      </h3>
-                    </div>
-                  </div>
+              {/* TARJETAS DE ESTADÍSTICAS */}
+              {!mostrarFormulario && !mostrarFormAdmin && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                  <EstadoStatsCard
+                    title="Total Hospitales"
+                    value={estadisticas.totalHospitales}
+                    icon={<Hospital className="h-8 w-8 text-blue-600" />}
+                    description={`Hospitales en ${estadoActual || "tu estado"}`}
+                    color="blue"
+                  />
+                  <EstadoStatsCard
+                    title="Administradores"
+                    value={estadisticas.totalAdministradores}
+                    icon={<Users className="h-8 w-8 text-purple-600" />}
+                    description="Administradores de hospital"
+                    color="purple"
+                  />
+                </div>
+              )}
 
-                  {/* Tabla de hospitales */}
-                  {hospitalesFiltrados.length > 0 ? (
-                    <>
-                      <div className="overflow-x-auto">
-                        <table className="w-full table-fixed text-sm">
-                          <thead>
-                            <tr className="bg-gray-50 text-left font-semibold text-gray-600 uppercase tracking-wide">
-                              <th className="w-1/4 px-6 py-3">Nombre</th>
-                              <th className="w-1/6 px-6 py-3">Tipo</th>
-                              <th className="w-1/6 px-6 py-3">Región</th>
-                              <th className="w-1/6 px-6 py-3">
-                                Empleados Activos
-                              </th>
-                              <th className="w-1/6 px-6 py-3">
-                                Empleados Inactivos
-                              </th>
-                              <th className="w-1/6 px-6 py-3">Acciones</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-200">
-                            {hospitalesPagina.map((h, i) => (
-                              <tr key={i} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 truncate">
-                                  {h.nombre}
-                                </td>
-                                <td className="px-6 py-4">{h.tipoUnidad}</td>
-                                <td className="px-6 py-4">{h.region}</td>
-                                <td className="px-6 py-4">
-                                  {h.empleadosActivos}
-                                </td>
-                                <td className="px-6 py-4">
-                                  {h.empleadosInactivos}
-                                </td>
-                                <td className="px-6 py-4">
-                                  <button
-                                    onClick={() => {
-                                      // Aquí iría la lógica para ver detalles del hospital
-                                    }}
-                                    className="text-blue-600 hover:text-blue-800 transition-colors flex items-center text-sm"
-                                  >
-                                    <Settings className="h-4 w-4 mr-1" />
-                                    Ver Detalles
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+              {/* FORMULARIO ADMINISTRADOR DE HOSPITAL */}
+              {mostrarFormAdmin && (
+                <EstadoHospitalAdminForm
+                  hospitales={hospitales}
+                  onGuardar={handleGuardarAdmin}
+                  onCancelar={() => setMostrarFormAdmin(false)}
+                />
+              )}
+
+              {/* CONTENIDO SEGÚN TAB */}
+              {!mostrarFormulario && !mostrarFormAdmin && (
+                <>
+                  {activeTab === "hospitales" && (
+                    <div className="bg-white shadow-md rounded-xl overflow-hidden">
+                      <div className="p-6 border-b border-gray-200">
+                        <div className="flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
+                          <h3 className="text-xl font-semibold text-gray-800 flex items-center">
+                            <Hospital className={iconClass} />
+                            Hospitales en {estadoActual || "tu estado"}
+                          </h3>
+                        </div>
                       </div>
-                      {/* Controles de paginación */}
-                      {totalPaginasHospitales > 1 && (
-                        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-                          <div className="flex-1 flex justify-between sm:hidden">
-                            <button
-                              onClick={() =>
-                                setPaginaActual((p) => Math.max(p - 1, 1))
-                              }
-                              disabled={paginaActual === 1}
-                              className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Anterior
-                            </button>
-                            <button
-                              onClick={() =>
-                                setPaginaActual((p) =>
-                                  Math.min(p + 1, totalPaginasHospitales)
-                                )
-                              }
-                              disabled={paginaActual === totalPaginasHospitales}
-                              className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Siguiente
-                            </button>
+
+                      {/* Tabla de hospitales */}
+                      {hospitalesFiltrados.length > 0 ? (
+                        <>
+                          <div className="overflow-x-auto">
+                            <table className="w-full table-fixed text-sm">
+                              <thead>
+                                <tr className="bg-gray-50 text-left font-semibold text-gray-600 uppercase tracking-wide">
+                                  <th className="w-1/4 px-6 py-3">Nombre</th>
+                                  <th className="w-1/6 px-6 py-3">Tipo</th>
+                                  <th className="w-1/3 px-6 py-3">Dirección</th>
+                                  <th className="w-1/6 px-6 py-3">Radio Geo</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-200">
+                                {hospitalesPagina.map((h, i) => (
+                                  <tr
+                                    key={h.id_hospital || i}
+                                    className="hover:bg-gray-50"
+                                  >
+                                    <td className="px-6 py-4 truncate">
+                                      {h.nombre_hospital}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                      {h.tipo_hospital}
+                                    </td>
+                                    <td className="px-6 py-4 truncate">
+                                      {h.direccion_hospital}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                      {h.radio_geo} m
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
                           </div>
-                          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                            <div>
-                              <p className="text-sm text-gray-700">
-                                Mostrando{" "}
-                                <span className="font-medium">
-                                  {indexInicioHospitales + 1}
-                                </span>{" "}
-                                a{" "}
-                                <span className="font-medium">
-                                  {Math.min(
-                                    indexFinHospitales,
-                                    hospitalesFiltrados.length
-                                  )}
-                                </span>{" "}
-                                de{" "}
-                                <span className="font-medium">
-                                  {hospitalesFiltrados.length}
-                                </span>{" "}
-                                resultados
-                              </p>
-                            </div>
-                            <div>
-                              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                          {/* Controles de paginación */}
+                          {totalPaginasHospitales > 1 && (
+                            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                              <div className="flex-1 flex justify-between sm:hidden">
                                 <button
                                   onClick={() =>
                                     setPaginaActual((p) => Math.max(p - 1, 1))
                                   }
                                   disabled={paginaActual === 1}
-                                  className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                  <span className="sr-only">Anterior</span>
-                                  <ChevronRight className="h-5 w-5 transform rotate-180" />
+                                  Anterior
                                 </button>
-                                {/* Números de página */}
-                                {Array.from(
-                                  {
-                                    length: Math.min(5, totalPaginasHospitales),
-                                  },
-                                  (_, i) => {
-                                    let pageNum;
-                                    if (totalPaginasHospitales <= 5) {
-                                      pageNum = i + 1;
-                                    } else if (paginaActual <= 3) {
-                                      pageNum = i + 1;
-                                    } else if (
-                                      paginaActual >=
-                                      totalPaginasHospitales - 2
-                                    ) {
-                                      pageNum = totalPaginasHospitales - 4 + i;
-                                    } else {
-                                      pageNum = paginaActual - 2 + i;
-                                    }
-                                    return (
-                                      <button
-                                        key={i}
-                                        onClick={() => setPaginaActual(pageNum)}
-                                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                                          pageNum === paginaActual
-                                            ? activePageButtonClass
-                                            : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
-                                        }`}
-                                      >
-                                        {pageNum}
-                                      </button>
-                                    );
-                                  }
-                                )}
                                 <button
                                   onClick={() =>
                                     setPaginaActual((p) =>
@@ -638,178 +552,195 @@ export default function EstadoAdminDashboard() {
                                   disabled={
                                     paginaActual === totalPaginasHospitales
                                   }
-                                  className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                  <span className="sr-only">Siguiente</span>
-                                  <ChevronRight className="h-5 w-5" />
+                                  Siguiente
                                 </button>
-                              </nav>
+                              </div>
+                              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                                <div>
+                                  <p className="text-sm text-gray-700">
+                                    Mostrando{" "}
+                                    <span className="font-medium">
+                                      {indexInicioHospitales + 1}
+                                    </span>{" "}
+                                    a{" "}
+                                    <span className="font-medium">
+                                      {Math.min(
+                                        indexFinHospitales,
+                                        hospitalesFiltrados.length
+                                      )}
+                                    </span>{" "}
+                                    de{" "}
+                                    <span className="font-medium">
+                                      {hospitalesFiltrados.length}
+                                    </span>{" "}
+                                    resultados
+                                  </p>
+                                </div>
+                                <div>
+                                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                                    <button
+                                      onClick={() =>
+                                        setPaginaActual((p) =>
+                                          Math.max(p - 1, 1)
+                                        )
+                                      }
+                                      disabled={paginaActual === 1}
+                                      className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      <span className="sr-only">Anterior</span>
+                                      <ChevronRight className="h-5 w-5 transform rotate-180" />
+                                    </button>
+                                    {/* Números de página */}
+                                    {Array.from(
+                                      {
+                                        length: Math.min(
+                                          5,
+                                          totalPaginasHospitales
+                                        ),
+                                      },
+                                      (_, i) => {
+                                        let pageNum;
+                                        if (totalPaginasHospitales <= 5) {
+                                          pageNum = i + 1;
+                                        } else if (paginaActual <= 3) {
+                                          pageNum = i + 1;
+                                        } else if (
+                                          paginaActual >=
+                                          totalPaginasHospitales - 2
+                                        ) {
+                                          pageNum =
+                                            totalPaginasHospitales - 4 + i;
+                                        } else {
+                                          pageNum = paginaActual - 2 + i;
+                                        }
+                                        return (
+                                          <button
+                                            key={i}
+                                            onClick={() =>
+                                              setPaginaActual(pageNum)
+                                            }
+                                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                              pageNum === paginaActual
+                                                ? activePageButtonClass
+                                                : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
+                                            }`}
+                                          >
+                                            {pageNum}
+                                          </button>
+                                        );
+                                      }
+                                    )}
+                                    <button
+                                      onClick={() =>
+                                        setPaginaActual((p) =>
+                                          Math.min(
+                                            p + 1,
+                                            totalPaginasHospitales
+                                          )
+                                        )
+                                      }
+                                      disabled={
+                                        paginaActual === totalPaginasHospitales
+                                      }
+                                      className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      <span className="sr-only">Siguiente</span>
+                                      <ChevronRight className="h-5 w-5" />
+                                    </button>
+                                  </nav>
+                                </div>
+                              </div>
                             </div>
-                          </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="p-6 text-center text-gray-500">
+                          No hay hospitales que coincidan con la búsqueda.
                         </div>
                       )}
-                    </>
-                  ) : (
-                    <div className="p-6 text-center text-gray-500">
-                      No hay hospitales que coincidan con la búsqueda.
                     </div>
                   )}
-                </div>
-              )}
 
-              {activeTab === "administradores" && (
-                <div className="bg-white shadow-md rounded-xl overflow-hidden">
-                  <div className="p-6 border-b border-gray-200">
-                    <h3 className="text-xl font-semibold text-gray-800 flex items-center">
-                      <Users className={iconClass} />
-                      Administradores de Hospital
-                    </h3>
-                  </div>
-
-                  {administradores.length > 0 ? (
-                    <div className="p-6">
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Nombre
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Apellido paterno
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Apellido materno
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                CURP
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Hospital
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Rol
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {adminsPagina.map((admin, i) => (
-                              <tr key={i} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  {admin.nombre}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  {admin.ap_paterno}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  {admin.ap_materno}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  {admin.curp_user}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  {admin.hospital}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
-                                    {admin.role_name}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                  {activeTab === "administradores" && (
+                    <div className="bg-white shadow-md rounded-xl overflow-hidden">
+                      <div className="p-6 border-b border-gray-200">
+                        <h3 className="text-xl font-semibold text-gray-800 flex items-center">
+                          <Users className={iconClass} />
+                          Administradores de Hospital en{" "}
+                          {estadoActual || "tu estado"}
+                        </h3>
                       </div>
 
-                      {/* Paginación para administradores */}
-                      {totalPaginasAdmins > 1 && (
-                        <div className="mt-4 flex items-center justify-between">
-                          <div className="flex-1 flex justify-between sm:hidden">
-                            <button
-                              onClick={() =>
-                                setPaginaActual((p) => Math.max(p - 1, 1))
-                              }
-                              disabled={paginaActual === 1}
-                              className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Anterior
-                            </button>
-                            <button
-                              onClick={() =>
-                                setPaginaActual((p) =>
-                                  Math.min(p + 1, totalPaginasAdmins)
-                                )
-                              }
-                              disabled={paginaActual === totalPaginasAdmins}
-                              className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Siguiente
-                            </button>
+                      {administradores.length > 0 ? (
+                        <div className="p-6">
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                              <thead className="bg-gray-50">
+                                <tr>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Nombre
+                                  </th>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Apellido paterno
+                                  </th>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Apellido materno
+                                  </th>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    CURP
+                                  </th>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Hospital
+                                  </th>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Rol
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-200">
+                                {adminsPagina.map((admin, i) => (
+                                  <tr key={i} className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      {admin.nombre}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      {admin.ap_paterno}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      {admin.ap_materno}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      {admin.curp_user}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      {admin.hospital}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                                        {admin.role_name}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
                           </div>
-                          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                            <div>
-                              <p className="text-sm text-gray-700">
-                                Mostrando{" "}
-                                <span className="font-medium">
-                                  {indexInicioAdmins + 1}
-                                </span>{" "}
-                                a{" "}
-                                <span className="font-medium">
-                                  {Math.min(
-                                    indexFinAdmins,
-                                    administradores.length
-                                  )}
-                                </span>{" "}
-                                de{" "}
-                                <span className="font-medium">
-                                  {administradores.length}
-                                </span>{" "}
-                                resultados
-                              </p>
-                            </div>
-                            <div>
-                              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+
+                          {/* Paginación para administradores */}
+                          {totalPaginasAdmins > 1 && (
+                            <div className="mt-4 flex items-center justify-between">
+                              <div className="flex-1 flex justify-between sm:hidden">
                                 <button
                                   onClick={() =>
                                     setPaginaActual((p) => Math.max(p - 1, 1))
                                   }
                                   disabled={paginaActual === 1}
-                                  className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                  <span className="sr-only">Anterior</span>
-                                  <ChevronRight className="h-5 w-5 transform rotate-180" />
+                                  Anterior
                                 </button>
-                                {Array.from(
-                                  { length: Math.min(5, totalPaginasAdmins) },
-                                  (_, i) => {
-                                    let pageNum;
-                                    if (totalPaginasAdmins <= 5) {
-                                      pageNum = i + 1;
-                                    } else if (paginaActual <= 3) {
-                                      pageNum = i + 1;
-                                    } else if (
-                                      paginaActual >=
-                                      totalPaginasAdmins - 2
-                                    ) {
-                                      pageNum = totalPaginasAdmins - 4 + i;
-                                    } else {
-                                      pageNum = paginaActual - 2 + i;
-                                    }
-                                    return (
-                                      <button
-                                        key={i}
-                                        onClick={() => setPaginaActual(pageNum)}
-                                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                                          pageNum === paginaActual
-                                            ? activePageButtonClass
-                                            : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
-                                        }`}
-                                      >
-                                        {pageNum}
-                                      </button>
-                                    );
-                                  }
-                                )}
                                 <button
                                   onClick={() =>
                                     setPaginaActual((p) =>
@@ -817,23 +748,109 @@ export default function EstadoAdminDashboard() {
                                     )
                                   }
                                   disabled={paginaActual === totalPaginasAdmins}
-                                  className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                  <span className="sr-only">Siguiente</span>
-                                  <ChevronRight className="h-5 w-5" />
+                                  Siguiente
                                 </button>
-                              </nav>
+                              </div>
+                              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                                <div>
+                                  <p className="text-sm text-gray-700">
+                                    Mostrando{" "}
+                                    <span className="font-medium">
+                                      {indexInicioAdmins + 1}
+                                    </span>{" "}
+                                    a{" "}
+                                    <span className="font-medium">
+                                      {Math.min(
+                                        indexFinAdmins,
+                                        administradores.length
+                                      )}
+                                    </span>{" "}
+                                    de{" "}
+                                    <span className="font-medium">
+                                      {administradores.length}
+                                    </span>{" "}
+                                    resultados
+                                  </p>
+                                </div>
+                                <div>
+                                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                                    <button
+                                      onClick={() =>
+                                        setPaginaActual((p) =>
+                                          Math.max(p - 1, 1)
+                                        )
+                                      }
+                                      disabled={paginaActual === 1}
+                                      className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      <span className="sr-only">Anterior</span>
+                                      <ChevronRight className="h-5 w-5 transform rotate-180" />
+                                    </button>
+                                    {Array.from(
+                                      {
+                                        length: Math.min(5, totalPaginasAdmins),
+                                      },
+                                      (_, i) => {
+                                        let pageNum;
+                                        if (totalPaginasAdmins <= 5) {
+                                          pageNum = i + 1;
+                                        } else if (paginaActual <= 3) {
+                                          pageNum = i + 1;
+                                        } else if (
+                                          paginaActual >=
+                                          totalPaginasAdmins - 2
+                                        ) {
+                                          pageNum = totalPaginasAdmins - 4 + i;
+                                        } else {
+                                          pageNum = paginaActual - 2 + i;
+                                        }
+                                        return (
+                                          <button
+                                            key={i}
+                                            onClick={() =>
+                                              setPaginaActual(pageNum)
+                                            }
+                                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                              pageNum === paginaActual
+                                                ? activePageButtonClass
+                                                : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
+                                            }`}
+                                          >
+                                            {pageNum}
+                                          </button>
+                                        );
+                                      }
+                                    )}
+                                    <button
+                                      onClick={() =>
+                                        setPaginaActual((p) =>
+                                          Math.min(p + 1, totalPaginasAdmins)
+                                        )
+                                      }
+                                      disabled={
+                                        paginaActual === totalPaginasAdmins
+                                      }
+                                      className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      <span className="sr-only">Siguiente</span>
+                                      <ChevronRight className="h-5 w-5" />
+                                    </button>
+                                  </nav>
+                                </div>
+                              </div>
                             </div>
-                          </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="p-6 text-center text-gray-500">
+                          No hay administradores registrados todavía.
                         </div>
                       )}
                     </div>
-                  ) : (
-                    <div className="p-6 text-center text-gray-500">
-                      No hay administradores registrados todavía.
-                    </div>
                   )}
-                </div>
+                </>
               )}
             </>
           )}
