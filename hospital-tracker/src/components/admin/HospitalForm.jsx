@@ -214,13 +214,15 @@ export default function HospitalForm({
 
         <GeocercaMap
           editableHospitalCoords={!editandoHospital}
-          editableGeocerca={true}
+          editableGeocerca={editandoHospital || (!!form.lat && !!form.lng)}
           centerFromOutside={mapCenter}
           initialHospitalCoords={hasCoords ? { lat, lng } : null}
           initialGeocerca={geocerca}
           onCoordsChange={onCoordsChange}
           onHospitalCoordsChange={handleHospitalCoordsChange}
+          editando={editandoHospital}
         />
+
 
         <div className="flex justify-end space-x-4">
           <button

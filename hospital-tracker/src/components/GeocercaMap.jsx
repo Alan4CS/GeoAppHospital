@@ -24,9 +24,11 @@ export default function GeocercaMap({
   initialGeocerca,
   onHospitalCoordsChange,
   onCoordsChange,
+  editando = false,
 }) {
   const [geocercaCenter, setGeocercaCenter] = useState(null)
   const [radio, setRadio] = useState(100)
+  const [hospitalFijado, setHospitalFijado] = useState(!!initialHospitalCoords)
 
   const validCoords = (coords) => coords && !isNaN(coords.lat) && !isNaN(coords.lng)
 
@@ -34,7 +36,12 @@ export default function GeocercaMap({
     ? [initialHospitalCoords.lat, initialHospitalCoords.lng]
     : centerFromOutside || [23.6345, -102.5528]
 
-  // Actualiza centro de geocerca automáticamente al definir hospital
+  useEffect(() => {
+    if (validCoords(initialHospitalCoords)) {
+      setHospitalFijado(true)
+    }
+  }, [initialHospitalCoords])
+
   useEffect(() => {
     if (validCoords(initialGeocerca)) {
       setGeocercaCenter({ lat: initialGeocerca.lat, lng: initialGeocerca.lng })
@@ -75,7 +82,7 @@ export default function GeocercaMap({
   return (
     <div className="space-y-4">
       <label className="block font-semibold text-gray-700">
-        {editableHospitalCoords
+        {!editando && !hospitalFijado
           ? "Haz clic para seleccionar ubicación del hospital"
           : "Haz clic para mover la geocerca"}
       </label>
@@ -90,9 +97,10 @@ export default function GeocercaMap({
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
         <LocationSelector
-          editable={editableHospitalCoords}
+          editable={editableHospitalCoords && !hospitalFijado}
           onHospitalCoordsChange={(coords) => {
             onHospitalCoordsChange(coords)
+            setHospitalFijado(true)
             if (!initialGeocerca) {
               setGeocercaCenter(coords)
               setRadio(100)
@@ -109,12 +117,25 @@ export default function GeocercaMap({
           />
         )}
 
-        {geocercaCenter && (
+        {hospitalFijado && geocercaCenter && (
           <Circle center={geocercaCenter} radius={radio} pathOptions={{ color: "blue" }} />
         )}
       </MapContainer>
 
-      {geocercaCenter && (
+      {!editando && hospitalFijado && (
+        <button
+          type="button"
+          onClick={() => {
+            setHospitalFijado(false)
+            setGeocercaCenter(null)
+          }}
+          className="text-sm text-blue-600 hover:underline"
+        >
+          Reubicar hospital
+        </button>
+      )}
+
+      {hospitalFijado && geocercaCenter && (
         <div>
           <label className="block text-sm text-gray-600 font-medium">
             Radio de la geocerca (en metros)
