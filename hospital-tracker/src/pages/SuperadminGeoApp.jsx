@@ -394,26 +394,7 @@ export default function SuperadminGeoApp() {
                 ? "Gestión de Hospitales"
                 : "Gestión de Administradores"}
             </h1>
-            <div className="flex space-x-2">
-              {!mostrarFormulario && !mostrarFormAdmin && (
-                <>
-                  <button
-                    onClick={handleMostrarFormulario}
-                    className="flex items-center bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Nuevo Hospital
-                  </button>
-                  <button
-                    onClick={handleMostrarFormAdmin}
-                    className="flex items-center bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition-colors"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Nuevo Admin
-                  </button>
-                </>
-              )}
-            </div>
+            <div className="flex space-x-2"></div>
           </div>
         </header>
 
