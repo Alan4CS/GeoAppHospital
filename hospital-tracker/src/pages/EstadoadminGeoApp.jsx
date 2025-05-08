@@ -95,26 +95,13 @@ export default function EstadoAdminDashboard() {
         setHospitales(hospitalesData);
 
         // Extraer el estado del primer hospital (asumiendo que todos los hospitales son del mismo estado)
-        if (hospitalesData.length > 0 && hospitalesData[0].estado_id) {
-          try {
-            // Hacer una llamada a la API para obtener el nombre del estado
-            const estadoResponse = await fetch(
-              `http://localhost:4000/api/estados/${hospitalesData[0].estado_id}`
-            );
-
-            if (estadoResponse.ok) {
-              const estadoData = await estadoResponse.json();
-              setEstadoActual(
-                estadoData.nombre_estado ||
-                  `Estado ${hospitalesData[0].estado_id}`
-              );
-            } else {
-              // Si hay un error, mostrar el ID del estado
-              setEstadoActual(`Estado ${hospitalesData[0].estado_id}`);
-              console.error("Error al obtener el nombre del estado");
-            }
-          } catch (error) {
-            console.error("Error al obtener nombre del estado:", error);
+        // Modificar la parte del useEffect donde se establece el nombre del estado
+        if (hospitalesData.length > 0) {
+          // Check if nombre_estado exists in the response (from the JOIN in the backend)
+          if (hospitalesData[0].nombre_estado) {
+            setEstadoActual(hospitalesData[0].nombre_estado);
+          } else if (hospitalesData[0].estado_id) {
+            // Fallback to estado_id if nombre_estado is not available
             setEstadoActual(`Estado ${hospitalesData[0].estado_id}`);
           }
         }
@@ -214,17 +201,41 @@ export default function EstadoAdminDashboard() {
   // Manejador para guardar un administrador de hospital
   const handleGuardarAdmin = async (nuevoAdmin) => {
     try {
-      // En una implementación real, esto sería una llamada a tu API
-      // const response = await fetch("http://localhost:4000/api/estadoadmin/create-hospitaladmin", {
-      //   method: "POST",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //   },
-      //   body: JSON.stringify(nuevoAdmin),
-      // })
+      // Obtener el ID del usuario del localStorage para obtener el estado_id
+      const userId = localStorage.getItem("userId");
 
-      // Simulamos una respuesta exitosa
-      const data = { message: "Administrador creado con éxito" };
+      // Obtener el estado_id del primer hospital (asumiendo que todos los hospitales son del mismo estado)
+      const estado_id = hospitales.length > 0 ? hospitales[0].estado_id : null;
+
+      if (!estado_id) {
+        throw new Error(
+          "No se pudo determinar el estado para el nuevo administrador"
+        );
+      }
+
+      // Preparar los datos para enviar al backend
+      const adminData = {
+        ...nuevoAdmin,
+        id_estado: estado_id,
+      };
+
+      // Realizar la llamada a la API
+      const response = await fetch(
+        "http://localhost:4000/api/estadoadmin/create-hospitaladmin",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(adminData),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status}`);
+      }
+
+      const data = await response.json();
 
       alert(`✅ ${data.message}
 🆔 Usuario: ${nuevoAdmin.user}
@@ -247,7 +258,7 @@ export default function EstadoAdminDashboard() {
       setMostrarFormAdmin(false);
     } catch (error) {
       console.error("❌ Error:", error);
-      alert("❌ Error al crear el administrador.");
+      alert("❌ Error al crear el administrador: " + error.message);
     }
   };
 
@@ -437,6 +448,15 @@ export default function EstadoAdminDashboard() {
                       />
                     </div>
                   )}
+                  {activeTab === "administradores" && (
+                    <button
+                      onClick={handleMostrarFormAdmin}
+                      className={actionButtonClass}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Nuevo Admin
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -501,7 +521,7 @@ export default function EstadoAdminDashboard() {
                             <table className="w-full table-fixed text-sm">
                               <thead>
                                 <tr className="bg-gray-50 text-left font-semibold text-gray-600 uppercase tracking-wide">
-                                  <th className="w-1/4 px-6 py-3">Nombre</th>
+                                  <th className="w-1/3 px-6 py-3">Nombre</th>
                                   <th className="w-1/6 px-6 py-3">Tipo</th>
                                   <th className="w-1/3 px-6 py-3">Dirección</th>
                                   <th className="w-1/6 px-6 py-3">Radio Geo</th>

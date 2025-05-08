@@ -2,22 +2,18 @@
 
 import { useState, useEffect } from "react";
 import {
+  Building2,
   ClipboardCheck,
   Key,
+  Phone,
   Save,
   User,
   X,
-  Building,
-  Phone,
 } from "lucide-react";
 
-export default function EstadoHospitalAdminForm({
-  hospitales,
-  onGuardar,
-  onCancelar,
-}) {
+export default function EstadoAdminForm({ hospitales, onGuardar, onCancelar }) {
   const [adminForm, setAdminForm] = useState({
-    nombres: "",
+    nombre: "",
     ap_paterno: "",
     ap_materno: "",
     CURP: "",
@@ -28,22 +24,22 @@ export default function EstadoHospitalAdminForm({
   const [touched, setTouched] = useState({});
   const [generatedUser, setGeneratedUser] = useState("");
 
-  // Generate username preview when name or paternal surname changes
+  // Generar vista previa del nombre de usuario cuando cambia el nombre o apellido paterno
   useEffect(() => {
-    if (adminForm.nombres && adminForm.ap_paterno) {
+    if (adminForm.nombre && adminForm.ap_paterno) {
       const user =
-        adminForm.nombres.trim().charAt(0).toLowerCase() +
+        adminForm.nombre.trim().charAt(0).toLowerCase() +
         adminForm.ap_paterno.trim().toLowerCase().replace(/\s+/g, "");
       setGeneratedUser(user);
     } else {
       setGeneratedUser("");
     }
-  }, [adminForm.nombres, adminForm.ap_paterno]);
+  }, [adminForm.nombre, adminForm.ap_paterno]);
 
   const validateField = (name, value) => {
     let error = "";
     switch (name) {
-      case "nombres":
+      case "nombre":
         if (!value) error = "El nombre es obligatorio";
         break;
       case "ap_paterno":
@@ -109,7 +105,7 @@ export default function EstadoHospitalAdminForm({
     if (!isValid) return;
 
     const user =
-      adminForm.nombres.trim().charAt(0).toLowerCase() +
+      adminForm.nombre.trim().charAt(0).toLowerCase() +
       adminForm.ap_paterno.trim().toLowerCase().replace(/\s+/g, "");
 
     const generarPassword = () => {
@@ -125,7 +121,7 @@ export default function EstadoHospitalAdminForm({
     const pass = generarPassword();
 
     const adminData = {
-      nombre: adminForm.nombres,
+      nombre: adminForm.nombre,
       ap_paterno: adminForm.ap_paterno,
       ap_materno: adminForm.ap_materno,
       CURP: adminForm.CURP,
@@ -163,72 +159,133 @@ export default function EstadoHospitalAdminForm({
           </div>
 
           {/* Campos de texto */}
-          {[
-            {
-              name: "nombres",
-              label: "Nombres",
-              placeholder: "Ingrese los nombres",
-            },
-            {
-              name: "ap_paterno",
-              label: "Apellido paterno",
-              placeholder: "Ingrese el apellido paterno",
-            },
-            {
-              name: "ap_materno",
-              label: "Apellido materno",
-              placeholder: "Ingrese el apellido materno",
-            },
-            {
-              name: "CURP",
-              label: "CURP",
-              placeholder: "Ej. GOMC920101HDFLNS09",
-              icon: <ClipboardCheck className="h-4 w-4 mr-1 text-blue-600" />,
-              extraInfo:
-                "Formato: 4 letras, 6 números, H/M, 5 letras, 2 alfanuméricos",
-              maxLength: 18,
-            },
-            {
-              name: "telefono",
-              label: "Número de teléfono",
-              placeholder: "10 dígitos",
-              icon: <Phone className="h-4 w-4 mr-1 text-blue-600" />,
-              maxLength: 10,
-            },
-          ].map(({ name, label, placeholder, icon, extraInfo, maxLength }) => (
-            <div key={name}>
-              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                {icon}
-                {label}
-              </label>
-              <input
-                type={name === "telefono" ? "tel" : "text"}
-                name={name}
-                value={adminForm[name]}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                  errors[name] && touched[name]
-                    ? "border-red-500"
-                    : "border-gray-300"
-                }`}
-                placeholder={placeholder}
-                maxLength={maxLength || undefined}
-                required
-              />
-              {errors[name] && touched[name] && (
-                <p className="mt-1 text-sm text-red-600">{errors[name]}</p>
-              )}
-              {!errors[name] && extraInfo && (
-                <p className="mt-1 text-xs text-gray-500">{extraInfo}</p>
-              )}
-            </div>
-          ))}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nombre
+            </label>
+            <input
+              type="text"
+              name="nombre"
+              value={adminForm.nombre}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                errors.nombre && touched.nombre
+                  ? "border-red-500"
+                  : "border-gray-300"
+              }`}
+              placeholder="Ingrese el nombre"
+              required
+            />
+            {errors.nombre && touched.nombre && (
+              <p className="mt-1 text-sm text-red-600">{errors.nombre}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Apellido paterno
+            </label>
+            <input
+              type="text"
+              name="ap_paterno"
+              value={adminForm.ap_paterno}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                errors.ap_paterno && touched.ap_paterno
+                  ? "border-red-500"
+                  : "border-gray-300"
+              }`}
+              placeholder="Ingrese el apellido paterno"
+              required
+            />
+            {errors.ap_paterno && touched.ap_paterno && (
+              <p className="mt-1 text-sm text-red-600">{errors.ap_paterno}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Apellido materno
+            </label>
+            <input
+              type="text"
+              name="ap_materno"
+              value={adminForm.ap_materno}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                errors.ap_materno && touched.ap_materno
+                  ? "border-red-500"
+                  : "border-gray-300"
+              }`}
+              placeholder="Ingrese el apellido materno"
+              required
+            />
+            {errors.ap_materno && touched.ap_materno && (
+              <p className="mt-1 text-sm text-red-600">{errors.ap_materno}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+              <ClipboardCheck className="h-4 w-4 mr-1 text-blue-600" />
+              CURP
+            </label>
+            <input
+              type="text"
+              name="CURP"
+              value={adminForm.CURP}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                errors.CURP && touched.CURP
+                  ? "border-red-500"
+                  : "border-gray-300"
+              }`}
+              placeholder="Ej. GOMC920101HDFLNS09"
+              maxLength={18}
+              required
+            />
+            {errors.CURP && touched.CURP ? (
+              <p className="mt-1 text-sm text-red-600">{errors.CURP}</p>
+            ) : (
+              <p className="mt-1 text-xs text-gray-500">
+                Formato: 4 letras, 6 números, H/M, 5 letras, 2 alfanuméricos
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+              <Phone className="h-4 w-4 mr-1 text-blue-600" />
+              Número de teléfono
+            </label>
+            <input
+              type="tel"
+              name="telefono"
+              value={adminForm.telefono}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                errors.telefono && touched.telefono
+                  ? "border-red-500"
+                  : "border-gray-300"
+              }`}
+              placeholder="10 dígitos"
+              maxLength={10}
+              required
+            />
+            {errors.telefono && touched.telefono && (
+              <p className="mt-1 text-sm text-red-600">{errors.telefono}</p>
+            )}
+          </div>
 
           {/* Información del hospital */}
           <div className="md:col-span-2 mt-4">
             <h3 className="text-sm font-medium text-gray-700 flex items-center mb-4 pb-2 border-b">
-              <Building className="h-4 w-4 mr-2 text-blue-600" />
+              <Building2 className="h-4 w-4 mr-2 text-blue-600" />
               Información del Hospital
             </h3>
           </div>
