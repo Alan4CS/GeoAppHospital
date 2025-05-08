@@ -5,6 +5,7 @@ import Login from "./pages/Login";
 import SuperadminGeoApp from "./pages/SuperadminGeoApp";
 import Dashboard from "./pages/Dashboard";
 import EstadoadminGeoApp from "./pages/EstadoadminGeoApp";
+import HospitalAdminGeoApp from "./pages/HospitalAdminGeoApp";
 
 function App() {
   return (
@@ -25,6 +26,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <EstadoadminGeoApp />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/hospitaladmin-geoapp"
+            element={
+              <ProtectedRoute>
+                <HospitalAdminGeoApp />
               </ProtectedRoute>
             }
           />

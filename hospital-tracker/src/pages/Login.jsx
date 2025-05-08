@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -19,6 +17,8 @@ export default function Login() {
         navigate("/superadmin-geoapp");
       } else if (role === "estadoadmin") {
         navigate("/estadoadmin-geoapp");
+      }else if (role === "hospitaladmin") {
+        navigate("/hospitaladmin-geoapp");
       }
     }
   }, [navigate]);
