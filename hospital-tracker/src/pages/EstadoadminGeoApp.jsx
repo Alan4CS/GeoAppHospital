@@ -543,7 +543,7 @@ export default function EstadoAdminDashboard() {
                                       {h.direccion_hospital}
                                     </td>
                                     <td className="px-6 py-4">
-                                      {h.radio_geo} m
+                                      {h.radio_geo ?? 0} m
                                     </td>
                                   </tr>
                                 ))}
