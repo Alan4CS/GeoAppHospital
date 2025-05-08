@@ -1,4 +1,5 @@
-// src/context/AuthContext.js
+"use client";
+
 import { createContext, useContext, useState } from "react";
 
 const AuthContext = createContext();
