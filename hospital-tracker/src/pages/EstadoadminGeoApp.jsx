@@ -236,8 +236,8 @@ export default function EstadoAdminDashboard() {
       const data = await response.json();
 
       alert(`✅ ${data.message}
-🆔 Usuario: ${nuevoAdmin.user}
-🔑 Contraseña: ${nuevoAdmin.pass}`);
+  🆔 Usuario: ${nuevoAdmin.user}
+  🔑 Contraseña: ${nuevoAdmin.pass}`);
 
       // Actualizar la lista de administradores
       setAdministradores([
@@ -314,7 +314,7 @@ export default function EstadoAdminDashboard() {
             <h1
               className={`ml-2 font-bold text-xl ${!sidebarOpen && "hidden"}`}
             >
-              MediGestión
+              Geo App
             </h1>
           </div>
           <button
@@ -445,15 +445,6 @@ export default function EstadoAdminDashboard() {
                         onChange={(e) => setHospitalFiltro(e.target.value)}
                       />
                     </div>
-                  )}
-                  {activeTab === "administradores" && (
-                    <button
-                      onClick={handleMostrarFormAdmin}
-                      className={actionButtonClass}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Nuevo Admin
-                    </button>
                   )}
                 </>
               )}

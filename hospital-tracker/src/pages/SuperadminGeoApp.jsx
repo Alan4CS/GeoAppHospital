@@ -266,7 +266,7 @@ export default function SuperadminGeoApp() {
             <h1
               className={`ml-2 font-bold text-xl ${!sidebarOpen && "hidden"}`}
             >
-              MediGestión
+              Geo App
             </h1>
           </div>
           <button

@@ -17,7 +17,7 @@ export default function Login() {
         navigate("/superadmin-geoapp");
       } else if (role === "estadoadmin") {
         navigate("/estadoadmin-geoapp");
-      }else if (role === "hospitaladmin") {
+      } else if (role === "hospitaladmin") {
         navigate("/hospitaladmin-geoapp");
       }
     }
