@@ -104,71 +104,17 @@ export default function EstadoAdminDashboard() {
           }
         }
 
-        // Simulación de datos de administradores
-        // En una implementación real, esto vendría de tu API
-        const mockAdmins = [
-          {
-            id: 1,
-            nombre: "Juan Pérez",
-            ap_paterno: "Pérez",
-            ap_materno: "García",
-            curp_user: "PEGJ901231HDFRRN09",
-            hospital: "Hospital General Regional",
-            role_name: "hospitaladmin",
-          },
-          {
-            id: 2,
-            nombre: "María",
-            ap_paterno: "López",
-            ap_materno: "Sánchez",
-            curp_user: "LOSM850617MDFPNR03",
-            hospital: "Clínica Familiar #42",
-            role_name: "hospitaladmin",
-          },
-        ];
-        setAdministradores(mockAdmins);
+        // Obtener lista real de administradores desde el backend
+        const adminsResponse = await fetch(
+          "http://localhost:4000/api/estadoadmin/hospitaladmin"
+        );
 
-        // Simulación de datos de empleados
-        // En una implementación real, esto vendría de tu API
-        const mockEmpleados = [
-          {
-            id: 1,
-            nombre: "Ana García",
-            curp: "GARA900517MDFNRN09",
-            telefono: "5512345678",
-            hospital: "Hospital General Regional",
-            estado: "Activo",
-            ultimaUbicacion: { lat: 19.4326, lng: -99.1332 },
-            horaEntrada: "08:15",
-            horaSalida: "16:30",
-            enGeocerca: true,
-          },
-          {
-            id: 2,
-            nombre: "Carlos Mendoza",
-            curp: "MERC880612HDFNRL03",
-            telefono: "5587654321",
-            hospital: "Clínica Familiar #42",
-            estado: "Activo",
-            ultimaUbicacion: { lat: 19.4361, lng: -99.1478 },
-            horaEntrada: "09:00",
-            horaSalida: "17:00",
-            enGeocerca: true,
-          },
-          {
-            id: 3,
-            nombre: "Laura Sánchez",
-            curp: "SARL910823MDFNCR07",
-            telefono: "5523456789",
-            hospital: "IMSS Bienestar Zona Rural",
-            estado: "Inactivo",
-            ultimaUbicacion: { lat: 19.415, lng: -99.16 },
-            horaEntrada: "08:30",
-            horaSalida: "16:45",
-            enGeocerca: false,
-          },
-        ];
-        setEmpleados(mockEmpleados);
+        if (!adminsResponse.ok) {
+          throw new Error(`Error HTTP: ${adminsResponse.status}`);
+        }
+
+        const adminsData = await adminsResponse.json();
+        setAdministradores(adminsData);
 
         setIsLoading(false);
       } catch (error) {
