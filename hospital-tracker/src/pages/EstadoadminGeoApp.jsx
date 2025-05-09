@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -6,13 +8,12 @@ import {
   Hospital,
   LogOut,
   Plus,
-  Settings,
   User,
   Users,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import EstadoStatsCard from "../components/estado/EstadoStatsCard";
-import EstadoHospitalAdminForm from "../components/estado/EstadoHospitalAdminForm";
+import EstadoAdminForm from "../components/estado/EstadoAdminForm";
 
 export default function EstadoAdminDashboard() {
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
@@ -28,11 +29,15 @@ export default function EstadoAdminDashboard() {
   const hospitalesPorPagina = 20;
   const adminsPorPagina = 10;
   const [hospitalFiltro, setHospitalFiltro] = useState("");
+  const [adminFiltro, setAdminFiltro] = useState("");
   const [hospitalesFiltradosPorHospital, setHospitalesFiltradosPorHospital] =
     useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [estadoActual, setEstadoActual] = useState(""); // Nombre del estado del administrador
   const [isLoading, setIsLoading] = useState(true);
+  const [adminsAgrupadosPorHospital, setAdminsAgrupadosPorHospital] = useState(
+    {}
+  );
 
   // Cambiar los colores de verde a azul en todo el dashboard
   // Cambiar el gradiente del sidebar
@@ -93,7 +98,6 @@ export default function EstadoAdminDashboard() {
         setHospitales(hospitalesData);
 
         // Extraer el estado del primer hospital (asumiendo que todos los hospitales son del mismo estado)
-        // Modificar la parte del useEffect donde se establece el nombre del estado
         if (hospitalesData.length > 0) {
           // Check if nombre_estado exists in the response (from the JOIN in the backend)
           if (hospitalesData[0].nombre_estado) {
@@ -115,6 +119,16 @@ export default function EstadoAdminDashboard() {
 
         const adminsData = await adminsResponse.json();
         setAdministradores(adminsData);
+
+        // Agrupar administradores por hospital
+        const adminsPorHospital = {};
+        adminsData.forEach((admin) => {
+          if (!adminsPorHospital[admin.hospital]) {
+            adminsPorHospital[admin.hospital] = [];
+          }
+          adminsPorHospital[admin.hospital].push(admin);
+        });
+        setAdminsAgrupadosPorHospital(adminsPorHospital);
 
         setIsLoading(false);
       } catch (error) {
@@ -182,22 +196,31 @@ export default function EstadoAdminDashboard() {
       const data = await response.json();
 
       alert(`✅ ${data.message}
-  🆔 Usuario: ${nuevoAdmin.user}
-  🔑 Contraseña: ${nuevoAdmin.pass}`);
+🆔 Usuario: ${nuevoAdmin.user}
+🔑 Contraseña: ${nuevoAdmin.pass}`);
 
       // Actualizar la lista de administradores
-      setAdministradores([
-        ...administradores,
-        {
-          id: administradores.length + 1,
-          nombre: nuevoAdmin.nombre,
-          ap_paterno: nuevoAdmin.ap_paterno,
-          ap_materno: nuevoAdmin.ap_materno,
-          curp_user: nuevoAdmin.CURP,
-          hospital: nuevoAdmin.hospital,
-          role_name: "hospitaladmin",
-        },
-      ]);
+      const nuevoAdminCompleto = {
+        id: administradores.length + 1,
+        nombre: nuevoAdmin.nombre,
+        ap_paterno: nuevoAdmin.ap_paterno,
+        ap_materno: nuevoAdmin.ap_materno,
+        curp_user: nuevoAdmin.CURP,
+        hospital: nuevoAdmin.hospital,
+        role_name: "hospitaladmin",
+      };
+
+      setAdministradores([...administradores, nuevoAdminCompleto]);
+
+      // Actualizar también los administradores agrupados por hospital
+      setAdminsAgrupadosPorHospital((prevState) => {
+        const newState = { ...prevState };
+        if (!newState[nuevoAdmin.hospital]) {
+          newState[nuevoAdmin.hospital] = [];
+        }
+        newState[nuevoAdmin.hospital].push(nuevoAdminCompleto);
+        return newState;
+      });
 
       setMostrarFormAdmin(false);
     } catch (error) {
@@ -226,20 +249,17 @@ export default function EstadoAdminDashboard() {
     hospitalesFiltrados.length / hospitalesPorPagina
   );
 
-  // FILTRO y PAGINADO para administradores
-  const indexInicioAdmins = (paginaActual - 1) * adminsPorPagina;
-  const indexFinAdmins = indexInicioAdmins + adminsPorPagina;
-  const adminsPagina = administradores.slice(indexInicioAdmins, indexFinAdmins);
-
-  const totalPaginasAdmins = Math.ceil(
-    administradores.length / adminsPorPagina
-  );
+  // FILTRO para administradores
+  const hospitalesConAdmins = adminFiltro
+    ? Object.keys(adminsAgrupadosPorHospital).filter((hospital) =>
+        hospital.toLowerCase().includes(adminFiltro.toLowerCase())
+      )
+    : Object.keys(adminsAgrupadosPorHospital);
 
   // Estadísticas para las tarjetas
   const estadisticas = {
     totalHospitales: hospitales.length,
     totalAdministradores: administradores.length,
-    totalEmpleados: empleados.length,
     empleadosActivos: empleados.filter((e) => e.estado === "Activo").length,
     empleadosFueraGeocerca: empleados.filter(
       (e) => !e.enGeocerca && e.estado === "Activo"
@@ -392,6 +412,26 @@ export default function EstadoAdminDashboard() {
                       />
                     </div>
                   )}
+                  {activeTab === "administradores" && (
+                    <>
+                      <div className="relative">
+                        <input
+                          type="search"
+                          placeholder="Buscar hospital..."
+                          className="px-4 py-2 border rounded-lg"
+                          value={adminFiltro}
+                          onChange={(e) => setAdminFiltro(e.target.value)}
+                        />
+                      </div>
+                      <button
+                        onClick={handleMostrarFormAdmin}
+                        className={actionButtonClass}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Nuevo Admin
+                      </button>
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -428,7 +468,7 @@ export default function EstadoAdminDashboard() {
 
               {/* FORMULARIO ADMINISTRADOR DE HOSPITAL */}
               {mostrarFormAdmin && (
-                <EstadoHospitalAdminForm
+                <EstadoAdminForm
                   hospitales={hospitales}
                   onGuardar={handleGuardarAdmin}
                   onCancelar={() => setMostrarFormAdmin(false)}
@@ -621,186 +661,84 @@ export default function EstadoAdminDashboard() {
                   {activeTab === "administradores" && (
                     <div className="bg-white shadow-md rounded-xl overflow-hidden">
                       <div className="p-6 border-b border-gray-200">
-                        <h3 className="text-xl font-semibold text-gray-800 flex items-center">
-                          <Users className={iconClass} />
-                          Administradores de Hospital en{" "}
-                          {estadoActual || "tu estado"}
-                        </h3>
+                        <div className="flex items-center">
+                          <Users className="h-6 w-6 mr-2 text-blue-600" />
+                          <h2 className="text-xl font-semibold text-gray-800">
+                            Administradores registrados
+                          </h2>
+                        </div>
                       </div>
 
-                      {administradores.length > 0 ? (
-                        <div className="p-6">
-                          <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                              <thead className="bg-gray-50">
-                                <tr>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Nombre
-                                  </th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Apellido paterno
-                                  </th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Apellido materno
-                                  </th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    CURP
-                                  </th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Hospital
-                                  </th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Rol
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className="bg-white divide-y divide-gray-200">
-                                {adminsPagina.map((admin, i) => (
-                                  <tr key={i} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                      {admin.nombre}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                      {admin.ap_paterno}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                      {admin.ap_materno}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                      {admin.curp_user}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                      {admin.hospital}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
-                                        {admin.role_name}
-                                      </span>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-
-                          {/* Paginación para administradores */}
-                          {totalPaginasAdmins > 1 && (
-                            <div className="mt-4 flex items-center justify-between">
-                              <div className="flex-1 flex justify-between sm:hidden">
-                                <button
-                                  onClick={() =>
-                                    setPaginaActual((p) => Math.max(p - 1, 1))
-                                  }
-                                  disabled={paginaActual === 1}
-                                  className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  Anterior
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    setPaginaActual((p) =>
-                                      Math.min(p + 1, totalPaginasAdmins)
-                                    )
-                                  }
-                                  disabled={paginaActual === totalPaginasAdmins}
-                                  className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  Siguiente
-                                </button>
+                      {hospitalesConAdmins.length > 0 ? (
+                        <div className="p-6 space-y-8">
+                          {hospitalesConAdmins.map((hospital) => (
+                            <div key={hospital} className="mb-8">
+                              <div className="flex items-center mb-4">
+                                <Hospital className="h-5 w-5 mr-2 text-blue-600" />
+                                <h3 className="text-lg font-medium text-gray-800">
+                                  Hospital: {hospital}
+                                </h3>
                               </div>
-                              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                                <div>
-                                  <p className="text-sm text-gray-700">
-                                    Mostrando{" "}
-                                    <span className="font-medium">
-                                      {indexInicioAdmins + 1}
-                                    </span>{" "}
-                                    a{" "}
-                                    <span className="font-medium">
-                                      {Math.min(
-                                        indexFinAdmins,
-                                        administradores.length
-                                      )}
-                                    </span>{" "}
-                                    de{" "}
-                                    <span className="font-medium">
-                                      {administradores.length}
-                                    </span>{" "}
-                                    resultados
-                                  </p>
-                                </div>
-                                <div>
-                                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                                    <button
-                                      onClick={() =>
-                                        setPaginaActual((p) =>
-                                          Math.max(p - 1, 1)
-                                        )
-                                      }
-                                      disabled={paginaActual === 1}
-                                      className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      <span className="sr-only">Anterior</span>
-                                      <ChevronRight className="h-5 w-5 transform rotate-180" />
-                                    </button>
-                                    {Array.from(
-                                      {
-                                        length: Math.min(5, totalPaginasAdmins),
-                                      },
-                                      (_, i) => {
-                                        let pageNum;
-                                        if (totalPaginasAdmins <= 5) {
-                                          pageNum = i + 1;
-                                        } else if (paginaActual <= 3) {
-                                          pageNum = i + 1;
-                                        } else if (
-                                          paginaActual >=
-                                          totalPaginasAdmins - 2
-                                        ) {
-                                          pageNum = totalPaginasAdmins - 4 + i;
-                                        } else {
-                                          pageNum = paginaActual - 2 + i;
-                                        }
-                                        return (
-                                          <button
-                                            key={i}
-                                            onClick={() =>
-                                              setPaginaActual(pageNum)
-                                            }
-                                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                                              pageNum === paginaActual
-                                                ? activePageButtonClass
-                                                : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
-                                            }`}
-                                          >
-                                            {pageNum}
-                                          </button>
-                                        );
-                                      }
+
+                              <div className="bg-white border rounded-lg overflow-hidden">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                  <thead className="bg-gray-50">
+                                    <tr>
+                                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Nombre
+                                      </th>
+                                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Apellido Paterno
+                                      </th>
+                                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Apellido Materno
+                                      </th>
+                                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        CURP
+                                      </th>
+                                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Rol
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="bg-white divide-y divide-gray-200">
+                                    {adminsAgrupadosPorHospital[hospital].map(
+                                      (admin, i) => (
+                                        <tr
+                                          key={i}
+                                          className="hover:bg-gray-50"
+                                        >
+                                          <td className="px-6 py-4 whitespace-nowrap">
+                                            {admin.nombre}
+                                          </td>
+                                          <td className="px-6 py-4 whitespace-nowrap">
+                                            {admin.ap_paterno}
+                                          </td>
+                                          <td className="px-6 py-4 whitespace-nowrap">
+                                            {admin.ap_materno}
+                                          </td>
+                                          <td className="px-6 py-4 whitespace-nowrap">
+                                            {admin.curp_user}
+                                          </td>
+                                          <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                              {admin.role_name}
+                                            </span>
+                                          </td>
+                                        </tr>
+                                      )
                                     )}
-                                    <button
-                                      onClick={() =>
-                                        setPaginaActual((p) =>
-                                          Math.min(p + 1, totalPaginasAdmins)
-                                        )
-                                      }
-                                      disabled={
-                                        paginaActual === totalPaginasAdmins
-                                      }
-                                      className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      <span className="sr-only">Siguiente</span>
-                                      <ChevronRight className="h-5 w-5" />
-                                    </button>
-                                  </nav>
-                                </div>
+                                  </tbody>
+                                </table>
                               </div>
                             </div>
-                          )}
+                          ))}
                         </div>
                       ) : (
                         <div className="p-6 text-center text-gray-500">
-                          No hay administradores registrados todavía.
+                          {adminFiltro
+                            ? "No hay hospitales que coincidan con la búsqueda."
+                            : "No hay administradores registrados todavía."}
                         </div>
                       )}
                     </div>
