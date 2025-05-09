@@ -133,6 +133,7 @@ router.post("/create-hospitaladmin", async (req, res) => {
 });
 
 // GET /api/superadmin/estadoadmins
+
 router.get("/hospitaladmin", async (req, res) => {
   try {
     const result = await pool.query(`
@@ -143,22 +144,22 @@ router.get("/hospitaladmin", async (req, res) => {
         u.ap_materno,
         u.curp_user,
         e.nombre_estado AS estado,
+        h.nombre_hospital AS hospital,
         r.role_name
       FROM user_data u
       JOIN user_roles ur ON u.id_user = ur.id_user
       JOIN roles r ON ur.id_role = r.id_role
       LEFT JOIN estados e ON u.id_estado = e.id_estado
+      LEFT JOIN hospitals h ON ur.id_hospital = h.id_hospital
       WHERE r.role_name = 'hospitaladmin'
       ORDER BY u.id_user
     `);
 
     res.json(result.rows);
   } catch (error) {
-    console.error("❌ Error al obtener estadoadmins:", error);
-    res.status(500).json({ error: "Error al obtener administradores de estado" });
+    console.error("❌ Error al obtener hospitaladmins:", error);
+    res.status(500).json({ error: "Error al obtener administradores de hospital" });
   }
 });
-
-
 
 export default router;
