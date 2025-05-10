@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
-import { useAuth } from "../context/AuthContext"
+"use client";
+
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import {
   ChevronRight,
   ClipboardList,
@@ -14,42 +16,45 @@ import {
   UserPlus,
   Users,
   UsersRound,
-} from "lucide-react"
-import HospitalStatsCard from "../components/hospital/HospitalStatsCard"
-import HospitalGroupForm from "../components/hospital/HospitalGroupForm"
-import HospitalGroupLeaderForm from "../components/hospital/HospitalGroupLeaderForm"
+  FileText,
+  Calendar,
+  Shield,
+} from "lucide-react";
+import HospitalStatsCard from "../components/hospital/HospitalStatsCard";
+import HospitalGroupForm from "../components/hospital/HospitalGroupForm";
+import HospitalGroupLeaderForm from "../components/hospital/HospitalGroupLeaderForm";
 
 export default function HospitalAdminDashboard() {
-  const [activeTab, setActiveTab] = useState("grupos")
-  const [mostrarFormularioGrupo, setMostrarFormularioGrupo] = useState(false)
-  const [mostrarFormularioLider, setMostrarFormularioLider] = useState(false)
-  const [grupos, setGrupos] = useState([])
-  const [miembros, setMiembros] = useState([])
-  const [hospitalInfo, setHospitalInfo] = useState(null)
-  const [grupoSeleccionado, setGrupoSeleccionado] = useState(null)
-  const [editandoGrupo, setEditandoGrupo] = useState(false)
-  const [paginaActual, setPaginaActual] = useState(1)
-  const [grupoFiltro, setGrupoFiltro] = useState("")
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [isLoading, setIsLoading] = useState(true)
-  const navigate = useNavigate()
-  const { setIsAuthenticated } = useAuth()
+  const [activeTab, setActiveTab] = useState("grupos");
+  const [mostrarFormularioGrupo, setMostrarFormularioGrupo] = useState(false);
+  const [mostrarFormularioLider, setMostrarFormularioLider] = useState(false);
+  const [grupos, setGrupos] = useState([]);
+  const [miembros, setMiembros] = useState([]);
+  const [hospitalInfo, setHospitalInfo] = useState(null);
+  const [grupoSeleccionado, setGrupoSeleccionado] = useState(null);
+  const [editandoGrupo, setEditandoGrupo] = useState(false);
+  const [paginaActual, setPaginaActual] = useState(1);
+  const [grupoFiltro, setGrupoFiltro] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
+  const { setIsAuthenticated } = useAuth();
 
-  const gruposPorPagina = 10
-  const miembrosPorPagina = 15
+  const gruposPorPagina = 10;
+  const miembrosPorPagina = 15;
 
   // Obtener información del hospital y grupos
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setIsLoading(true)
+        setIsLoading(true);
         // Obtener el ID del usuario del localStorage
-        const userId = localStorage.getItem("userId")
+        const userId = localStorage.getItem("userId");
 
         if (!userId) {
-          console.error("No se encontró ID de usuario en localStorage")
-          setIsLoading(false)
-          return
+          console.error("No se encontró ID de usuario en localStorage");
+          setIsLoading(false);
+          return;
         }
 
         // En una implementación real, estas serían llamadas a tu API
@@ -65,8 +70,8 @@ export default function HospitalAdminDashboard() {
             lng: -99.1332,
             radio: 500,
           },
-        }
-        setHospitalInfo(mockHospital)
+        };
+        setHospitalInfo(mockHospital);
 
         // Simulación de datos de grupos
         const mockGrupos = [
@@ -118,8 +123,8 @@ export default function HospitalAdminDashboard() {
             lider: null,
             activo: false,
           },
-        ]
-        setGrupos(mockGrupos)
+        ];
+        setGrupos(mockGrupos);
 
         // Simulación de datos de miembros
         const mockMiembros = [
@@ -198,53 +203,55 @@ export default function HospitalAdminDashboard() {
             horaSalida: "17:15",
             enGeocerca: false,
           },
-        ]
-        setMiembros(mockMiembros)
+        ];
+        setMiembros(mockMiembros);
 
-        setIsLoading(false)
+        setIsLoading(false);
       } catch (error) {
-        console.error("Error al obtener datos:", error)
-        setIsLoading(false)
+        console.error("Error al obtener datos:", error);
+        setIsLoading(false);
       }
-    }
+    };
 
-    fetchData()
-  }, [])
+    fetchData();
+  }, []);
 
   const handleMostrarFormularioGrupo = (grupo = null) => {
     if (grupo) {
-      setEditandoGrupo(true)
-      setGrupoSeleccionado(grupo)
+      setEditandoGrupo(true);
+      setGrupoSeleccionado(grupo);
     } else {
-      setEditandoGrupo(false)
-      setGrupoSeleccionado(null)
+      setEditandoGrupo(false);
+      setGrupoSeleccionado(null);
     }
-    setMostrarFormularioGrupo(true)
-    setMostrarFormularioLider(false)
-  }
+    setMostrarFormularioGrupo(true);
+    setMostrarFormularioLider(false);
+  };
 
   const handleMostrarFormularioLider = (grupo) => {
-    setGrupoSeleccionado(grupo)
-    setMostrarFormularioLider(true)
-    setMostrarFormularioGrupo(false)
-  }
+    setGrupoSeleccionado(grupo);
+    setMostrarFormularioLider(true);
+    setMostrarFormularioGrupo(false);
+  };
 
   const handleInicio = () => {
-    setMostrarFormularioGrupo(false)
-    setMostrarFormularioLider(false)
-    setGrupoSeleccionado(null)
-    setEditandoGrupo(false)
-  }
+    setMostrarFormularioGrupo(false);
+    setMostrarFormularioLider(false);
+    setGrupoSeleccionado(null);
+    setEditandoGrupo(false);
+  };
 
   // Manejador para guardar un grupo
   const handleGuardarGrupo = (nuevoGrupo) => {
     if (editandoGrupo && grupoSeleccionado) {
       // Actualizar grupo existente
-      const gruposActualizados = grupos.map((g) => (g.id === grupoSeleccionado.id ? { ...g, ...nuevoGrupo } : g))
-      setGrupos(gruposActualizados)
+      const gruposActualizados = grupos.map((g) =>
+        g.id === grupoSeleccionado.id ? { ...g, ...nuevoGrupo } : g
+      );
+      setGrupos(gruposActualizados);
     } else {
       // Crear nuevo grupo
-      const nuevoId = Math.max(...grupos.map((g) => g.id), 0) + 1
+      const nuevoId = Math.max(...grupos.map((g) => g.id), 0) + 1;
       setGrupos([
         ...grupos,
         {
@@ -255,12 +262,12 @@ export default function HospitalAdminDashboard() {
           lider: null,
           activo: true,
         },
-      ])
+      ]);
     }
-    setMostrarFormularioGrupo(false)
-    setEditandoGrupo(false)
-    setGrupoSeleccionado(null)
-  }
+    setMostrarFormularioGrupo(false);
+    setEditandoGrupo(false);
+    setGrupoSeleccionado(null);
+  };
 
   // Manejador para asignar un líder a un grupo
   const handleAsignarLider = (grupoId, lider) => {
@@ -275,9 +282,9 @@ export default function HospitalAdminDashboard() {
               curp: lider.curp,
             },
           }
-        : g,
-    )
-    setGrupos(gruposActualizados)
+        : g
+    );
+    setGrupos(gruposActualizados);
 
     // Actualizar el estado de los miembros
     const miembrosActualizados = miembros.map((m) =>
@@ -285,33 +292,39 @@ export default function HospitalAdminDashboard() {
         ? {
             ...m,
             esLider: true,
-            grupos: m.grupos.includes(grupoSeleccionado.nombre) ? m.grupos : [...m.grupos, grupoSeleccionado.nombre],
+            grupos: m.grupos.includes(grupoSeleccionado.nombre)
+              ? m.grupos
+              : [...m.grupos, grupoSeleccionado.nombre],
           }
-        : m,
-    )
-    setMiembros(miembrosActualizados)
+        : m
+    );
+    setMiembros(miembrosActualizados);
 
-    setMostrarFormularioLider(false)
-    setGrupoSeleccionado(null)
-  }
+    setMostrarFormularioLider(false);
+    setGrupoSeleccionado(null);
+  };
 
   // FILTRO y PAGINADO para grupos
   const gruposFiltrados = grupoFiltro
-    ? grupos.filter((g) => g.nombre.toLowerCase().includes(grupoFiltro.toLowerCase()))
-    : grupos
+    ? grupos.filter((g) =>
+        g.nombre.toLowerCase().includes(grupoFiltro.toLowerCase())
+      )
+    : grupos;
 
-  const indexInicioGrupos = (paginaActual - 1) * gruposPorPagina
-  const indexFinGrupos = indexInicioGrupos + gruposPorPagina
-  const gruposPagina = gruposFiltrados.slice(indexInicioGrupos, indexFinGrupos)
+  const indexInicioGrupos = (paginaActual - 1) * gruposPorPagina;
+  const indexFinGrupos = indexInicioGrupos + gruposPorPagina;
+  const gruposPagina = gruposFiltrados.slice(indexInicioGrupos, indexFinGrupos);
 
-  const totalPaginasGrupos = Math.ceil(gruposFiltrados.length / gruposPorPagina)
+  const totalPaginasGrupos = Math.ceil(
+    gruposFiltrados.length / gruposPorPagina
+  );
 
   // FILTRO y PAGINADO para miembros
-  const indexInicioMiembros = (paginaActual - 1) * miembrosPorPagina
-  const indexFinMiembros = indexInicioMiembros + miembrosPorPagina
-  const miembrosPagina = miembros.slice(indexInicioMiembros, indexFinMiembros)
+  const indexInicioMiembros = (paginaActual - 1) * miembrosPorPagina;
+  const indexFinMiembros = indexInicioMiembros + miembrosPorPagina;
+  const miembrosPagina = miembros.slice(indexInicioMiembros, indexFinMiembros);
 
-  const totalPaginasMiembros = Math.ceil(miembros.length / miembrosPorPagina)
+  const totalPaginasMiembros = Math.ceil(miembros.length / miembrosPorPagina);
 
   // Estadísticas para las tarjetas
   const estadisticas = {
@@ -319,8 +332,23 @@ export default function HospitalAdminDashboard() {
     gruposActivos: grupos.filter((g) => g.activo).length,
     totalMiembros: miembros.length,
     miembrosActivos: miembros.filter((m) => m.estado === "Activo").length,
-    miembrosFueraGeocerca: miembros.filter((m) => !m.enGeocerca && m.estado === "Activo").length,
-  }
+    miembrosFueraGeocerca: miembros.filter(
+      (m) => !m.enGeocerca && m.estado === "Activo"
+    ).length,
+  };
+
+  // Función para obtener el ícono según el nombre del grupo
+  const getGrupoIcon = (nombreGrupo) => {
+    if (nombreGrupo.includes("Urgencias"))
+      return <FileText className="h-6 w-6 text-red-600" />;
+    if (nombreGrupo.includes("Pediatría"))
+      return <Users className="h-6 w-6 text-blue-600" />;
+    if (nombreGrupo.includes("Cirugía"))
+      return <ClipboardList className="h-6 w-6 text-purple-600" />;
+    if (nombreGrupo.includes("Administración"))
+      return <Shield className="h-6 w-6 text-green-600" />;
+    return <ClipboardList className="h-6 w-6 text-indigo-600" />;
+  };
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -331,28 +359,46 @@ export default function HospitalAdminDashboard() {
         } bg-gradient-to-b from-indigo-800 to-purple-900 text-white transition-all duration-300 ease-in-out flex flex-col h-screen fixed`}
       >
         <div className="p-4 flex items-center justify-between">
-          <div className={`flex items-center ${!sidebarOpen && "justify-center w-full"}`}>
+          <div
+            className={`flex items-center ${
+              !sidebarOpen && "justify-center w-full"
+            }`}
+          >
             <Hospital className="h-8 w-8" />
-            <h1 className={`ml-2 font-bold text-xl ${!sidebarOpen && "hidden"}`}>MediGestión</h1>
+            <h1
+              className={`ml-2 font-bold text-xl ${!sidebarOpen && "hidden"}`}
+            >
+              MediGestión
+            </h1>
           </div>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="text-white p-1 rounded-full hover:bg-indigo-700"
           >
-            <ChevronRight className={`h-5 w-5 transform ${sidebarOpen ? "rotate-180" : ""}`} />
+            <ChevronRight
+              className={`h-5 w-5 transform ${sidebarOpen ? "rotate-180" : ""}`}
+            />
           </button>
         </div>
 
         {/* Perfil de usuario */}
-        <div className={`mt-2 px-4 py-3 ${!sidebarOpen ? "flex justify-center" : ""}`}>
-          <div className={`flex items-center ${!sidebarOpen ? "flex-col" : ""}`}>
+        <div
+          className={`mt-2 px-4 py-3 ${
+            !sidebarOpen ? "flex justify-center" : ""
+          }`}
+        >
+          <div
+            className={`flex items-center ${!sidebarOpen ? "flex-col" : ""}`}
+          >
             <div className="h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center">
               <User className="h-6 w-6" />
             </div>
             {sidebarOpen && (
               <div className="ml-3">
                 <p className="font-medium text-sm">Administrador</p>
-                <p className="text-xs text-indigo-200">{hospitalInfo?.nombre || "Cargando..."}</p>
+                <p className="text-xs text-indigo-200">
+                  {hospitalInfo?.nombre || "Cargando..."}
+                </p>
               </div>
             )}
           </div>
@@ -361,11 +407,15 @@ export default function HospitalAdminDashboard() {
         <div className="mt-6 flex flex-col flex-1">
           <button
             onClick={() => {
-              handleInicio()
-              setActiveTab("grupos")
+              handleInicio();
+              setActiveTab("grupos");
             }}
             className={`flex items-center py-3 px-4 hover:bg-indigo-700 ${
-              !mostrarFormularioGrupo && !mostrarFormularioLider && activeTab === "grupos" ? "bg-indigo-700" : ""
+              !mostrarFormularioGrupo &&
+              !mostrarFormularioLider &&
+              activeTab === "grupos"
+                ? "bg-indigo-700"
+                : ""
             } ${!sidebarOpen ? "justify-center" : ""}`}
           >
             <UsersRound className="h-5 w-5" />
@@ -374,11 +424,15 @@ export default function HospitalAdminDashboard() {
 
           <button
             onClick={() => {
-              handleInicio()
-              setActiveTab("miembros")
+              handleInicio();
+              setActiveTab("miembros");
             }}
             className={`flex items-center py-3 px-4 hover:bg-indigo-700 ${
-              !mostrarFormularioGrupo && !mostrarFormularioLider && activeTab === "miembros" ? "bg-indigo-700" : ""
+              !mostrarFormularioGrupo &&
+              !mostrarFormularioLider &&
+              activeTab === "miembros"
+                ? "bg-indigo-700"
+                : ""
             } ${!sidebarOpen ? "justify-center" : ""}`}
           >
             <Users className="h-5 w-5" />
@@ -398,11 +452,11 @@ export default function HospitalAdminDashboard() {
           <div className="mt-auto">
             <button
               onClick={() => {
-                localStorage.removeItem("isAuthenticated")
-                localStorage.removeItem("userRole")
-                localStorage.removeItem("userId")
-                setIsAuthenticated(false)
-                navigate("/")
+                localStorage.removeItem("isAuthenticated");
+                localStorage.removeItem("userRole");
+                localStorage.removeItem("userId");
+                setIsAuthenticated(false);
+                navigate("/");
               }}
               className={`flex items-center py-3 px-4 hover:bg-red-700 text-red-100 ${
                 !sidebarOpen ? "justify-center" : ""
@@ -416,7 +470,11 @@ export default function HospitalAdminDashboard() {
       </div>
 
       {/* CONTENIDO PRINCIPAL */}
-      <div className={`flex-1 ${sidebarOpen ? "ml-64" : "ml-20"} transition-all duration-300 ease-in-out`}>
+      <div
+        className={`flex-1 ${
+          sidebarOpen ? "ml-64" : "ml-20"
+        } transition-all duration-300 ease-in-out`}
+      >
         {/* HEADER */}
         <header className="bg-white shadow-sm p-4">
           <div className="flex justify-between items-center">
@@ -426,10 +484,10 @@ export default function HospitalAdminDashboard() {
                   ? "Editar Grupo"
                   : "Crear Grupo"
                 : mostrarFormularioLider
-                  ? "Asignar Líder de Grupo"
-                  : activeTab === "grupos"
-                    ? "Gestión de Grupos"
-                    : "Miembros del Hospital"}
+                ? "Asignar Líder de Grupo"
+                : activeTab === "grupos"
+                ? "Gestión de Grupos"
+                : "Miembros del Hospital"}
             </h1>
             <div className="flex space-x-2">
               {!mostrarFormularioGrupo && !mostrarFormularioLider && (
@@ -503,9 +561,9 @@ export default function HospitalAdminDashboard() {
                   grupo={grupoSeleccionado}
                   onGuardar={handleGuardarGrupo}
                   onCancelar={() => {
-                    setMostrarFormularioGrupo(false)
-                    setEditandoGrupo(false)
-                    setGrupoSeleccionado(null)
+                    setMostrarFormularioGrupo(false);
+                    setEditandoGrupo(false);
+                    setGrupoSeleccionado(null);
                   }}
                 />
               )}
@@ -517,8 +575,8 @@ export default function HospitalAdminDashboard() {
                   miembros={miembros.filter((m) => m.estado === "Activo")}
                   onAsignar={handleAsignarLider}
                   onCancelar={() => {
-                    setMostrarFormularioLider(false)
-                    setGrupoSeleccionado(null)
+                    setMostrarFormularioLider(false);
+                    setGrupoSeleccionado(null);
                   }}
                 />
               )}
@@ -537,91 +595,165 @@ export default function HospitalAdminDashboard() {
                         </div>
                       </div>
 
-                      {/* Tabla de grupos */}
+                      {/* Vista de grupos en formato de tarjetas */}
                       {gruposFiltrados.length > 0 ? (
-                        <>
-                          <div className="overflow-x-auto">
-                            <table className="w-full table-auto">
-                              <thead>
-                                <tr className="bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                  <th className="px-6 py-3">Nombre</th>
-                                  <th className="px-6 py-3">Descripción</th>
-                                  <th className="px-6 py-3">Fecha Creación</th>
-                                  <th className="px-6 py-3">Miembros</th>
-                                  <th className="px-6 py-3">Líder</th>
-                                  <th className="px-6 py-3">Estado</th>
-                                  <th className="px-6 py-3">Acciones</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-200">
-                                {gruposPagina.map((grupo) => (
-                                  <tr key={grupo.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4">
-                                      <div className="max-w-xs truncate font-medium">{grupo.nombre}</div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                      <div className="max-w-xs truncate">{grupo.descripcion}</div>
-                                    </td>
-                                    <td className="px-6 py-4">{grupo.fechaCreacion}</td>
-                                    <td className="px-6 py-4">{grupo.totalMiembros}</td>
-                                    <td className="px-6 py-4">
-                                      {grupo.lider ? (
-                                        <div className="flex items-center">
-                                          <Star className="h-4 w-4 text-amber-500 mr-1" />
-                                          {grupo.lider.nombre}
-                                        </div>
-                                      ) : (
-                                        <span className="text-gray-400">Sin asignar</span>
-                                      )}
-                                    </td>
-                                    <td className="px-6 py-4">
+                        <div className="p-4">
+                          <div className="grid grid-cols-1 gap-4">
+                            {gruposPagina.map((grupo) => (
+                              <div
+                                key={grupo.id}
+                                className="border rounded-lg overflow-hidden hover:shadow-lg transition-all duration-300 bg-white"
+                              >
+                                <div className="p-5 border-b">
+                                  <div className="flex items-center">
+                                    <div className="p-3 bg-indigo-50 rounded-lg mr-4 shadow-sm">
+                                      {getGrupoIcon(grupo.nombre)}
+                                    </div>
+                                    <div className="flex-1">
+                                      <h3 className="text-xl font-semibold text-gray-800">
+                                        {grupo.nombre}
+                                      </h3>
+                                      <div
+                                        className={`flex items-center mt-2 px-4 py-2 rounded-md shadow-sm transition-all duration-300 ${
+                                          grupo.lider
+                                            ? "bg-gradient-to-r from-amber-50 to-amber-100 border border-amber-200"
+                                            : "bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200"
+                                        }`}
+                                      >
+                                        <span
+                                          className={`text-sm font-medium mr-2 ${
+                                            grupo.lider
+                                              ? "text-amber-700"
+                                              : "text-gray-600"
+                                          }`}
+                                        >
+                                          Líder
+                                        </span>
+                                        {grupo.lider ? (
+                                          <div className="flex items-center">
+                                            <Star className="h-5 w-5 text-amber-500 mr-2" />
+                                            <span className="font-semibold text-amber-800">
+                                              {grupo.lider.nombre}
+                                            </span>
+                                          </div>
+                                        ) : (
+                                          <button
+                                            onClick={() =>
+                                              handleMostrarFormularioLider(
+                                                grupo
+                                              )
+                                            }
+                                            className="flex items-center bg-gradient-to-r from-orange-400 to-orange-500 text-white px-3 py-1 rounded-md hover:from-orange-500 hover:to-orange-600 transition-all duration-300 shadow-sm"
+                                          >
+                                            <Star className="h-4 w-4 mr-1" />
+                                            <span className="font-medium">
+                                              Asignar Líder
+                                            </span>
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="ml-4">
                                       <span
-                                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                          grupo.activo ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                                        className={`px-3 py-1.5 inline-flex items-center text-sm font-semibold rounded-full shadow-sm ${
+                                          grupo.activo
+                                            ? "bg-green-100 text-green-800 border border-green-200"
+                                            : "bg-gray-100 text-gray-800 border border-gray-200"
                                         }`}
                                       >
                                         {grupo.activo ? "Activo" : "Inactivo"}
                                       </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                      <div className="flex space-x-3">
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x">
+                                  <div className="p-4 hover:bg-gray-50 transition-colors">
+                                    <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                                      DESCRIPCIÓN
+                                    </div>
+                                    <div className="mt-2 text-gray-700">
+                                      {grupo.descripcion}
+                                    </div>
+                                  </div>
+                                  <div className="p-4 hover:bg-gray-50 transition-colors">
+                                    <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                                      MIEMBROS
+                                    </div>
+                                    <div className="mt-2 font-semibold text-indigo-700 text-lg">
+                                      {grupo.totalMiembros}
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                      <Calendar className="h-3 w-3 inline mr-1" />
+                                      Creado: {grupo.fechaCreacion}
+                                    </div>
+                                  </div>
+                                  <div className="p-4 hover:bg-gray-50 transition-colors">
+                                    <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                                      ESTADO
+                                    </div>
+                                    <div className="mt-2">
+                                      <span
+                                        className={`px-3 py-1 inline-flex items-center text-sm font-semibold rounded-full ${
+                                          grupo.activo
+                                            ? "bg-green-100 text-green-800 border border-green-200"
+                                            : "bg-gray-100 text-gray-800 border border-gray-200"
+                                        }`}
+                                      >
+                                        {grupo.activo ? "Activo" : "Inactivo"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="p-4 hover:bg-gray-50 transition-colors">
+                                    <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                                      ACCIONES
+                                    </div>
+                                    <div className="mt-2 flex space-x-3">
+                                      <button
+                                        onClick={() =>
+                                          handleMostrarFormularioGrupo(grupo)
+                                        }
+                                        className="text-indigo-600 hover:text-indigo-800 transition-colors flex items-center bg-indigo-50 px-3 py-1.5 rounded-md hover:bg-indigo-100"
+                                      >
+                                        <Settings className="h-4 w-4 mr-1" />
+                                        Editar
+                                      </button>
+                                      {!grupo.lider && (
                                         <button
-                                          onClick={() => handleMostrarFormularioGrupo(grupo)}
-                                          className="text-indigo-600 hover:text-indigo-800 transition-colors flex items-center"
+                                          onClick={() =>
+                                            handleMostrarFormularioLider(grupo)
+                                          }
+                                          className="text-amber-600 hover:text-amber-800 transition-colors flex items-center bg-amber-50 px-3 py-1.5 rounded-md hover:bg-amber-100"
                                         >
-                                          <Settings className="h-4 w-4 mr-1" />
-                                          Editar
+                                          <Star className="h-4 w-4 mr-1" />
+                                          Asignar Líder
                                         </button>
-                                        {!grupo.lider && (
-                                          <button
-                                            onClick={() => handleMostrarFormularioLider(grupo)}
-                                            className="text-amber-600 hover:text-amber-800 transition-colors flex items-center"
-                                          >
-                                            <Star className="h-4 w-4 mr-1" />
-                                            Asignar Líder
-                                          </button>
-                                        )}
-                                      </div>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
                           </div>
 
                           {/* Controles de paginación */}
                           {totalPaginasGrupos > 1 && (
-                            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between mt-4 rounded-b-lg">
                               <div className="flex-1 flex justify-between sm:hidden">
                                 <button
-                                  onClick={() => setPaginaActual((p) => Math.max(p - 1, 1))}
+                                  onClick={() =>
+                                    setPaginaActual((p) => Math.max(p - 1, 1))
+                                  }
                                   disabled={paginaActual === 1}
                                   className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   Anterior
                                 </button>
                                 <button
-                                  onClick={() => setPaginaActual((p) => Math.min(p + 1, totalPaginasGrupos))}
+                                  onClick={() =>
+                                    setPaginaActual((p) =>
+                                      Math.min(p + 1, totalPaginasGrupos)
+                                    )
+                                  }
                                   disabled={paginaActual === totalPaginasGrupos}
                                   className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
@@ -631,17 +763,32 @@ export default function HospitalAdminDashboard() {
                               <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                                 <div>
                                   <p className="text-sm text-gray-700">
-                                    Mostrando <span className="font-medium">{indexInicioGrupos + 1}</span> a{" "}
+                                    Mostrando{" "}
                                     <span className="font-medium">
-                                      {Math.min(indexFinGrupos, gruposFiltrados.length)}
+                                      {indexInicioGrupos + 1}
                                     </span>{" "}
-                                    de <span className="font-medium">{gruposFiltrados.length}</span> resultados
+                                    a{" "}
+                                    <span className="font-medium">
+                                      {Math.min(
+                                        indexFinGrupos,
+                                        gruposFiltrados.length
+                                      )}
+                                    </span>{" "}
+                                    de{" "}
+                                    <span className="font-medium">
+                                      {gruposFiltrados.length}
+                                    </span>{" "}
+                                    resultados
                                   </p>
                                 </div>
                                 <div>
                                   <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
                                     <button
-                                      onClick={() => setPaginaActual((p) => Math.max(p - 1, 1))}
+                                      onClick={() =>
+                                        setPaginaActual((p) =>
+                                          Math.max(p - 1, 1)
+                                        )
+                                      }
                                       disabled={paginaActual === 1}
                                       className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
@@ -649,34 +796,50 @@ export default function HospitalAdminDashboard() {
                                       <ChevronRight className="h-5 w-5 transform rotate-180" />
                                     </button>
                                     {/* Números de página */}
-                                    {Array.from({ length: Math.min(5, totalPaginasGrupos) }, (_, i) => {
-                                      let pageNum
-                                      if (totalPaginasGrupos <= 5) {
-                                        pageNum = i + 1
-                                      } else if (paginaActual <= 3) {
-                                        pageNum = i + 1
-                                      } else if (paginaActual >= totalPaginasGrupos - 2) {
-                                        pageNum = totalPaginasGrupos - 4 + i
-                                      } else {
-                                        pageNum = paginaActual - 2 + i
+                                    {Array.from(
+                                      {
+                                        length: Math.min(5, totalPaginasGrupos),
+                                      },
+                                      (_, i) => {
+                                        let pageNum;
+                                        if (totalPaginasGrupos <= 5) {
+                                          pageNum = i + 1;
+                                        } else if (paginaActual <= 3) {
+                                          pageNum = i + 1;
+                                        } else if (
+                                          paginaActual >=
+                                          totalPaginasGrupos - 2
+                                        ) {
+                                          pageNum = totalPaginasGrupos - 4 + i;
+                                        } else {
+                                          pageNum = paginaActual - 2 + i;
+                                        }
+                                        return (
+                                          <button
+                                            key={i}
+                                            onClick={() =>
+                                              setPaginaActual(pageNum)
+                                            }
+                                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                              pageNum === paginaActual
+                                                ? "z-10 bg-indigo-50 border-indigo-500 text-indigo-600"
+                                                : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
+                                            }`}
+                                          >
+                                            {pageNum}
+                                          </button>
+                                        );
                                       }
-                                      return (
-                                        <button
-                                          key={i}
-                                          onClick={() => setPaginaActual(pageNum)}
-                                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                                            pageNum === paginaActual
-                                              ? "z-10 bg-indigo-50 border-indigo-500 text-indigo-600"
-                                              : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
-                                          }`}
-                                        >
-                                          {pageNum}
-                                        </button>
-                                      )
-                                    })}
+                                    )}
                                     <button
-                                      onClick={() => setPaginaActual((p) => Math.min(p + 1, totalPaginasGrupos))}
-                                      disabled={paginaActual === totalPaginasGrupos}
+                                      onClick={() =>
+                                        setPaginaActual((p) =>
+                                          Math.min(p + 1, totalPaginasGrupos)
+                                        )
+                                      }
+                                      disabled={
+                                        paginaActual === totalPaginasGrupos
+                                      }
                                       className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                       <span className="sr-only">Siguiente</span>
@@ -687,7 +850,7 @@ export default function HospitalAdminDashboard() {
                               </div>
                             </div>
                           )}
-                        </>
+                        </div>
                       ) : (
                         <div className="p-6 text-center text-gray-500">
                           No hay grupos que coincidan con la búsqueda.
@@ -733,10 +896,19 @@ export default function HospitalAdminDashboard() {
                               </thead>
                               <tbody className="bg-white divide-y divide-gray-200">
                                 {miembrosPagina.map((miembro) => (
-                                  <tr key={miembro.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 whitespace-nowrap">{miembro.nombre}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap">{miembro.curp}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap">{miembro.telefono}</td>
+                                  <tr
+                                    key={miembro.id}
+                                    className="hover:bg-gray-50"
+                                  >
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      {miembro.nombre}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      {miembro.curp}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      {miembro.telefono}
+                                    </td>
                                     <td className="px-6 py-4">
                                       <div className="flex flex-wrap gap-1">
                                         {miembro.grupos.map((grupo, idx) => (
@@ -783,15 +955,23 @@ export default function HospitalAdminDashboard() {
                             <div className="mt-4 flex items-center justify-between">
                               <div className="flex-1 flex justify-between sm:hidden">
                                 <button
-                                  onClick={() => setPaginaActual((p) => Math.max(p - 1, 1))}
+                                  onClick={() =>
+                                    setPaginaActual((p) => Math.max(p - 1, 1))
+                                  }
                                   disabled={paginaActual === 1}
                                   className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   Anterior
                                 </button>
                                 <button
-                                  onClick={() => setPaginaActual((p) => Math.min(p + 1, totalPaginasMiembros))}
-                                  disabled={paginaActual === totalPaginasMiembros}
+                                  onClick={() =>
+                                    setPaginaActual((p) =>
+                                      Math.min(p + 1, totalPaginasMiembros)
+                                    )
+                                  }
+                                  disabled={
+                                    paginaActual === totalPaginasMiembros
+                                  }
                                   className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   Siguiente
@@ -800,49 +980,86 @@ export default function HospitalAdminDashboard() {
                               <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                                 <div>
                                   <p className="text-sm text-gray-700">
-                                    Mostrando <span className="font-medium">{indexInicioMiembros + 1}</span> a{" "}
-                                    <span className="font-medium">{Math.min(indexFinMiembros, miembros.length)}</span>{" "}
-                                    de <span className="font-medium">{miembros.length}</span> resultados
+                                    Mostrando{" "}
+                                    <span className="font-medium">
+                                      {indexInicioMiembros + 1}
+                                    </span>{" "}
+                                    a{" "}
+                                    <span className="font-medium">
+                                      {Math.min(
+                                        indexFinMiembros,
+                                        miembros.length
+                                      )}
+                                    </span>{" "}
+                                    de{" "}
+                                    <span className="font-medium">
+                                      {miembros.length}
+                                    </span>{" "}
+                                    resultados
                                   </p>
                                 </div>
                                 <div>
                                   <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
                                     <button
-                                      onClick={() => setPaginaActual((p) => Math.max(p - 1, 1))}
+                                      onClick={() =>
+                                        setPaginaActual((p) =>
+                                          Math.max(p - 1, 1)
+                                        )
+                                      }
                                       disabled={paginaActual === 1}
                                       className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                       <span className="sr-only">Anterior</span>
                                       <ChevronRight className="h-5 w-5 transform rotate-180" />
                                     </button>
-                                    {Array.from({ length: Math.min(5, totalPaginasMiembros) }, (_, i) => {
-                                      let pageNum
-                                      if (totalPaginasMiembros <= 5) {
-                                        pageNum = i + 1
-                                      } else if (paginaActual <= 3) {
-                                        pageNum = i + 1
-                                      } else if (paginaActual >= totalPaginasMiembros - 2) {
-                                        pageNum = totalPaginasMiembros - 4 + i
-                                      } else {
-                                        pageNum = paginaActual - 2 + i
+                                    {Array.from(
+                                      {
+                                        length: Math.min(
+                                          5,
+                                          totalPaginasMiembros
+                                        ),
+                                      },
+                                      (_, i) => {
+                                        let pageNum;
+                                        if (totalPaginasMiembros <= 5) {
+                                          pageNum = i + 1;
+                                        } else if (paginaActual <= 3) {
+                                          pageNum = i + 1;
+                                        } else if (
+                                          paginaActual >=
+                                          totalPaginasMiembros - 2
+                                        ) {
+                                          pageNum =
+                                            totalPaginasMiembros - 4 + i;
+                                        } else {
+                                          pageNum = paginaActual - 2 + i;
+                                        }
+                                        return (
+                                          <button
+                                            key={i}
+                                            onClick={() =>
+                                              setPaginaActual(pageNum)
+                                            }
+                                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                              pageNum === paginaActual
+                                                ? "z-10 bg-indigo-50 border-indigo-500 text-indigo-600"
+                                                : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
+                                            }`}
+                                          >
+                                            {pageNum}
+                                          </button>
+                                        );
                                       }
-                                      return (
-                                        <button
-                                          key={i}
-                                          onClick={() => setPaginaActual(pageNum)}
-                                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                                            pageNum === paginaActual
-                                              ? "z-10 bg-indigo-50 border-indigo-500 text-indigo-600"
-                                              : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
-                                          }`}
-                                        >
-                                          {pageNum}
-                                        </button>
-                                      )
-                                    })}
+                                    )}
                                     <button
-                                      onClick={() => setPaginaActual((p) => Math.min(p + 1, totalPaginasMiembros))}
-                                      disabled={paginaActual === totalPaginasMiembros}
+                                      onClick={() =>
+                                        setPaginaActual((p) =>
+                                          Math.min(p + 1, totalPaginasMiembros)
+                                        )
+                                      }
+                                      disabled={
+                                        paginaActual === totalPaginasMiembros
+                                      }
                                       className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                       <span className="sr-only">Siguiente</span>
@@ -855,7 +1072,9 @@ export default function HospitalAdminDashboard() {
                           )}
                         </div>
                       ) : (
-                        <div className="p-6 text-center text-gray-500">No hay miembros registrados todavía.</div>
+                        <div className="p-6 text-center text-gray-500">
+                          No hay miembros registrados todavía.
+                        </div>
                       )}
                     </div>
                   )}
@@ -866,5 +1085,5 @@ export default function HospitalAdminDashboard() {
         </main>
       </div>
     </div>
-  )
+  );
 }
