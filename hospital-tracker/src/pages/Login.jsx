@@ -19,6 +19,8 @@ export default function Login() {
         navigate("/estadoadmin-geoapp");
       } else if (role === "hospitaladmin") {
         navigate("/hospitaladmin-geoapp");
+      } else if (role === "grupoadmin") {
+        navigate("/grupoadmin-geoapp");
       }
     }
   }, [navigate]);
@@ -56,9 +58,14 @@ export default function Login() {
         navigate("/superadmin-geoapp");
       } else if (data.role === "estadoadmin") {
         navigate("/estadoadmin-geoapp");
+      } else if (data.role === "hospitaladmin") {
+        navigate("/hospitaladmin-geoapp");
+      } else if (data.role === "grupoadmin") {
+        navigate("/grupoadmin-geoapp");
       } else {
         setError("Rol no reconocido");
       }
+
     } catch (err) {
       console.error("Error en login:", err);
       setError("Error en el servidor");

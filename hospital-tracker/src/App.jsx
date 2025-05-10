@@ -6,6 +6,7 @@ import SuperadminGeoApp from "./pages/SuperadminGeoApp";
 import Dashboard from "./pages/Dashboard";
 import EstadoadminGeoApp from "./pages/EstadoadminGeoApp";
 import HospitalAdminGeoApp from "./pages/HospitalAdminGeoApp";
+import GroupadminGeoApp from "./pages/GroupadminGeoApp";
 
 function App() {
   return (
@@ -34,6 +35,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <HospitalAdminGeoApp />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/grupoadmin-geoapp"
+            element={
+              <ProtectedRoute>
+                <GroupadminGeoApp />
               </ProtectedRoute>
             }
           />
