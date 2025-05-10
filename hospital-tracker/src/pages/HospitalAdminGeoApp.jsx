@@ -717,17 +717,6 @@ export default function HospitalAdminDashboard() {
                                         <Settings className="h-4 w-4 mr-1" />
                                         Editar
                                       </button>
-                                      {!grupo.lider && (
-                                        <button
-                                          onClick={() =>
-                                            handleMostrarFormularioLider(grupo)
-                                          }
-                                          className="text-amber-600 hover:text-amber-800 transition-colors flex items-center bg-amber-50 px-3 py-1.5 rounded-md hover:bg-amber-100"
-                                        >
-                                          <Star className="h-4 w-4 mr-1" />
-                                          Asignar Líder
-                                        </button>
-                                      )}
                                     </div>
                                   </div>
                                 </div>
