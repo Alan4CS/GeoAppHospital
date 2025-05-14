@@ -19,15 +19,18 @@ import {
   FileText,
   Calendar,
   Shield,
+  UserCog,
 } from "lucide-react";
 import HospitalStatsCard from "../components/hospital/HospitalStatsCard";
 import HospitalGroupForm from "../components/hospital/HospitalGroupForm";
 import HospitalGroupLeaderForm from "../components/hospital/HospitalGroupLeaderForm";
+import HospitalAdminForm from "../components/hospital/HospitalAdminForm";
 
 export default function HospitalAdminDashboard() {
   const [activeTab, setActiveTab] = useState("grupos");
   const [mostrarFormularioGrupo, setMostrarFormularioGrupo] = useState(false);
   const [mostrarFormularioLider, setMostrarFormularioLider] = useState(false);
+  const [mostrarFormularioAdmin, setMostrarFormularioAdmin] = useState(false);
   const [grupos, setGrupos] = useState([]);
   const [miembros, setMiembros] = useState([]);
   const [hospitalInfo, setHospitalInfo] = useState(null);
@@ -204,7 +207,7 @@ export default function HospitalAdminDashboard() {
             enGeocerca: false,
           },
         ];
-        setMiembros(mockMiembros);
+        setMiembros(miembros);
 
         setIsLoading(false);
       } catch (error) {
@@ -226,17 +229,27 @@ export default function HospitalAdminDashboard() {
     }
     setMostrarFormularioGrupo(true);
     setMostrarFormularioLider(false);
+    setMostrarFormularioAdmin(false);
   };
 
   const handleMostrarFormularioLider = (grupo) => {
     setGrupoSeleccionado(grupo);
     setMostrarFormularioLider(true);
     setMostrarFormularioGrupo(false);
+    setMostrarFormularioAdmin(false);
+  };
+
+  const handleMostrarFormularioAdmin = () => {
+    setMostrarFormularioAdmin(true);
+    setMostrarFormularioGrupo(false);
+    setMostrarFormularioLider(false);
+    setGrupoSeleccionado(null);
   };
 
   const handleInicio = () => {
     setMostrarFormularioGrupo(false);
     setMostrarFormularioLider(false);
+    setMostrarFormularioAdmin(false);
     setGrupoSeleccionado(null);
     setEditandoGrupo(false);
   };
@@ -302,6 +315,15 @@ export default function HospitalAdminDashboard() {
 
     setMostrarFormularioLider(false);
     setGrupoSeleccionado(null);
+  };
+
+  // Manejador para guardar un administrador
+  const handleGuardarAdmin = (nuevoAdmin) => {
+    console.log("Nuevo administrador creado:", nuevoAdmin);
+    // Aquí iría la lógica para guardar el administrador en la base de datos
+    // Por ahora solo mostramos un mensaje en consola
+
+    setMostrarFormularioAdmin(false);
   };
 
   // FILTRO y PAGINADO para grupos
@@ -413,6 +435,7 @@ export default function HospitalAdminDashboard() {
             className={`flex items-center py-3 px-4 hover:bg-indigo-700 ${
               !mostrarFormularioGrupo &&
               !mostrarFormularioLider &&
+              !mostrarFormularioAdmin &&
               activeTab === "grupos"
                 ? "bg-indigo-700"
                 : ""
@@ -430,6 +453,7 @@ export default function HospitalAdminDashboard() {
             className={`flex items-center py-3 px-4 hover:bg-indigo-700 ${
               !mostrarFormularioGrupo &&
               !mostrarFormularioLider &&
+              !mostrarFormularioAdmin &&
               activeTab === "miembros"
                 ? "bg-indigo-700"
                 : ""
@@ -447,6 +471,16 @@ export default function HospitalAdminDashboard() {
           >
             <UserPlus className="h-5 w-5" />
             {sidebarOpen && <span className="ml-3">Crear Grupo</span>}
+          </button>
+
+          <button
+            onClick={() => handleMostrarFormularioAdmin()}
+            className={`flex items-center py-3 px-4 hover:bg-indigo-700 ${
+              mostrarFormularioAdmin ? "bg-indigo-700" : ""
+            } ${!sidebarOpen ? "justify-center" : ""}`}
+          >
+            <UserCog className="h-5 w-5" />
+            {sidebarOpen && <span className="ml-3">Crear Admin de Grupos</span>}
           </button>
 
           <div className="mt-auto">
@@ -485,36 +519,40 @@ export default function HospitalAdminDashboard() {
                   : "Crear Grupo"
                 : mostrarFormularioLider
                 ? "Asignar Líder de Grupo"
+                : mostrarFormularioAdmin
+                ? "Crear Administrador de Grupos"
                 : activeTab === "grupos"
                 ? "Gestión de Grupos"
                 : "Miembros del Hospital"}
             </h1>
             <div className="flex space-x-2">
-              {!mostrarFormularioGrupo && !mostrarFormularioLider && (
-                <>
-                  {activeTab === "grupos" && (
-                    <>
-                      <div className="relative">
-                        <input
-                          type="search"
-                          placeholder="Buscar grupo..."
-                          className="px-4 py-2 border rounded-lg"
-                          value={grupoFiltro}
-                          onChange={(e) => setGrupoFiltro(e.target.value)}
-                        />
-                        <Search className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
-                      </div>
-                      <button
-                        onClick={() => handleMostrarFormularioGrupo()}
-                        className="flex items-center bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Nuevo Grupo
-                      </button>
-                    </>
-                  )}
-                </>
-              )}
+              {!mostrarFormularioGrupo &&
+                !mostrarFormularioLider &&
+                !mostrarFormularioAdmin && (
+                  <>
+                    {activeTab === "grupos" && (
+                      <>
+                        <div className="relative">
+                          <input
+                            type="search"
+                            placeholder="Buscar grupo..."
+                            className="px-4 py-2 border rounded-lg"
+                            value={grupoFiltro}
+                            onChange={(e) => setGrupoFiltro(e.target.value)}
+                          />
+                          <Search className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
+                        </div>
+                        <button
+                          onClick={() => handleMostrarFormularioGrupo()}
+                          className="flex items-center bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Nuevo Grupo
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
             </div>
           </div>
         </header>
@@ -528,31 +566,35 @@ export default function HospitalAdminDashboard() {
           ) : (
             <>
               {/* TARJETAS DE ESTADÍSTICAS */}
-              {!mostrarFormularioGrupo && !mostrarFormularioLider && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                  <HospitalStatsCard
-                    title="Grupos Activos"
-                    value={estadisticas.gruposActivos}
-                    icon={<UsersRound className="h-8 w-8 text-indigo-600" />}
-                    description="Grupos de trabajo activos"
-                    color="indigo"
-                  />
-                  <HospitalStatsCard
-                    title="Miembros"
-                    value={estadisticas.miembrosActivos}
-                    icon={<Users className="h-8 w-8 text-purple-600" />}
-                    description="Miembros activos en el hospital"
-                    color="purple"
-                  />
-                  <HospitalStatsCard
-                    title="Fuera de Geocerca"
-                    value={estadisticas.miembrosFueraGeocerca}
-                    icon={<ClipboardList className="h-8 w-8 text-amber-600" />}
-                    description="Miembros fuera del área designada"
-                    color="amber"
-                  />
-                </div>
-              )}
+              {!mostrarFormularioGrupo &&
+                !mostrarFormularioLider &&
+                !mostrarFormularioAdmin && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <HospitalStatsCard
+                      title="Grupos Activos"
+                      value={estadisticas.gruposActivos}
+                      icon={<UsersRound className="h-8 w-8 text-indigo-600" />}
+                      description="Grupos de trabajo activos"
+                      color="indigo"
+                    />
+                    <HospitalStatsCard
+                      title="Miembros"
+                      value={estadisticas.miembrosActivos}
+                      icon={<Users className="h-8 w-8 text-purple-600" />}
+                      description="Miembros activos en el hospital"
+                      color="purple"
+                    />
+                    <HospitalStatsCard
+                      title="Fuera de Geocerca"
+                      value={estadisticas.miembrosFueraGeocerca}
+                      icon={
+                        <ClipboardList className="h-8 w-8 text-amber-600" />
+                      }
+                      description="Miembros fuera del área designada"
+                      color="amber"
+                    />
+                  </div>
+                )}
 
               {/* FORMULARIO GRUPO */}
               {mostrarFormularioGrupo && (
@@ -581,505 +623,535 @@ export default function HospitalAdminDashboard() {
                 />
               )}
 
-              {/* CONTENIDO SEGÚN TAB */}
-              {!mostrarFormularioGrupo && !mostrarFormularioLider && (
-                <>
-                  {activeTab === "grupos" && (
-                    <div className="bg-white shadow-md rounded-xl overflow-hidden">
-                      <div className="p-6 border-b border-gray-200">
-                        <div className="flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
-                          <h3 className="text-xl font-semibold text-gray-800 flex items-center">
-                            <UsersRound className="h-5 w-5 mr-2 text-indigo-600" />
-                            Grupos de {hospitalInfo?.nombre || "..."}
-                          </h3>
-                        </div>
-                      </div>
+              {/* FORMULARIO ADMINISTRADOR DE GRUPOS */}
+              {mostrarFormularioAdmin && (
+                <HospitalAdminForm
+                  grupos={grupos}
+                  onGuardar={handleGuardarAdmin}
+                  onCancelar={() => setMostrarFormularioAdmin(false)}
+                />
+              )}
 
-                      {/* Vista de grupos en formato de tarjetas */}
-                      {gruposFiltrados.length > 0 ? (
-                        <div className="p-4">
-                          <div className="grid grid-cols-1 gap-4">
-                            {gruposPagina.map((grupo) => (
-                              <div
-                                key={grupo.id}
-                                className="border rounded-lg overflow-hidden hover:shadow-lg transition-all duration-300 bg-white"
-                              >
-                                <div className="p-5 border-b">
-                                  <div className="flex items-center">
-                                    <div className="p-3 bg-indigo-50 rounded-lg mr-4 shadow-sm">
-                                      {getGrupoIcon(grupo.nombre)}
-                                    </div>
-                                    <div className="flex-1">
-                                      <h3 className="text-xl font-semibold text-gray-800">
-                                        {grupo.nombre}
-                                      </h3>
-                                      <div
-                                        className={`flex items-center mt-2 px-4 py-2 rounded-md shadow-sm transition-all duration-300 ${
-                                          grupo.lider
-                                            ? "bg-gradient-to-r from-amber-50 to-amber-100 border border-amber-200"
-                                            : "bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200"
-                                        }`}
-                                      >
-                                        <span
-                                          className={`text-sm font-medium mr-2 ${
+              {/* CONTENIDO SEGÚN TAB */}
+              {!mostrarFormularioGrupo &&
+                !mostrarFormularioLider &&
+                !mostrarFormularioAdmin && (
+                  <>
+                    {activeTab === "grupos" && (
+                      <div className="bg-white shadow-md rounded-xl overflow-hidden">
+                        <div className="p-6 border-b border-gray-200">
+                          <div className="flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
+                            <h3 className="text-xl font-semibold text-gray-800 flex items-center">
+                              <UsersRound className="h-5 w-5 mr-2 text-indigo-600" />
+                              Grupos de {hospitalInfo?.nombre || "..."}
+                            </h3>
+                          </div>
+                        </div>
+
+                        {/* Vista de grupos en formato de tarjetas */}
+                        {gruposFiltrados.length > 0 ? (
+                          <div className="p-4">
+                            <div className="grid grid-cols-1 gap-4">
+                              {gruposPagina.map((grupo) => (
+                                <div
+                                  key={grupo.id}
+                                  className="border rounded-lg overflow-hidden hover:shadow-lg transition-all duration-300 bg-white"
+                                >
+                                  <div className="p-5 border-b">
+                                    <div className="flex items-center">
+                                      <div className="p-3 bg-indigo-50 rounded-lg mr-4 shadow-sm">
+                                        {getGrupoIcon(grupo.nombre)}
+                                      </div>
+                                      <div className="flex-1">
+                                        <h3 className="text-xl font-semibold text-gray-800">
+                                          {grupo.nombre}
+                                        </h3>
+                                        <div
+                                          className={`flex items-center mt-2 px-4 py-2 rounded-md shadow-sm transition-all duration-300 ${
                                             grupo.lider
-                                              ? "text-amber-700"
-                                              : "text-gray-600"
+                                              ? "bg-gradient-to-r from-amber-50 to-amber-100 border border-amber-200"
+                                              : "bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200"
                                           }`}
                                         >
-                                          Líder
+                                          <span
+                                            className={`text-sm font-medium mr-2 ${
+                                              grupo.lider
+                                                ? "text-amber-700"
+                                                : "text-gray-600"
+                                            }`}
+                                          >
+                                            Líder
+                                          </span>
+                                          {grupo.lider ? (
+                                            <div className="flex items-center">
+                                              <Star className="h-5 w-5 text-amber-500 mr-2" />
+                                              <span className="font-semibold text-amber-800">
+                                                {grupo.lider.nombre}
+                                              </span>
+                                            </div>
+                                          ) : (
+                                            <button
+                                              onClick={() =>
+                                                handleMostrarFormularioLider(
+                                                  grupo
+                                                )
+                                              }
+                                              className="flex items-center bg-gradient-to-r from-orange-400 to-orange-500 text-white px-3 py-1 rounded-md hover:from-orange-500 hover:to-orange-600 transition-all duration-300 shadow-sm"
+                                            >
+                                              <Star className="h-4 w-4 mr-1" />
+                                              <span className="font-medium">
+                                                Asignar Líder
+                                              </span>
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="ml-4">
+                                        <span
+                                          className={`px-3 py-1.5 inline-flex items-center text-sm font-semibold rounded-full shadow-sm ${
+                                            grupo.activo
+                                              ? "bg-green-100 text-green-800 border border-green-200"
+                                              : "bg-gray-100 text-gray-800 border border-gray-200"
+                                          }`}
+                                        >
+                                          {grupo.activo ? "Activo" : "Inactivo"}
                                         </span>
-                                        {grupo.lider ? (
-                                          <div className="flex items-center">
-                                            <Star className="h-5 w-5 text-amber-500 mr-2" />
-                                            <span className="font-semibold text-amber-800">
-                                              {grupo.lider.nombre}
-                                            </span>
-                                          </div>
-                                        ) : (
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x">
+                                    <div className="p-4 hover:bg-gray-50 transition-colors">
+                                      <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                                        DESCRIPCIÓN
+                                      </div>
+                                      <div className="mt-2 text-gray-700">
+                                        {grupo.descripcion}
+                                      </div>
+                                    </div>
+                                    <div className="p-4 hover:bg-gray-50 transition-colors">
+                                      <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                                        MIEMBROS
+                                      </div>
+                                      <div className="mt-2 font-semibold text-indigo-700 text-lg">
+                                        {grupo.totalMiembros}
+                                      </div>
+                                      <div className="text-xs text-gray-500">
+                                        <Calendar className="h-3 w-3 inline mr-1" />
+                                        Creado: {grupo.fechaCreacion}
+                                      </div>
+                                    </div>
+                                    <div className="p-4 hover:bg-gray-50 transition-colors">
+                                      <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                                        ESTADO
+                                      </div>
+                                      <div className="mt-2">
+                                        <span
+                                          className={`px-3 py-1 inline-flex items-center text-sm font-semibold rounded-full ${
+                                            grupo.activo
+                                              ? "bg-green-100 text-green-800 border border-green-200"
+                                              : "bg-gray-100 text-gray-800 border border-gray-200"
+                                          }`}
+                                        >
+                                          {grupo.activo ? "Activo" : "Inactivo"}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="p-4 hover:bg-gray-50 transition-colors">
+                                      <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                                        ACCIONES
+                                      </div>
+                                      <div className="mt-2 flex space-x-3">
+                                        <button
+                                          onClick={() =>
+                                            handleMostrarFormularioGrupo(grupo)
+                                          }
+                                          className="text-indigo-600 hover:text-indigo-800 transition-colors flex items-center bg-indigo-50 px-3 py-1.5 rounded-md hover:bg-indigo-100"
+                                        >
+                                          <Settings className="h-4 w-4 mr-1" />
+                                          Editar
+                                        </button>
+                                        {!grupo.lider && (
                                           <button
                                             onClick={() =>
                                               handleMostrarFormularioLider(
                                                 grupo
                                               )
                                             }
-                                            className="flex items-center bg-gradient-to-r from-orange-400 to-orange-500 text-white px-3 py-1 rounded-md hover:from-orange-500 hover:to-orange-600 transition-all duration-300 shadow-sm"
+                                            className="text-amber-600 hover:text-amber-800 transition-colors flex items-center bg-amber-50 px-3 py-1.5 rounded-md hover:bg-amber-100"
                                           >
                                             <Star className="h-4 w-4 mr-1" />
-                                            <span className="font-medium">
-                                              Asignar Líder
-                                            </span>
+                                            Asignar Líder
                                           </button>
                                         )}
                                       </div>
                                     </div>
-                                    <div className="ml-4">
-                                      <span
-                                        className={`px-3 py-1.5 inline-flex items-center text-sm font-semibold rounded-full shadow-sm ${
-                                          grupo.activo
-                                            ? "bg-green-100 text-green-800 border border-green-200"
-                                            : "bg-gray-100 text-gray-800 border border-gray-200"
-                                        }`}
-                                      >
-                                        {grupo.activo ? "Activo" : "Inactivo"}
-                                      </span>
-                                    </div>
                                   </div>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x">
-                                  <div className="p-4 hover:bg-gray-50 transition-colors">
-                                    <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">
-                                      DESCRIPCIÓN
-                                    </div>
-                                    <div className="mt-2 text-gray-700">
-                                      {grupo.descripcion}
-                                    </div>
+                              ))}
+                            </div>
+
+                            {/* Controles de paginación */}
+                            {totalPaginasGrupos > 1 && (
+                              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between mt-4 rounded-b-lg">
+                                <div className="flex-1 flex justify-between sm:hidden">
+                                  <button
+                                    onClick={() =>
+                                      setPaginaActual((p) => Math.max(p - 1, 1))
+                                    }
+                                    disabled={paginaActual === 1}
+                                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    Anterior
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      setPaginaActual((p) =>
+                                        Math.min(p + 1, totalPaginasGrupos)
+                                      )
+                                    }
+                                    disabled={
+                                      paginaActual === totalPaginasGrupos
+                                    }
+                                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    Siguiente
+                                  </button>
+                                </div>
+                                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                                  <div>
+                                    <p className="text-sm text-gray-700">
+                                      Mostrando{" "}
+                                      <span className="font-medium">
+                                        {indexInicioGrupos + 1}
+                                      </span>{" "}
+                                      a{" "}
+                                      <span className="font-medium">
+                                        {Math.min(
+                                          indexFinGrupos,
+                                          gruposFiltrados.length
+                                        )}
+                                      </span>{" "}
+                                      de{" "}
+                                      <span className="font-medium">
+                                        {gruposFiltrados.length}
+                                      </span>{" "}
+                                      resultados
+                                    </p>
                                   </div>
-                                  <div className="p-4 hover:bg-gray-50 transition-colors">
-                                    <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">
-                                      MIEMBROS
-                                    </div>
-                                    <div className="mt-2 font-semibold text-indigo-700 text-lg">
-                                      {grupo.totalMiembros}
-                                    </div>
-                                    <div className="text-xs text-gray-500">
-                                      <Calendar className="h-3 w-3 inline mr-1" />
-                                      Creado: {grupo.fechaCreacion}
-                                    </div>
-                                  </div>
-                                  <div className="p-4 hover:bg-gray-50 transition-colors">
-                                    <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">
-                                      ESTADO
-                                    </div>
-                                    <div className="mt-2">
-                                      <span
-                                        className={`px-3 py-1 inline-flex items-center text-sm font-semibold rounded-full ${
-                                          grupo.activo
-                                            ? "bg-green-100 text-green-800 border border-green-200"
-                                            : "bg-gray-100 text-gray-800 border border-gray-200"
-                                        }`}
-                                      >
-                                        {grupo.activo ? "Activo" : "Inactivo"}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <div className="p-4 hover:bg-gray-50 transition-colors">
-                                    <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">
-                                      ACCIONES
-                                    </div>
-                                    <div className="mt-2 flex space-x-3">
+                                  <div>
+                                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
                                       <button
                                         onClick={() =>
-                                          handleMostrarFormularioGrupo(grupo)
+                                          setPaginaActual((p) =>
+                                            Math.max(p - 1, 1)
+                                          )
                                         }
-                                        className="text-indigo-600 hover:text-indigo-800 transition-colors flex items-center bg-indigo-50 px-3 py-1.5 rounded-md hover:bg-indigo-100"
+                                        disabled={paginaActual === 1}
+                                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                       >
-                                        <Settings className="h-4 w-4 mr-1" />
-                                        Editar
+                                        <span className="sr-only">
+                                          Anterior
+                                        </span>
+                                        <ChevronRight className="h-5 w-5 transform rotate-180" />
                                       </button>
-                                      {!grupo.lider && (
-                                        <button
-                                          onClick={() =>
-                                            handleMostrarFormularioLider(grupo)
+                                      {/* Números de página */}
+                                      {Array.from(
+                                        {
+                                          length: Math.min(
+                                            5,
+                                            totalPaginasGrupos
+                                          ),
+                                        },
+                                        (_, i) => {
+                                          let pageNum;
+                                          if (totalPaginasGrupos <= 5) {
+                                            pageNum = i + 1;
+                                          } else if (paginaActual <= 3) {
+                                            pageNum = i + 1;
+                                          } else if (
+                                            paginaActual >=
+                                            totalPaginasGrupos - 2
+                                          ) {
+                                            pageNum =
+                                              totalPaginasGrupos - 4 + i;
+                                          } else {
+                                            pageNum = paginaActual - 2 + i;
                                           }
-                                          className="text-amber-600 hover:text-amber-800 transition-colors flex items-center bg-amber-50 px-3 py-1.5 rounded-md hover:bg-amber-100"
-                                        >
-                                          <Star className="h-4 w-4 mr-1" />
-                                          Asignar Líder
-                                        </button>
+                                          return (
+                                            <button
+                                              key={i}
+                                              onClick={() =>
+                                                setPaginaActual(pageNum)
+                                              }
+                                              className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                                pageNum === paginaActual
+                                                  ? "z-10 bg-indigo-50 border-indigo-500 text-indigo-600"
+                                                  : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
+                                              }`}
+                                            >
+                                              {pageNum}
+                                            </button>
+                                          );
+                                        }
                                       )}
-                                    </div>
+                                      <button
+                                        onClick={() =>
+                                          setPaginaActual((p) =>
+                                            Math.min(p + 1, totalPaginasGrupos)
+                                          )
+                                        }
+                                        disabled={
+                                          paginaActual === totalPaginasGrupos
+                                        }
+                                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        <span className="sr-only">
+                                          Siguiente
+                                        </span>
+                                        <ChevronRight className="h-5 w-5" />
+                                      </button>
+                                    </nav>
                                   </div>
                                 </div>
                               </div>
-                            ))}
+                            )}
                           </div>
-
-                          {/* Controles de paginación */}
-                          {totalPaginasGrupos > 1 && (
-                            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between mt-4 rounded-b-lg">
-                              <div className="flex-1 flex justify-between sm:hidden">
-                                <button
-                                  onClick={() =>
-                                    setPaginaActual((p) => Math.max(p - 1, 1))
-                                  }
-                                  disabled={paginaActual === 1}
-                                  className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  Anterior
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    setPaginaActual((p) =>
-                                      Math.min(p + 1, totalPaginasGrupos)
-                                    )
-                                  }
-                                  disabled={paginaActual === totalPaginasGrupos}
-                                  className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  Siguiente
-                                </button>
-                              </div>
-                              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                                <div>
-                                  <p className="text-sm text-gray-700">
-                                    Mostrando{" "}
-                                    <span className="font-medium">
-                                      {indexInicioGrupos + 1}
-                                    </span>{" "}
-                                    a{" "}
-                                    <span className="font-medium">
-                                      {Math.min(
-                                        indexFinGrupos,
-                                        gruposFiltrados.length
-                                      )}
-                                    </span>{" "}
-                                    de{" "}
-                                    <span className="font-medium">
-                                      {gruposFiltrados.length}
-                                    </span>{" "}
-                                    resultados
-                                  </p>
-                                </div>
-                                <div>
-                                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                                    <button
-                                      onClick={() =>
-                                        setPaginaActual((p) =>
-                                          Math.max(p - 1, 1)
-                                        )
-                                      }
-                                      disabled={paginaActual === 1}
-                                      className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      <span className="sr-only">Anterior</span>
-                                      <ChevronRight className="h-5 w-5 transform rotate-180" />
-                                    </button>
-                                    {/* Números de página */}
-                                    {Array.from(
-                                      {
-                                        length: Math.min(5, totalPaginasGrupos),
-                                      },
-                                      (_, i) => {
-                                        let pageNum;
-                                        if (totalPaginasGrupos <= 5) {
-                                          pageNum = i + 1;
-                                        } else if (paginaActual <= 3) {
-                                          pageNum = i + 1;
-                                        } else if (
-                                          paginaActual >=
-                                          totalPaginasGrupos - 2
-                                        ) {
-                                          pageNum = totalPaginasGrupos - 4 + i;
-                                        } else {
-                                          pageNum = paginaActual - 2 + i;
-                                        }
-                                        return (
-                                          <button
-                                            key={i}
-                                            onClick={() =>
-                                              setPaginaActual(pageNum)
-                                            }
-                                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                                              pageNum === paginaActual
-                                                ? "z-10 bg-indigo-50 border-indigo-500 text-indigo-600"
-                                                : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
-                                            }`}
-                                          >
-                                            {pageNum}
-                                          </button>
-                                        );
-                                      }
-                                    )}
-                                    <button
-                                      onClick={() =>
-                                        setPaginaActual((p) =>
-                                          Math.min(p + 1, totalPaginasGrupos)
-                                        )
-                                      }
-                                      disabled={
-                                        paginaActual === totalPaginasGrupos
-                                      }
-                                      className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      <span className="sr-only">Siguiente</span>
-                                      <ChevronRight className="h-5 w-5" />
-                                    </button>
-                                  </nav>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="p-6 text-center text-gray-500">
-                          No hay grupos que coincidan con la búsqueda.
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {activeTab === "miembros" && (
-                    <div className="bg-white shadow-md rounded-xl overflow-hidden">
-                      <div className="p-6 border-b border-gray-200">
-                        <h3 className="text-xl font-semibold text-gray-800 flex items-center">
-                          <Users className="h-5 w-5 mr-2 text-indigo-600" />
-                          Miembros de {hospitalInfo?.nombre || "..."}
-                        </h3>
+                        ) : (
+                          <div className="p-6 text-center text-gray-500">
+                            No hay grupos que coincidan con la búsqueda.
+                          </div>
+                        )}
                       </div>
+                    )}
 
-                      {miembros.length > 0 ? (
-                        <div className="p-6">
-                          <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                              <thead className="bg-gray-50">
-                                <tr>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Nombre
-                                  </th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    CURP
-                                  </th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Teléfono
-                                  </th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Grupos
-                                  </th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Estado
-                                  </th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Rol
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className="bg-white divide-y divide-gray-200">
-                                {miembrosPagina.map((miembro) => (
-                                  <tr
-                                    key={miembro.id}
-                                    className="hover:bg-gray-50"
-                                  >
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                      {miembro.nombre}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                      {miembro.curp}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                      {miembro.telefono}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                      <div className="flex flex-wrap gap-1">
-                                        {miembro.grupos.map((grupo, idx) => (
-                                          <span
-                                            key={idx}
-                                            className="px-2 py-1 text-xs rounded-full bg-indigo-100 text-indigo-800"
-                                          >
-                                            {grupo}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                      <span
-                                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                          miembro.estado === "Activo"
-                                            ? "bg-green-100 text-green-800"
-                                            : "bg-gray-100 text-gray-800"
-                                        }`}
-                                      >
-                                        {miembro.estado}
-                                      </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                      {miembro.esLider ? (
-                                        <span className="px-2 inline-flex items-center text-xs leading-5 font-semibold rounded-full bg-amber-100 text-amber-800">
-                                          <Star className="h-3 w-3 mr-1" />
-                                          Líder
-                                        </span>
-                                      ) : (
-                                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
-                                          Miembro
-                                        </span>
-                                      )}
-                                    </td>
+                    {activeTab === "miembros" && (
+                      <div className="bg-white shadow-md rounded-xl overflow-hidden">
+                        <div className="p-6 border-b border-gray-200">
+                          <h3 className="text-xl font-semibold text-gray-800 flex items-center">
+                            <Users className="h-5 w-5 mr-2 text-indigo-600" />
+                            Miembros de {hospitalInfo?.nombre || "..."}
+                          </h3>
+                        </div>
+
+                        {miembros.length > 0 ? (
+                          <div className="p-6">
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                  <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      Nombre
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      CURP
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      Teléfono
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      Grupos
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      Estado
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      Rol
+                                    </th>
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-
-                          {/* Paginación para miembros */}
-                          {totalPaginasMiembros > 1 && (
-                            <div className="mt-4 flex items-center justify-between">
-                              <div className="flex-1 flex justify-between sm:hidden">
-                                <button
-                                  onClick={() =>
-                                    setPaginaActual((p) => Math.max(p - 1, 1))
-                                  }
-                                  disabled={paginaActual === 1}
-                                  className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  Anterior
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    setPaginaActual((p) =>
-                                      Math.min(p + 1, totalPaginasMiembros)
-                                    )
-                                  }
-                                  disabled={
-                                    paginaActual === totalPaginasMiembros
-                                  }
-                                  className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  Siguiente
-                                </button>
-                              </div>
-                              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                                <div>
-                                  <p className="text-sm text-gray-700">
-                                    Mostrando{" "}
-                                    <span className="font-medium">
-                                      {indexInicioMiembros + 1}
-                                    </span>{" "}
-                                    a{" "}
-                                    <span className="font-medium">
-                                      {Math.min(
-                                        indexFinMiembros,
-                                        miembros.length
-                                      )}
-                                    </span>{" "}
-                                    de{" "}
-                                    <span className="font-medium">
-                                      {miembros.length}
-                                    </span>{" "}
-                                    resultados
-                                  </p>
-                                </div>
-                                <div>
-                                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                                    <button
-                                      onClick={() =>
-                                        setPaginaActual((p) =>
-                                          Math.max(p - 1, 1)
-                                        )
-                                      }
-                                      disabled={paginaActual === 1}
-                                      className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                  {miembrosPagina.map((miembro) => (
+                                    <tr
+                                      key={miembro.id}
+                                      className="hover:bg-gray-50"
                                     >
-                                      <span className="sr-only">Anterior</span>
-                                      <ChevronRight className="h-5 w-5 transform rotate-180" />
-                                    </button>
-                                    {Array.from(
-                                      {
-                                        length: Math.min(
-                                          5,
-                                          totalPaginasMiembros
-                                        ),
-                                      },
-                                      (_, i) => {
-                                        let pageNum;
-                                        if (totalPaginasMiembros <= 5) {
-                                          pageNum = i + 1;
-                                        } else if (paginaActual <= 3) {
-                                          pageNum = i + 1;
-                                        } else if (
-                                          paginaActual >=
-                                          totalPaginasMiembros - 2
-                                        ) {
-                                          pageNum =
-                                            totalPaginasMiembros - 4 + i;
-                                        } else {
-                                          pageNum = paginaActual - 2 + i;
-                                        }
-                                        return (
-                                          <button
-                                            key={i}
-                                            onClick={() =>
-                                              setPaginaActual(pageNum)
-                                            }
-                                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                                              pageNum === paginaActual
-                                                ? "z-10 bg-indigo-50 border-indigo-500 text-indigo-600"
-                                                : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
-                                            }`}
-                                          >
-                                            {pageNum}
-                                          </button>
-                                        );
-                                      }
-                                    )}
-                                    <button
-                                      onClick={() =>
-                                        setPaginaActual((p) =>
-                                          Math.min(p + 1, totalPaginasMiembros)
-                                        )
-                                      }
-                                      disabled={
-                                        paginaActual === totalPaginasMiembros
-                                      }
-                                      className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      <span className="sr-only">Siguiente</span>
-                                      <ChevronRight className="h-5 w-5" />
-                                    </button>
-                                  </nav>
-                                </div>
-                              </div>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        {miembro.nombre}
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        {miembro.curp}
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        {miembro.telefono}
+                                      </td>
+                                      <td className="px-6 py-4">
+                                        <div className="flex flex-wrap gap-1">
+                                          {miembro.grupos.map((grupo, idx) => (
+                                            <span
+                                              key={idx}
+                                              className="px-2 py-1 text-xs rounded-full bg-indigo-100 text-indigo-800"
+                                            >
+                                              {grupo}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <span
+                                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                            miembro.estado === "Activo"
+                                              ? "bg-green-100 text-green-800"
+                                              : "bg-gray-100 text-gray-800"
+                                          }`}
+                                        >
+                                          {miembro.estado}
+                                        </span>
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        {miembro.esLider ? (
+                                          <span className="px-2 inline-flex items-center text-xs leading-5 font-semibold rounded-full bg-amber-100 text-amber-800">
+                                            <Star className="h-3 w-3 mr-1" />
+                                            Líder
+                                          </span>
+                                        ) : (
+                                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                                            Miembro
+                                          </span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
                             </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="p-6 text-center text-gray-500">
-                          No hay miembros registrados todavía.
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </>
-              )}
+
+                            {/* Paginación para miembros */}
+                            {totalPaginasMiembros > 1 && (
+                              <div className="mt-4 flex items-center justify-between">
+                                <div className="flex-1 flex justify-between sm:hidden">
+                                  <button
+                                    onClick={() =>
+                                      setPaginaActual((p) => Math.max(p - 1, 1))
+                                    }
+                                    disabled={paginaActual === 1}
+                                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    Anterior
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      setPaginaActual((p) =>
+                                        Math.min(p + 1, totalPaginasMiembros)
+                                      )
+                                    }
+                                    disabled={
+                                      paginaActual === totalPaginasMiembros
+                                    }
+                                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    Siguiente
+                                  </button>
+                                </div>
+                                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                                  <div>
+                                    <p className="text-sm text-gray-700">
+                                      Mostrando{" "}
+                                      <span className="font-medium">
+                                        {indexInicioMiembros + 1}
+                                      </span>{" "}
+                                      a{" "}
+                                      <span className="font-medium">
+                                        {Math.min(
+                                          indexFinMiembros,
+                                          miembros.length
+                                        )}
+                                      </span>{" "}
+                                      de{" "}
+                                      <span className="font-medium">
+                                        {miembros.length}
+                                      </span>{" "}
+                                      resultados
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                                      <button
+                                        onClick={() =>
+                                          setPaginaActual((p) =>
+                                            Math.max(p - 1, 1)
+                                          )
+                                        }
+                                        disabled={paginaActual === 1}
+                                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        <span className="sr-only">
+                                          Anterior
+                                        </span>
+                                        <ChevronRight className="h-5 w-5 transform rotate-180" />
+                                      </button>
+                                      {Array.from(
+                                        {
+                                          length: Math.min(
+                                            5,
+                                            totalPaginasMiembros
+                                          ),
+                                        },
+                                        (_, i) => {
+                                          let pageNum;
+                                          if (totalPaginasMiembros <= 5) {
+                                            pageNum = i + 1;
+                                          } else if (paginaActual <= 3) {
+                                            pageNum = i + 1;
+                                          } else if (
+                                            paginaActual >=
+                                            totalPaginasMiembros - 2
+                                          ) {
+                                            pageNum =
+                                              totalPaginasMiembros - 4 + i;
+                                          } else {
+                                            pageNum = paginaActual - 2 + i;
+                                          }
+                                          return (
+                                            <button
+                                              key={i}
+                                              onClick={() =>
+                                                setPaginaActual(pageNum)
+                                              }
+                                              className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                                pageNum === paginaActual
+                                                  ? "z-10 bg-indigo-50 border-indigo-500 text-indigo-600"
+                                                  : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
+                                              }`}
+                                            >
+                                              {pageNum}
+                                            </button>
+                                          );
+                                        }
+                                      )}
+                                      <button
+                                        onClick={() =>
+                                          setPaginaActual((p) =>
+                                            Math.min(
+                                              p + 1,
+                                              totalPaginasMiembros
+                                            )
+                                          )
+                                        }
+                                        disabled={
+                                          paginaActual === totalPaginasMiembros
+                                        }
+                                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        <span className="sr-only">
+                                          Siguiente
+                                        </span>
+                                        <ChevronRight className="h-5 w-5" />
+                                      </button>
+                                    </nav>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="p-6 text-center text-gray-500">
+                            No hay miembros registrados todavía.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
             </>
           )}
         </main>
