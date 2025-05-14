@@ -1,19 +1,25 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Check, ClipboardList, Save, X } from "lucide-react"
+import { useState, useEffect } from "react";
+import { Check, ClipboardList, Save, X } from "lucide-react";
 
-export default function GrupoForm({ hospitales, editando = false, grupo = null, onGuardar, onCancelar }) {
+export default function GrupoForm({
+  hospitales,
+  editando = false,
+  grupo = null,
+  onGuardar,
+  onCancelar,
+}) {
   const [form, setForm] = useState({
     nombre: "",
     descripcion: "",
     hospital_id: "",
     activo: true,
-  })
-  const [errors, setErrors] = useState({})
-  const [touched, setTouched] = useState({})
-  const [hospitalesFiltrados, setHospitalesFiltrados] = useState([])
-  const [estadoSeleccionado, setEstadoSeleccionado] = useState("")
+  });
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+  const [hospitalesFiltrados, setHospitalesFiltrados] = useState([]);
+  const [estadoSeleccionado, setEstadoSeleccionado] = useState("");
 
   // Inicializar el formulario con los datos del grupo si estamos editando
   useEffect(() => {
@@ -23,89 +29,94 @@ export default function GrupoForm({ hospitales, editando = false, grupo = null, 
         descripcion: grupo.descripcion || "",
         hospital_id: grupo.hospital_id || "",
         activo: grupo.activo !== undefined ? grupo.activo : true,
-      })
+      });
     }
-  }, [editando, grupo])
+  }, [editando, grupo]);
 
   // Obtener estados únicos de los hospitales
-  const estados = [...new Set(hospitales.map((h) => h.estado))].filter(Boolean).sort()
+  const estados = [...new Set(hospitales.map((h) => h.estado))]
+    .filter(Boolean)
+    .sort();
 
   const validateField = (name, value) => {
-    let error = ""
+    let error = "";
 
     switch (name) {
       case "nombre":
-        if (!value) error = "El nombre es obligatorio"
-        else if (value.length < 3) error = "El nombre debe tener al menos 3 caracteres"
-        break
+        if (!value) error = "El nombre es obligatorio";
+        else if (value.length < 3)
+          error = "El nombre debe tener al menos 3 caracteres";
+        break;
       case "descripcion":
-        if (!value) error = "La descripción es obligatoria"
-        break
+        if (!value) error = "La descripción es obligatoria";
+        break;
       case "hospital_id":
-        if (!value) error = "El hospital es obligatorio"
-        break
+        if (!value) error = "El hospital es obligatorio";
+        break;
       default:
-        break
+        break;
     }
 
-    return error
-  }
+    return error;
+  };
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target
-    const val = type === "checkbox" ? checked : value
-    setForm({ ...form, [name]: val })
+    const { name, value, type, checked } = e.target;
+    const val = type === "checkbox" ? checked : value;
+    setForm({ ...form, [name]: val });
 
     // Marcar el campo como tocado
-    setTouched({ ...touched, [name]: true })
+    setTouched({ ...touched, [name]: true });
 
     // Validar el campo
-    const error = validateField(name, val)
-    setErrors({ ...errors, [name]: error })
+    const error = validateField(name, val);
+    setErrors({ ...errors, [name]: error });
 
     // Si cambia el estado, filtrar los hospitales
     if (name === "estado") {
-      setEstadoSeleccionado(value)
-      const filtrados = hospitales.filter((h) => h.estado === value)
-      setHospitalesFiltrados(filtrados)
+      setEstadoSeleccionado(value);
+      const filtrados = hospitales.filter((h) => h.estado === value);
+      setHospitalesFiltrados(filtrados);
       // Resetear el hospital seleccionado
-      setForm((prev) => ({ ...prev, hospital_id: "" }))
+      setForm((prev) => ({ ...prev, hospital_id: "" }));
     }
-  }
+  };
 
   const handleBlur = (e) => {
-    const { name, value, type, checked } = e.target
-    const val = type === "checkbox" ? checked : value
-    setTouched({ ...touched, [name]: true })
-    const error = validateField(name, val)
-    setErrors({ ...errors, [name]: error })
-  }
+    const { name, value, type, checked } = e.target;
+    const val = type === "checkbox" ? checked : value;
+    setTouched({ ...touched, [name]: true });
+    const error = validateField(name, val);
+    setErrors({ ...errors, [name]: error });
+  };
 
   const handleSubmit = (e) => {
-    e.preventDefault()
+    e.preventDefault();
 
     // Validar todos los campos antes de enviar
-    const newErrors = {}
-    let isValid = true
+    const newErrors = {};
+    let isValid = true;
 
     Object.keys(form).forEach((key) => {
       if (key !== "activo") {
         // No validamos el checkbox
-        const error = validateField(key, form[key])
+        const error = validateField(key, form[key]);
         if (error) {
-          newErrors[key] = error
-          isValid = false
+          newErrors[key] = error;
+          isValid = false;
         }
       }
-    })
+    });
 
-    setErrors(newErrors)
-    setTouched(Object.keys(form).reduce((acc, key) => ({ ...acc, [key]: true }), {}))
+    setErrors(newErrors);
+    setTouched(
+      Object.keys(form).reduce((acc, key) => ({ ...acc, [key]: true }), {})
+    );
 
-    if (!isValid) return
+    if (!isValid) return;
 
     // Llamar a la función de guardar del componente padre
-    onGuardar(form)
+    onGuardar(form);
 
     // Limpiar el formulario
     setForm({
@@ -113,8 +124,8 @@ export default function GrupoForm({ hospitales, editando = false, grupo = null, 
       descripcion: "",
       hospital_id: "",
       activo: true,
-    })
-  }
+    });
+  };
 
   return (
     <div className="bg-white rounded-xl shadow-md overflow-hidden">
@@ -133,7 +144,9 @@ export default function GrupoForm({ hospitales, editando = false, grupo = null, 
       <form onSubmit={handleSubmit} className="p-6">
         <div className="grid grid-cols-1 gap-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Estado
+            </label>
             <select
               name="estado"
               value={estadoSeleccionado}
@@ -151,32 +164,40 @@ export default function GrupoForm({ hospitales, editando = false, grupo = null, 
 
           {estadoSeleccionado && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Hospital</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Hospital
+              </label>
               <select
                 name="hospital_id"
                 value={form.hospital_id}
                 onChange={handleChange}
                 onBlur={handleBlur}
                 className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                  errors.hospital_id && touched.hospital_id ? "border-red-500" : "border-gray-300"
+                  errors.hospital_id && touched.hospital_id
+                    ? "border-red-500"
+                    : "border-gray-300"
                 }`}
                 required
               >
                 <option value="">Selecciona un hospital</option>
-                {hospitalesFiltrados.map((hospital, index) => (
-                  <option key={index} value={index}>
+                {hospitalesFiltrados.map((hospital) => (
+                  <option key={hospital.id} value={hospital.id}>
                     {hospital.nombre}
                   </option>
                 ))}
               </select>
               {errors.hospital_id && touched.hospital_id && (
-                <p className="mt-1 text-sm text-red-600">{errors.hospital_id}</p>
+                <p className="mt-1 text-sm text-red-600">
+                  {errors.hospital_id}
+                </p>
               )}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del grupo</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nombre del grupo
+            </label>
             <input
               type="text"
               name="nombre"
@@ -184,16 +205,22 @@ export default function GrupoForm({ hospitales, editando = false, grupo = null, 
               onChange={handleChange}
               onBlur={handleBlur}
               className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                errors.nombre && touched.nombre ? "border-red-500" : "border-gray-300"
+                errors.nombre && touched.nombre
+                  ? "border-red-500"
+                  : "border-gray-300"
               }`}
               placeholder="Ej. Grupo A - Urgencias"
               required
             />
-            {errors.nombre && touched.nombre && <p className="mt-1 text-sm text-red-600">{errors.nombre}</p>}
+            {errors.nombre && touched.nombre && (
+              <p className="mt-1 text-sm text-red-600">{errors.nombre}</p>
+            )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Descripción
+            </label>
             <textarea
               name="descripcion"
               value={form.descripcion}
@@ -201,7 +228,9 @@ export default function GrupoForm({ hospitales, editando = false, grupo = null, 
               onBlur={handleBlur}
               rows={4}
               className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                errors.descripcion && touched.descripcion ? "border-red-500" : "border-gray-300"
+                errors.descripcion && touched.descripcion
+                  ? "border-red-500"
+                  : "border-gray-300"
               }`}
               placeholder="Describe el propósito y función del grupo"
               required
@@ -220,7 +249,10 @@ export default function GrupoForm({ hospitales, editando = false, grupo = null, 
               onChange={handleChange}
               className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
             />
-            <label htmlFor="activo" className="ml-2 block text-sm text-gray-700">
+            <label
+              htmlFor="activo"
+              className="ml-2 block text-sm text-gray-700"
+            >
               Grupo activo
             </label>
           </div>
@@ -255,5 +287,5 @@ export default function GrupoForm({ hospitales, editando = false, grupo = null, 
         </div>
       </form>
     </div>
-  )
+  );
 }
