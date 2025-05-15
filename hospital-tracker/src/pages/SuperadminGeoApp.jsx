@@ -737,9 +737,7 @@ export default function SuperadminGeoApp() {
                                 <th className="px-4 py-2">Estado</th>
                                 <th className="px-4 py-2">Tipo</th>
                                 <th className="px-4 py-2">Región</th>
-                                <th className="px-4 py-2">Lat</th>
-                                <th className="px-4 py-2">Lng</th>
-                                <th className="px-4 py-2">Radio (m)</th>
+                                <th className="px-4 py-2">Radio Cerca (m)</th>
                                 <th className="px-4 py-2">Acciones</th>
                               </tr>
                             </thead>
@@ -766,14 +764,9 @@ export default function SuperadminGeoApp() {
                                       </div>
                                     </td>
                                     <td className="px-4 py-3 text-sm">
-                                      {h.geocerca?.lat?.toFixed(4) ?? "N/A"}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm">
-                                      {h.geocerca?.lng?.toFixed(4) ?? "N/A"}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm">
                                       {h.geocerca?.radio ?? "N/A"}
                                     </td>
+
                                     <td className="px-4 py-3 text-sm">
                                       <button
                                         onClick={() =>
