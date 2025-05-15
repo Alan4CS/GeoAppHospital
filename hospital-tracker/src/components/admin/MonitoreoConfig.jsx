@@ -1,8 +1,6 @@
-"use client"
-
 import { useState } from "react"
 import { Info, Save, X } from "lucide-react"
-import MonitoreoMap from "./Map"
+import MonitoreoMap from "./MonitoreoMap"
 
 export default function MonitoreoConfig() {
   const [config, setConfig] = useState({

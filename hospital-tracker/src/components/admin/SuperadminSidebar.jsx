@@ -20,9 +20,12 @@ export default function SuperadminSidebar({
   handleInicio,
   mostrarFormulario,
   mostrarFormAdmin,
+  mostrarFormGrupo,
+  mostrarFormEmpleado,
   handleMostrarFormulario,
   handleMostrarFormAdmin,
   handleMostrarFormGrupo,
+  handleMostrarFormEmpleado,
   sidebarOpen,
   setSidebarOpen,
 }) {
@@ -35,6 +38,7 @@ export default function SuperadminSidebar({
         sidebarOpen ? "w-64" : "w-20"
       } bg-gradient-to-b from-emerald-800 to-teal-900 text-white transition-all duration-300 ease-in-out flex flex-col h-screen fixed`}
     >
+      {/* Header */}
       <div className="p-4 flex items-center justify-between">
         <div
           className={`flex items-center ${
@@ -56,7 +60,7 @@ export default function SuperadminSidebar({
         </button>
       </div>
 
-      {/* Perfil de usuario */}
+      {/* User Profile */}
       <div
         className={`mt-2 px-4 py-3 ${
           !sidebarOpen ? "flex justify-center" : ""
@@ -76,7 +80,7 @@ export default function SuperadminSidebar({
       </div>
 
       <div className="mt-6 flex flex-col flex-1">
-        {/* Sección de Gestión */}
+        {/* Management Section */}
         {sidebarOpen && (
           <div className="px-4 py-2">
             <h2 className="text-xs font-semibold text-emerald-200 uppercase tracking-wider">
@@ -85,6 +89,7 @@ export default function SuperadminSidebar({
           </div>
         )}
 
+        {/* Hospitals */}
         <button
           onClick={() => {
             handleInicio();
@@ -93,6 +98,8 @@ export default function SuperadminSidebar({
           className={`flex items-center py-3 px-4 hover:bg-emerald-700 ${
             !mostrarFormulario &&
             !mostrarFormAdmin &&
+            !mostrarFormGrupo &&
+            !mostrarFormEmpleado &&
             activeTab === "hospitales"
               ? "bg-emerald-700"
               : ""
@@ -102,6 +109,7 @@ export default function SuperadminSidebar({
           {sidebarOpen && <span className="ml-3">Hospitales</span>}
         </button>
 
+        {/* Administrators */}
         <button
           onClick={() => {
             handleInicio();
@@ -110,6 +118,8 @@ export default function SuperadminSidebar({
           className={`flex items-center py-3 px-4 hover:bg-emerald-700 ${
             !mostrarFormulario &&
             !mostrarFormAdmin &&
+            !mostrarFormGrupo &&
+            !mostrarFormEmpleado &&
             activeTab === "administradores"
               ? "bg-emerald-700"
               : ""
@@ -119,13 +129,18 @@ export default function SuperadminSidebar({
           {sidebarOpen && <span className="ml-3">Administradores</span>}
         </button>
 
+        {/* Groups */}
         <button
           onClick={() => {
             handleInicio();
             setActiveTab("grupos");
           }}
           className={`flex items-center py-3 px-4 hover:bg-emerald-700 ${
-            !mostrarFormulario && !mostrarFormAdmin && activeTab === "grupos"
+            !mostrarFormulario &&
+            !mostrarFormAdmin &&
+            !mostrarFormGrupo &&
+            !mostrarFormEmpleado &&
+            activeTab === "grupos"
               ? "bg-emerald-700"
               : ""
           } ${!sidebarOpen ? "justify-center" : ""}`}
@@ -134,13 +149,18 @@ export default function SuperadminSidebar({
           {sidebarOpen && <span className="ml-3">Grupos</span>}
         </button>
 
+        {/* Employees */}
         <button
           onClick={() => {
             handleInicio();
             setActiveTab("empleados");
           }}
           className={`flex items-center py-3 px-4 hover:bg-emerald-700 ${
-            !mostrarFormulario && !mostrarFormAdmin && activeTab === "empleados"
+            !mostrarFormulario &&
+            !mostrarFormAdmin &&
+            !mostrarFormGrupo &&
+            !mostrarFormEmpleado &&
+            activeTab === "empleados"
               ? "bg-emerald-700"
               : ""
           } ${!sidebarOpen ? "justify-center" : ""}`}
@@ -149,7 +169,7 @@ export default function SuperadminSidebar({
           {sidebarOpen && <span className="ml-3">Empleados</span>}
         </button>
 
-        {/* Sección de Creación */}
+        {/* Creation Section */}
         {sidebarOpen && (
           <div className="px-4 py-2 mt-4">
             <h2 className="text-xs font-semibold text-emerald-200 uppercase tracking-wider">
@@ -158,6 +178,7 @@ export default function SuperadminSidebar({
           </div>
         )}
 
+        {/* Create Hospital */}
         <button
           onClick={handleMostrarFormulario}
           className={`flex items-center py-3 px-4 hover:bg-emerald-700 ${
@@ -168,6 +189,7 @@ export default function SuperadminSidebar({
           {sidebarOpen && <span className="ml-3">Crear Hospital</span>}
         </button>
 
+        {/* Create Admin */}
         <button
           onClick={handleMostrarFormAdmin}
           className={`flex items-center py-3 px-4 hover:bg-emerald-700 ${
@@ -178,34 +200,38 @@ export default function SuperadminSidebar({
           {sidebarOpen && <span className="ml-3">Crear Admin</span>}
         </button>
 
+        {/* Create Group */}
         <button
-          onClick={() => {
-            handleMostrarFormGrupo(); // ✅ Activar el formulario correctamente
-          }}
+          onClick={handleMostrarFormGrupo}
           className={`flex items-center py-3 px-4 hover:bg-emerald-700 ${
-            activeTab === "crearGrupo" ? "bg-emerald-700" : ""
+            mostrarFormGrupo ? "bg-emerald-700" : ""
           } ${!sidebarOpen ? "justify-center" : ""}`}
         >
           <ClipboardList className="h-5 w-5" />
           {sidebarOpen && <span className="ml-3">Crear Grupo</span>}
         </button>
 
-        {/* Sección de Configuración */}
+        {/* Monitoreo Section */}
         {sidebarOpen && (
           <div className="px-4 py-2 mt-4">
             <h2 className="text-xs font-semibold text-emerald-200 uppercase tracking-wider">
-              Configuración
+              Monitoreo GeoApp
             </h2>
           </div>
         )}
 
+        {/* Monitoring */}
         <button
           onClick={() => {
             handleInicio();
             setActiveTab("monitoreo");
           }}
           className={`flex items-center py-3 px-4 hover:bg-emerald-700 ${
-            !mostrarFormulario && !mostrarFormAdmin && activeTab === "monitoreo"
+            !mostrarFormulario &&
+            !mostrarFormAdmin &&
+            !mostrarFormGrupo &&
+            !mostrarFormEmpleado &&
+            activeTab === "monitoreo"
               ? "bg-emerald-700"
               : ""
           } ${!sidebarOpen ? "justify-center" : ""}`}
@@ -214,23 +240,7 @@ export default function SuperadminSidebar({
           {sidebarOpen && <span className="ml-3">Monitoreo</span>}
         </button>
 
-        <button
-          onClick={() => {
-            handleInicio();
-            setActiveTab("configuracion");
-          }}
-          className={`flex items-center py-3 px-4 hover:bg-emerald-700 ${
-            !mostrarFormulario &&
-            !mostrarFormAdmin &&
-            activeTab === "configuracion"
-              ? "bg-emerald-700"
-              : ""
-          } ${!sidebarOpen ? "justify-center" : ""}`}
-        >
-          <Cog className="h-5 w-5" />
-          {sidebarOpen && <span className="ml-3">Configuración</span>}
-        </button>
-
+        {/* Logout */}
         <div className="mt-auto">
           <button
             onClick={() => {
