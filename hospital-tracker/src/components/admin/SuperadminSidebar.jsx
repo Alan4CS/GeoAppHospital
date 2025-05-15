@@ -1,10 +1,11 @@
+"use client";
+
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
   Building2,
   ChevronRight,
   ClipboardList,
-  Cog,
   Hospital,
   LogOut,
   Map,
@@ -36,7 +37,7 @@ export default function SuperadminSidebar({
     <div
       className={`${
         sidebarOpen ? "w-64" : "w-20"
-      } bg-gradient-to-b from-emerald-800 to-teal-900 text-white transition-all duration-300 ease-in-out flex flex-col h-screen fixed`}
+      } bg-gradient-to-b from-emerald-800 to-teal-900 text-white transition-all duration-300 ease-in-out flex flex-col h-screen fixed overflow-y-auto`}
     >
       {/* Header */}
       <div className="p-4 flex items-center justify-between">
@@ -241,7 +242,7 @@ export default function SuperadminSidebar({
         </button>
 
         {/* Logout */}
-        <div className="mt-auto">
+        <div className="mt-auto mb-4">
           <button
             onClick={() => {
               localStorage.removeItem("isAuthenticated");
