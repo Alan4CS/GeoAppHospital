@@ -64,7 +64,7 @@ export default function AdminForm({
           }
 
           const res = await fetch(
-            `http://localhost:4000/api/hospitaladmin/municipios-by-estado/${estadoSeleccionado.id_estado}`
+            `http://localhost:4000/api/municipioadmin/municipios-by-estado/${estadoSeleccionado.id_estado}`
           );
 
           if (!res.ok) {
@@ -163,7 +163,7 @@ export default function AdminForm({
         if (adminForm.tipoAdmin && !value) error = "El estado es obligatorio";
         break;
       case "municipio":
-        if (adminForm.tipoAdmin === "adminmunicipio" && !value)
+        if (adminForm.tipoAdmin === "municipioadmin" && !value)
           error = "El municipio es obligatorio";
         break;
       case "hospital":
@@ -282,7 +282,7 @@ export default function AdminForm({
         newErrors.estado = error;
         isValid = false;
       }
-    } else if (adminForm.tipoAdmin === "adminmunicipio") {
+    } else if (adminForm.tipoAdmin === "municipioadmin") {
       const estadoError = validateField("estado", adminForm.estado);
       const municipioError = validateField("municipio", adminForm.municipio);
       if (estadoError) {
@@ -356,8 +356,9 @@ export default function AdminForm({
               ap_materno: adminForm.ap_materno,
               curp: adminForm.CURP,
               telefono: adminForm.telefono,
-              estado: adminForm.estado,
-              municipio: adminForm.municipio,
+              id_estado: adminForm.estado,
+              id_municipio: adminForm.municipio,
+              role_name: adminForm.role_name,
               user,
               pass,
             }),
@@ -502,7 +503,7 @@ export default function AdminForm({
             >
               <option value="">Selecciona un tipo</option>
               <option value="estadoadmin">Administrador de Estado</option>
-              <option value="adminmunicipio">Administrador de Municipio</option>
+              <option value="municipioadmin">Administrador de Municipio</option>
               <option value="hospitaladmin">Administrador de Hospital</option>
             </select>
             {errors.tipoAdmin && touched.tipoAdmin && (
@@ -523,7 +524,7 @@ export default function AdminForm({
                 )}
                 {adminForm.tipoAdmin === "estadoadmin"
                   ? "Información del Estado"
-                  : adminForm.tipoAdmin === "adminmunicipio"
+                  : adminForm.tipoAdmin === "municipioadmino"
                   ? "Información del Municipio"
                   : "Información del Hospital"}
               </h3>
@@ -566,7 +567,7 @@ export default function AdminForm({
           )}
 
           {/* Select de municipios (solo para adminmunicipio) */}
-          {["adminmunicipio", "hospitaladmin"].includes(adminForm.tipoAdmin) &&
+          {["municipioadmin", "hospitaladmin"].includes(adminForm.tipoAdmin) &&
             adminForm.estado && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

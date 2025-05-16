@@ -7,7 +7,6 @@ router.get("/municipios-by-estado/:id_estado", async (req, res) => {
   const { id_estado } = req.params;
 
   try {
-
     // 1. Buscar Municipios
     const municipios = await pool.query(
       `SELECT 
@@ -26,7 +25,17 @@ router.get("/municipios-by-estado/:id_estado", async (req, res) => {
 });
 
 router.post("/create-municipioadmin", async (req, res) => {
-  const { nombre, ap_paterno, ap_materno, CURP, user, pass, role_name, id_estado, id_municipio } = req.body;
+  const {
+    nombre,
+    ap_paterno,
+    ap_materno,
+    CURP,
+    user,
+    pass,
+    role_name,
+    id_estado,
+    id_municipio,
+  } = req.body;
 
   const client = await pool.connect();
 
@@ -66,12 +75,15 @@ router.post("/create-municipioadmin", async (req, res) => {
     );
 
     await client.query("COMMIT");
-    res.status(201).json({ message: "Administrador de municipio creado con éxito" });
-
+    res
+      .status(201)
+      .json({ message: "Administrador de municipio creado con éxito" });
   } catch (error) {
     await client.query("ROLLBACK");
     console.error("❌ Error al crear municipioadmin:", error);
-    res.status(500).json({ error: "Error al crear el administrador de municipio" });
+    res
+      .status(500)
+      .json({ error: "Error al crear el administrador de municipio" });
   } finally {
     client.release();
   }
