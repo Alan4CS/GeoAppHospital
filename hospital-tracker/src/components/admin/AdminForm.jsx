@@ -252,7 +252,7 @@ export default function AdminForm({
     setErrors({ ...errors, [name]: error });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     const newErrors = {};
@@ -341,7 +341,40 @@ export default function AdminForm({
       hospital: adminForm.hospital,
       grupos: adminForm.grupos,
     };
+    if (adminForm.tipoAdmin === "adminmunicipio") {
+      try {
+        const response = await fetch(
+          "http://localhost:4000/api/municipioadmin/create-municipioadmin",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              nombre: adminForm.nombres,
+              ap_paterno: adminForm.ap_paterno,
+              ap_materno: adminForm.ap_materno,
+              curp: adminForm.CURP,
+              telefono: adminForm.telefono,
+              estado: adminForm.estado,
+              municipio: adminForm.municipio,
+              user,
+              pass,
+            }),
+          }
+        );
 
+        if (!response.ok) {
+          throw new Error("Error al registrar el municipioadmin");
+        }
+      } catch (error) {
+        console.error("Error al crear municipioadmin:", error);
+        alert("Hubo un error al crear el administrador municipal.");
+        return;
+      }
+    }
+
+    // En todos los casos, continúa con onGuardar
     onGuardar(adminData);
   };
 
