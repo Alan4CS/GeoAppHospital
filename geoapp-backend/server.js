@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import superadminRoutes from "./routes/superadmin.js";
 import loginRoutes from "./routes/login.js"
 import estadoadminRoutes from "./routes/estadoadmin.js"
+import hospitaladminRoutes from "./routes/hospitaladmin.js"
 
 dotenv.config();
 const app = express();
@@ -15,6 +16,7 @@ app.use(express.json());
 app.use("/api/superadmin", superadminRoutes);
 app.use("/api/auth", loginRoutes);
 app.use("/api/estadoadmin", estadoadminRoutes);
+app.use("/api/hospitaladmin", hospitaladminRoutes);
 
 
 const PORT = process.env.PORT || 4000;
