@@ -533,38 +533,41 @@ export default function AdminForm({
           )}
 
           {/* Select de municipios (solo para adminmunicipio) */}
-          {adminForm.tipoAdmin === "adminmunicipio" && adminForm.estado && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Municipio
-              </label>
-              <select
-                name="municipio"
-                value={adminForm.municipio}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                  errors.municipio && touched.municipio
-                    ? "border-red-500"
-                    : "border-gray-300"
-                }`}
-                required
-              >
-                <option value="">Selecciona un municipio</option>
-                {municipios.map((municipio) => (
-                  <option
-                    key={municipio.id_municipio}
-                    value={municipio.nombre_municipio}
-                  >
-                    {municipio.nombre_municipio.toUpperCase()}
-                  </option>
-                ))}
-              </select>
-              {errors.municipio && touched.municipio && (
-                <p className="mt-1 text-sm text-red-600">{errors.municipio}</p>
-              )}
-            </div>
-          )}
+          {["adminmunicipio", "hospitaladmin"].includes(adminForm.tipoAdmin) &&
+            adminForm.estado && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Municipio
+                </label>
+                <select
+                  name="municipio"
+                  value={adminForm.municipio}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    errors.municipio && touched.municipio
+                      ? "border-red-500"
+                      : "border-gray-300"
+                  }`}
+                  required
+                >
+                  <option value="">Selecciona un municipio</option>
+                  {municipios.map((municipio) => (
+                    <option
+                      key={municipio.id_municipio}
+                      value={municipio.nombre_municipio}
+                    >
+                      {municipio.nombre_municipio.toUpperCase()}
+                    </option>
+                  ))}
+                </select>
+                {errors.municipio && touched.municipio && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.municipio}
+                  </p>
+                )}
+              </div>
+            )}
 
           {/* Select de hospitales (solo para hospitaladmin) */}
           {adminForm.tipoAdmin === "hospitaladmin" && adminForm.estado && (
