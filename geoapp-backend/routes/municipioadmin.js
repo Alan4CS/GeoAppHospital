@@ -3,25 +3,29 @@ import { pool } from "../db/index.js";
 
 const router = express.Router();
 
-router.get("/hospitals-by-municipio", async (req, res) => {
-  const { id_estado, id_municipio } = req.query;
+router.get("/municipios-by-estado/:id_estado", async (req, res) => {
+  const { id_estado } = req.params;
 
   try {
-    const result = await pool.query(
-      `SELECT nombre_hospital 
-       FROM hospitals 
-       WHERE estado_id = $1 AND id_municipio = $2`,
-      [id_estado, id_municipio]
+
+    // 1. Buscar Municipios
+    const municipios = await pool.query(
+      `SELECT 
+         m.nombre_municipio 
+       FROM municipios m
+       JOIN estados e ON m.id_estado = e.id_estado
+       WHERE m.id_estado = $1`,
+      [id_estado]
     );
 
-    res.json(result.rows);
+    res.json(municipios.rows);
   } catch (error) {
-    console.error("❌ Error al obtener hospitales por municipio:", error);
-    res.status(500).json({ error: "Error al consultar hospitales" });
+    console.error("❌ Error al obtener los municipios por estado:", error);
+    res.status(500).json({ error: "Error al obtener municipios" });
   }
 });
 
-router.post("/create-hospitaladmin", async (req, res) => {
+router.post("/create-municipioadmin", async (req, res) => {
   const { nombre, ap_paterno, ap_materno, CURP, user, pass, role_name, id_estado, id_municipio } = req.body;
 
   const client = await pool.connect();
