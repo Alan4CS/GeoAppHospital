@@ -40,6 +40,7 @@ export default function AdminForm({
       try {
         const res = await fetch("http://localhost:4000/api/superadmin/estados");
         const data = await res.json();
+
         setEstados(data);
       } catch (error) {
         console.error("Error al obtener estados:", error);
@@ -52,34 +53,29 @@ export default function AdminForm({
     if (adminForm.estado) {
       const fetchMunicipios = async () => {
         try {
-          // En una implementación real, esta sería una llamada a la API
-          // Simulamos la respuesta para este ejemplo
-          // const res = await fetch(`http://localhost:4000/api/superadmin/municipios/${adminForm.estado}`);
-          // const data = await res.json();
+          // Primero necesitamos obtener el ID del estado seleccionado
+          const estadoSeleccionado = estados.find(
+            (e) => e.nombre_estado === adminForm.estado
+          );
 
-          // Datos simulados de municipios
-          const mockMunicipios = [
-            { id_municipio: 1, nombre_municipio: "Guadalajara", id_estado: 1 },
-            { id_municipio: 2, nombre_municipio: "Zapopan", id_estado: 1 },
-            { id_municipio: 3, nombre_municipio: "Monterrey", id_estado: 2 },
-            { id_municipio: 4, nombre_municipio: "San Pedro", id_estado: 2 },
-            {
-              id_municipio: 5,
-              nombre_municipio: "Benito Juárez",
-              id_estado: 3,
-            },
-            {
-              id_municipio: 6,
-              nombre_municipio: "Miguel Hidalgo",
-              id_estado: 3,
-            },
-          ];
+          if (!estadoSeleccionado) {
+            setMunicipios([]);
+            return;
+          }
 
-          // Filtramos los municipios según el estado seleccionado
-          // En una implementación real, esto vendría filtrado de la API
-          setMunicipios(mockMunicipios);
+          const res = await fetch(
+            `http://localhost:4000/api/hospitaladmin/municipios-by-estado/${estadoSeleccionado.id_estado}`
+          );
+
+          if (!res.ok) {
+            throw new Error("Error al obtener municipios");
+          }
+
+          const data = await res.json();
+          setMunicipios(data);
         } catch (error) {
           console.error("Error al obtener municipios:", error);
+          setMunicipios([]);
         }
       };
       fetchMunicipios();
@@ -180,6 +176,7 @@ export default function AdminForm({
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    const formattedValue = name === "estado" ? value.toUpperCase() : value;
 
     if (type === "checkbox") {
       if (name.startsWith("grupo-")) {
@@ -559,7 +556,7 @@ export default function AdminForm({
                     key={municipio.id_municipio}
                     value={municipio.nombre_municipio}
                   >
-                    {municipio.nombre_municipio}
+                    {municipio.nombre_municipio.toUpperCase()}
                   </option>
                 ))}
               </select>
