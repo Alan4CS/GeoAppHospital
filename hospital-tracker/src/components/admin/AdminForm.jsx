@@ -34,6 +34,31 @@ export default function AdminForm({
   const [municipios, setMunicipios] = useState([]);
   const [hospitalesFiltrados, setHospitalesFiltrados] = useState([]);
   const [grupos, setGrupos] = useState([]);
+  // 🔽 justo aquí puedes agregar los nuevos useEffect
+  useEffect(() => {
+    const estadoSeleccionado = estados.find(
+      (e) => e.nombre_estado === adminForm.estado
+    );
+    if (estadoSeleccionado) {
+      console.log(
+        "🟦 ID Estado seleccionado:",
+        estadoSeleccionado.id_estado,
+        "-",
+        typeof estadoSeleccionado.id_estado
+      );
+    }
+  }, [adminForm.estado, estados]);
+
+  useEffect(() => {
+    if (adminForm.municipio) {
+      console.log(
+        "🟩 ID Municipio seleccionado:",
+        adminForm.municipio,
+        "-",
+        typeof adminForm.municipio
+      );
+    }
+  }, [adminForm.municipio]);
 
   useEffect(() => {
     const fetchEstados = async () => {
@@ -95,16 +120,44 @@ export default function AdminForm({
   }, [adminForm.estado, hospitales, setHospitalesFiltradosPorEstado]);
 
   useEffect(() => {
-    if (adminForm.municipio && hospitalesFiltrados.length > 0) {
-      // Filtrar hospitales por municipio
-      const hospitalesDelMunicipio = hospitalesFiltrados.filter(
-        (h) =>
-          h.municipio &&
-          h.municipio.toLowerCase() === adminForm.municipio.toLowerCase()
-      );
-      setHospitalesFiltrados(hospitalesDelMunicipio);
-    }
-  }, [adminForm.municipio, hospitalesFiltrados]);
+    const fetchHospitales = async () => {
+      if (!adminForm.estado || !adminForm.municipio) {
+        setHospitalesFiltrados([]);
+        setHospitalesFiltradosPorEstado([]);
+        return;
+      }
+
+      try {
+        const estadoSeleccionado = estados.find(
+          (e) => e.nombre_estado === adminForm.estado
+        );
+
+        if (!estadoSeleccionado) {
+          setHospitalesFiltrados([]);
+          setHospitalesFiltradosPorEstado([]);
+          return;
+        }
+
+        const res = await fetch(
+          `http://localhost:4000/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${adminForm.municipio}`
+        );
+
+        if (!res.ok) {
+          throw new Error("Error al obtener hospitales por municipio");
+        }
+
+        const data = await res.json();
+        setHospitalesFiltrados(data);
+        setHospitalesFiltradosPorEstado(data);
+      } catch (error) {
+        console.error("Error al obtener hospitales:", error);
+        setHospitalesFiltrados([]);
+        setHospitalesFiltradosPorEstado([]);
+      }
+    };
+
+    fetchHospitales();
+  }, [adminForm.estado, adminForm.municipio, estados]);
 
   useEffect(() => {
     if (adminForm.hospital) {
@@ -176,7 +229,6 @@ export default function AdminForm({
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    const formattedValue = name === "estado" ? value.toUpperCase() : value;
 
     if (type === "checkbox") {
       if (name.startsWith("grupo-")) {
@@ -191,13 +243,25 @@ export default function AdminForm({
         });
       }
     } else {
-      const formattedValue = name === "CURP" ? value.toUpperCase() : value;
+      // Procesar valores especiales
+      let formattedValue;
+      if (name === "CURP") {
+        formattedValue = value.toUpperCase();
+      } else if (name === "municipio") {
+        // Convertir el municipio a número entero
+        formattedValue = value ? parseInt(value, 10) : "";
+      } else if (name === "hospital") {
+        // Convertir el hospital a número entero
+        formattedValue = value ? parseInt(value, 10) : "";
+      } else {
+        formattedValue = value;
+      }
 
       // Resetear campos dependientes cuando cambia un campo superior
       if (name === "tipoAdmin") {
         if (
           value !== "estadoadmin" &&
-          value !== "adminmunicipio" &&
+          value !== "municipioadmin" &&
           value !== "hospitaladmin"
         ) {
           setAdminForm({
@@ -326,6 +390,9 @@ export default function AdminForm({
     };
 
     const pass = generarPassword();
+    console.log("IDs que se enviarán:");
+    console.log("ID Estado:", parseInt(adminForm.estado));
+    console.log("ID Municipio:", adminForm.municipio); // Ya es un entero
 
     const adminData = {
       nombre: adminForm.nombres,
@@ -341,49 +408,40 @@ export default function AdminForm({
       hospital: adminForm.hospital,
       grupos: adminForm.grupos,
     };
-    if (adminForm.tipoAdmin === "adminmunicipio") {
-      try {
-        const response = await fetch(
-          "http://localhost:4000/api/municipioadmin/create-municipioadmin",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              nombre: adminForm.nombres,
-              ap_paterno: adminForm.ap_paterno,
-              ap_materno: adminForm.ap_materno,
-              curp: adminForm.CURP,
-              telefono: adminForm.telefono,
-              id_estado: adminForm.estado,
-              id_municipio: adminForm.municipio,
-              role_name: adminForm.role_name,
-              user,
-              pass,
-            }),
-          }
+
+    try {
+      // Solo para municipioadmin, obtenemos los IDs necesarios
+      if (adminForm.tipoAdmin === "municipioadmin") {
+        const estadoSeleccionado = estados.find(
+          (e) => e.nombre_estado === adminForm.estado
         );
 
-        if (!response.ok) {
-          throw new Error("Error al registrar el municipioadmin");
-        }
-      } catch (error) {
-        console.error("Error al crear municipioadmin:", error);
-        alert("Hubo un error al crear el administrador municipal.");
-        return;
-      }
-    }
+        const idEstado = estadoSeleccionado
+          ? parseInt(estadoSeleccionado.id_estado)
+          : null;
 
-    // En todos los casos, continúa con onGuardar
-    onGuardar(adminData);
+        const idMunicipio = adminForm.municipio;
+
+        // Modificamos adminData para incluir los IDs correctos
+        adminData.id_estado = idEstado;
+        adminData.id_municipio = idMunicipio;
+      }
+
+      // Llamamos a onGuardar que debería manejar todas las creaciones
+      if (onGuardar) {
+        await onGuardar(adminData);
+      }
+    } catch (error) {
+      console.error("Error al crear administrador:", error);
+      alert("Hubo un error al crear el administrador.");
+    }
   };
 
   const getTipoAdminLabel = () => {
     switch (adminForm.tipoAdmin) {
       case "estadoadmin":
         return "Administrador Estatal";
-      case "adminmunicipio":
+      case "municipioadmin":
         return "Administrador Municipal";
       case "hospitaladmin":
         return "Administrador de Hospital";
@@ -391,7 +449,6 @@ export default function AdminForm({
         return "Administrador";
     }
   };
-
   return (
     <div className="bg-white rounded-xl shadow-md overflow-hidden">
       <div className="p-6 border-b border-gray-200">
@@ -517,7 +574,7 @@ export default function AdminForm({
               <h3 className="text-sm font-medium text-gray-700 flex items-center mb-0 pb-0 border-b">
                 {adminForm.tipoAdmin === "estadoadmin" ? (
                   <MapPin className="h-4 w-4 mr-2 text-blue-600" />
-                ) : adminForm.tipoAdmin === "adminmunicipio" ? (
+                ) : adminForm.tipoAdmin === "municipioadmin" ? (
                   <Building2 className="h-4 w-4 mr-2 text-blue-600" />
                 ) : (
                   <Hospital className="h-4 w-4 mr-2 text-blue-600" />
@@ -535,7 +592,7 @@ export default function AdminForm({
           {adminForm.tipoAdmin && (
             <div
               className={
-                adminForm.tipoAdmin === "adminmunicipio" ? "" : "md:col-span-2"
+                adminForm.tipoAdmin === "municipioadmin" ? "" : "md:col-span-2"
               }
             >
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -589,7 +646,7 @@ export default function AdminForm({
                   {municipios.map((municipio) => (
                     <option
                       key={municipio.id_municipio}
-                      value={municipio.nombre_municipio}
+                      value={municipio.id_municipio}
                     >
                       {municipio.nombre_municipio.toUpperCase()}
                     </option>
@@ -623,8 +680,11 @@ export default function AdminForm({
               >
                 <option value="">Selecciona un hospital</option>
                 {hospitalesFiltrados.map((hospital) => (
-                  <option key={hospital.id} value={hospital.nombre}>
-                    {hospital.nombre}
+                  <option
+                    key={hospital.id_hospital}
+                    value={hospital.id_hospital}
+                  >
+                    {hospital.nombre_hospital}
                   </option>
                 ))}
               </select>

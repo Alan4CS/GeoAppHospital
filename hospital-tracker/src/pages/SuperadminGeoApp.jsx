@@ -315,25 +315,45 @@ export default function SuperadminGeoApp() {
   // Manejador para guardar un administrador
   const handleGuardarAdmin = async (nuevoAdmin) => {
     try {
-      const response = await fetch(
-        "http://localhost:4000/api/superadmin/create-admin",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(nuevoAdmin),
-        }
-      );
+      let endpoint = "";
+
+      // Elegir endpoint según el rol
+      switch (nuevoAdmin.role_name) {
+        case "estadoadmin":
+          endpoint = "http://localhost:4000/api/superadmin/create-admin";
+          break;
+        case "municipioadmin":
+          endpoint =
+            "http://localhost:4000/api/municipioadmin/create-municipioadmin";
+          break;
+        case "hospitaladmin":
+          endpoint =
+            "http://localhost:4000/api/hospitaladmin/create-hospitaladmin";
+          break;
+        default:
+          alert("❌ Tipo de administrador no reconocido.");
+          return;
+      }
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(nuevoAdmin),
+      });
 
       if (!response.ok) throw new Error("Fallo al crear el administrador");
 
       const data = await response.json();
+
       alert(
-        `✅ ${data.message}\n🆔 Usuario: ${nuevoAdmin.user}\n🔑 Contraseña: ${nuevoAdmin.pass}`
+        `✅ ${
+          data.message || "Administrador creado correctamente"
+        }\n🆔 Usuario: ${nuevoAdmin.user}\n🔑 Contraseña: ${nuevoAdmin.pass}`
       );
 
-      // Actualizar la lista de administradores desde la base de datos
+      // Refrescar la lista
       await fetchAdministradores();
       resetearFormularios();
       setActiveTab("administradores");
@@ -1166,7 +1186,8 @@ export default function SuperadminGeoApp() {
                                                       : "bg-emerald-100 text-emerald-800"
                                                   }`}
                                                 >
-                                                  {admin.role_name === "estadoadmin"
+                                                  {admin.role_name ===
+                                                  "estadoadmin"
                                                     ? "Admin Estatal"
                                                     : admin.role_name ===
                                                       "municipioadmin"
