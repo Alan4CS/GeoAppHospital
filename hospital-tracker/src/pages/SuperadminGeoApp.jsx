@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -19,9 +17,11 @@ import {
   UsersRound,
   UserPlus,
 } from "lucide-react";
-import StatsCard from "../components/admin/StatsCard";
-import MonitoreoMap from "../components/admin/MonitoreoMap";
-import MonitoreoConfig from "../components/admin/MonitoreoConfig";
+import StatsCard from "../components/admin/StatsCard"
+import MonitoreoMap from "../components/admin/MonitoreoMap"
+import MonitoreoConfig from "../components/admin/MonitoreoConfig"
+import MonitoreoDashboard from "../components/dashboard/MonitoreoDashboard"
+
 
 export default function SuperadminGeoApp() {
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
@@ -506,6 +506,8 @@ export default function SuperadminGeoApp() {
                 ? "Gestión de Administradores"
                 : activeTab === "grupos"
                 ? "Gestión de Grupos"
+                : activeTab === "dashboard"
+                ? "Dashboard Analítico"
                 : activeTab === "empleados"
                 ? "Gestión de Empleados"
                 : activeTab === "monitoreo"
@@ -668,6 +670,13 @@ export default function SuperadminGeoApp() {
             />
           )}
 
+          {/* DASHBOARD */}
+          {!mostrarFormulario &&
+            !mostrarFormAdmin &&
+            !mostrarFormGrupo &&
+            !mostrarFormEmpleado &&
+            activeTab === "dashboard" && <MonitoreoDashboard />}
+
           {/* MONITOREO */}
           {!mostrarFormulario &&
             !mostrarFormAdmin &&
@@ -688,7 +697,8 @@ export default function SuperadminGeoApp() {
             !mostrarFormGrupo &&
             !mostrarFormEmpleado &&
             activeTab !== "monitoreo" &&
-            activeTab !== "configuracion" && (
+            activeTab !== "configuracion" && 
+            activeTab !== "dashboard" && (
               <>
                 {activeTab === "hospitales" && (
                   <div className="bg-white shadow-md rounded-xl overflow-hidden">
@@ -1166,10 +1176,11 @@ export default function SuperadminGeoApp() {
                                                       : "bg-emerald-100 text-emerald-800"
                                                   }`}
                                                 >
-                                                  {admin.role_name === "estadoadmin"
+                                                  {admin.role_name ===
+                                                  "estadoadmin"
                                                     ? "Admin Estatal"
                                                     : admin.role_name ===
-                                                      "municipioadmin"
+                                                      "adminmunicipio"
                                                     ? "Admin Municipal"
                                                     : "Admin Hospital"}
                                                 </span>
