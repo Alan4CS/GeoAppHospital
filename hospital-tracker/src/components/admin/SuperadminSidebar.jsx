@@ -35,6 +35,8 @@ export default function SuperadminSidebar({
 
   return (
     <div
+      onMouseEnter={() => setSidebarOpen(true)}
+      onMouseLeave={() => setSidebarOpen(false)}
       className={`${
         sidebarOpen ? "w-64" : "w-20"
       } bg-gradient-to-b from-emerald-800 to-teal-900 text-white transition-all duration-300 ease-in-out flex flex-col h-screen fixed overflow-y-auto`}
@@ -54,6 +56,7 @@ export default function SuperadminSidebar({
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="text-white p-1 rounded-full hover:bg-emerald-700"
+          style={{ display: "none" }}
         >
           <ChevronRight
             className={`h-5 w-5 transform ${sidebarOpen ? "rotate-180" : ""}`}
