@@ -9,7 +9,8 @@ router.get("/municipios-by-estado/:id_estado", async (req, res) => {
   try {
     // 1. Buscar Municipios
     const municipios = await pool.query(
-      `SELECT 
+      `SELECT
+         m.id_municipio, 
          m.nombre_municipio 
        FROM municipios m
        JOIN estados e ON m.id_estado = e.id_estado

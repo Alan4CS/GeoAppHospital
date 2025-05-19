@@ -8,7 +8,7 @@ router.get("/hospitals-by-municipio", async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT nombre_hospital 
+      `SELECT id_hospital, nombre_hospital 
        FROM hospitals 
        WHERE estado_id = $1 AND id_municipio = $2`,
       [id_estado, id_municipio]
