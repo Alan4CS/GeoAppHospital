@@ -1166,11 +1166,10 @@ export default function SuperadminGeoApp() {
                                                       : "bg-emerald-100 text-emerald-800"
                                                   }`}
                                                 >
-                                                  {admin.role_name ===
-                                                  "estadoadmin"
+                                                  {admin.role_name === "estadoadmin"
                                                     ? "Admin Estatal"
                                                     : admin.role_name ===
-                                                      "adminmunicipio"
+                                                      "municipioadmin"
                                                     ? "Admin Municipal"
                                                     : "Admin Hospital"}
                                                 </span>
