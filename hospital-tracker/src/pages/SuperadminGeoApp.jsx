@@ -17,11 +17,10 @@ import {
   UsersRound,
   UserPlus,
 } from "lucide-react";
-import StatsCard from "../components/admin/StatsCard"
-import MonitoreoMap from "../components/admin/MonitoreoMap"
-import MonitoreoConfig from "../components/admin/MonitoreoConfig"
-import MonitoreoDashboard from "../components/dashboard/MonitoreoDashboard"
-
+import StatsCard from "../components/admin/StatsCard";
+import MonitoreoMap from "../components/admin/MonitoreoMap";
+import MonitoreoConfig from "../components/admin/MonitoreoConfig";
+import MonitoreoDashboard from "../components/dashboard/MonitoreoDashboard";
 
 export default function SuperadminGeoApp() {
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
@@ -717,7 +716,7 @@ export default function SuperadminGeoApp() {
             !mostrarFormGrupo &&
             !mostrarFormEmpleado &&
             activeTab !== "monitoreo" &&
-            activeTab !== "configuracion" && 
+            activeTab !== "configuracion" &&
             activeTab !== "dashboard" && (
               <>
                 {activeTab === "hospitales" && (
@@ -1186,21 +1185,19 @@ export default function SuperadminGeoApp() {
                                               <td className="px-4 py-3 whitespace-nowrap text-sm">
                                                 <span
                                                   className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                                  ${
-                                                    admin.role_name ===
-                                                    "estadoadmin"
-                                                      ? "bg-blue-100 text-blue-800"
-                                                      : admin.role_name ===
-                                                        "adminmunicipio"
-                                                      ? "bg-purple-100 text-purple-800"
-                                                      : "bg-emerald-100 text-emerald-800"
-                                                  }`}
+                                      ${
+                                        admin.role_name === "estadoadmin"
+                                          ? "bg-blue-100 text-blue-800"
+                                          : admin.role_name === "municipioadmin"
+                                          ? "bg-purple-100 text-purple-800"
+                                          : "bg-emerald-100 text-emerald-800"
+                                      }`}
                                                 >
                                                   {admin.role_name ===
                                                   "estadoadmin"
                                                     ? "Admin Estatal"
                                                     : admin.role_name ===
-                                                      "adminmunicipio"
+                                                      "municipioadmin"
                                                     ? "Admin Municipal"
                                                     : "Admin Hospital"}
                                                 </span>
