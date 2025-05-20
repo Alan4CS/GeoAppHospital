@@ -7,6 +7,7 @@ import loginRoutes from "./routes/login.js"
 import estadoadminRoutes from "./routes/estadoadmin.js"
 import municipioladminRoutes from "./routes/municipioadmin.js"
 import hospitaladmin from "./routes/hospitaladmin.js"
+import groups from "./routes/groups.js"
 
 dotenv.config();
 const app = express();
@@ -19,6 +20,7 @@ app.use("/api/auth", loginRoutes);
 app.use("/api/estadoadmin", estadoadminRoutes);
 app.use("/api/municipioadmin", municipioladminRoutes);
 app.use("/api/hospitaladmin", hospitaladmin);
+app.use("/api/groups", groups);
 
 
 const PORT = process.env.PORT || 4000;
