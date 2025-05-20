@@ -108,93 +108,82 @@ export default function SuperadminGeoApp() {
     fetchAdministradores();
   }, []);
 
-  // Datos de ejemplo para grupos y empleados
   useEffect(() => {
-    // Simulación de datos de grupos
-    const gruposEjemplo = [
-      {
-        id: 1,
-        nombre: "Grupo A - Urgencias",
-        descripcion: "Personal de atención en urgencias",
-        hospital_id: 0,
-        hospital_nombre: "Hospital General Regional #1",
-        estado: "Ciudad de México",
-        fechaCreacion: "2023-05-15",
-        totalMiembros: 12,
-        activo: true,
-      },
-      {
-        id: 2,
-        nombre: "Grupo B - Pediatría",
-        descripcion: "Equipo de atención pediátrica",
-        hospital_id: 0,
-        hospital_nombre: "Hospital General Regional #1",
-        estado: "Ciudad de México",
-        fechaCreacion: "2023-06-20",
-        totalMiembros: 8,
-        activo: true,
-      },
-      {
-        id: 3,
-        nombre: "Grupo C - Cirugía",
-        descripcion: "Personal de quirófano y cirugía",
-        hospital_id: 1,
-        hospital_nombre: "Hospital General de Zona #48",
-        estado: "Jalisco",
-        fechaCreacion: "2023-07-10",
-        totalMiembros: 15,
-        activo: true,
-      },
-    ];
-    setGrupos(gruposEjemplo);
+    const fetchGrupos = async () => {
+      try {
+        const res = await fetch("http://localhost:4000/api/groups/get-groups");
+        const data = await res.json();
 
-    // Simulación de datos de empleados
-    const empleadosEjemplo = [
-      {
-        id: 1,
-        nombre: "Ana",
-        ap_paterno: "García",
-        ap_materno: "Ramírez",
-        curp: "GARA900517MDFNRN09",
-        telefono: "5512345678",
-        grupo_id: 1,
-        grupo_nombre: "Grupo A - Urgencias",
-        hospital_id: 0,
-        hospital_nombre: "Hospital General Regional #1",
-        estado: "Ciudad de México",
-        activo: true,
-      },
-      {
-        id: 2,
-        nombre: "Carlos",
-        ap_paterno: "Mendoza",
-        ap_materno: "López",
-        curp: "MERC880612HDFNRL03",
-        telefono: "5587654321",
-        grupo_id: 1,
-        grupo_nombre: "Grupo A - Urgencias",
-        hospital_id: 0,
-        hospital_nombre: "Hospital General Regional #1",
-        estado: "Ciudad de México",
-        activo: true,
-      },
-      {
-        id: 3,
-        nombre: "Laura",
-        ap_paterno: "Sánchez",
-        ap_materno: "Cruz",
-        curp: "SARL910823MDFNCR07",
-        telefono: "5523456789",
-        grupo_id: 2,
-        grupo_nombre: "Grupo B - Pediatría",
-        hospital_id: 0,
-        hospital_nombre: "Hospital General Regional #1",
-        estado: "Ciudad de México",
-        activo: true,
-      },
-    ];
-    setEmpleados(empleadosEjemplo);
+        const gruposFormateados = data.map((g) => ({
+          id: g.id_group,
+          nombre: g.nombre_grupo,
+          descripcion: g.descripcion_group,
+          hospital_id: null,
+          hospital_nombre: g.nombre_hospital,
+          estado: g.nombre_estado,
+          municipio: g.nombre_municipio || "-",
+          fechaCreacion: "2025-01-01",
+          totalMiembros: 0,
+          activo: true,
+        }));
+
+        setGrupos(gruposFormateados);
+
+        // 🧪 Empleados falsos conectados a los grupos reales
+        const empleadosEjemplo = [
+          {
+            id: 1,
+            nombre: "Ana",
+            ap_paterno: "García",
+            ap_materno: "Ramírez",
+            curp: "GARA900517MDFNRN09",
+            telefono: "5512345678",
+            grupo_id: gruposFormateados[0]?.id ?? null,
+            grupo_nombre: gruposFormateados[0]?.nombre ?? "Grupo A",
+            hospital_id: null,
+            hospital_nombre: gruposFormateados[0]?.hospital_nombre ?? "Hospital X",
+            estado: gruposFormateados[0]?.estado ?? "Desconocido",
+            activo: true,
+          },
+          {
+            id: 2,
+            nombre: "Carlos",
+            ap_paterno: "Mendoza",
+            ap_materno: "López",
+            curp: "MERC880612HDFNRL03",
+            telefono: "5587654321",
+            grupo_id: gruposFormateados[0]?.id ?? null,
+            grupo_nombre: gruposFormateados[0]?.nombre ?? "Grupo A",
+            hospital_id: null,
+            hospital_nombre: gruposFormateados[0]?.hospital_nombre ?? "Hospital X",
+            estado: gruposFormateados[0]?.estado ?? "Desconocido",
+            activo: true,
+          },
+          {
+            id: 3,
+            nombre: "Laura",
+            ap_paterno: "Sánchez",
+            ap_materno: "Cruz",
+            curp: "SARL910823MDFNCR07",
+            telefono: "5523456789",
+            grupo_id: gruposFormateados[1]?.id ?? null,
+            grupo_nombre: gruposFormateados[1]?.nombre ?? "Grupo B",
+            hospital_id: null,
+            hospital_nombre: gruposFormateados[1]?.hospital_nombre ?? "Hospital Y",
+            estado: gruposFormateados[1]?.estado ?? "Desconocido",
+            activo: true,
+          },
+        ];
+
+        setEmpleados(empleadosEjemplo);
+      } catch (err) {
+        console.error("❌ Error al obtener grupos:", err);
+      }
+    };
+
+    fetchGrupos();
   }, []);
+
 
   // Función para resetear todos los estados de formularios
   const resetearFormularios = () => {
@@ -667,7 +656,6 @@ export default function SuperadminGeoApp() {
           {/* FORMULARIO GRUPO */}
           {mostrarFormGrupo && (
             <GrupoForm
-              hospitales={hospitales}
               onGuardar={handleGuardarGrupo}
               onCancelar={() => {
                 resetearFormularios();
