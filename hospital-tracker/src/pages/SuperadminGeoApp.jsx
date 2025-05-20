@@ -1038,6 +1038,7 @@ export default function SuperadminGeoApp() {
                                         <th className="px-4 py-2 text-left text-xs font-medium text-red-700 uppercase tracking-wider">
                                           CURP
                                         </th>
+                                        
                                         <th className="px-4 py-2 text-left text-xs font-medium text-red-700 uppercase tracking-wider">
                                           Rol
                                         </th>
@@ -1159,6 +1160,9 @@ export default function SuperadminGeoApp() {
                                             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                               CURP
                                             </th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Municipio</th>
+<th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hospital</th>
+
                                             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                               Rol
                                             </th>
@@ -1182,6 +1186,13 @@ export default function SuperadminGeoApp() {
                                               <td className="px-4 py-3 whitespace-nowrap text-sm">
                                                 {admin.curp_user}
                                               </td>
+                                              <td className="px-4 py-3 whitespace-nowrap text-sm">
+  {admin.municipio || "-"}
+</td>
+<td className="px-4 py-3 whitespace-nowrap text-sm">
+  {admin.hospital || "-"}
+</td>
+
                                               <td className="px-4 py-3 whitespace-nowrap text-sm">
                                                 <span
                                                   className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
