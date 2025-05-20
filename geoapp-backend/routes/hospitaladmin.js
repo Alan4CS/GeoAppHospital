@@ -62,12 +62,12 @@ router.post("/create-hospitaladmin", async (req, res) => {
     );
 
     await client.query("COMMIT");
-    res.status(201).json({ message: "Administrador de municipio creado con éxito" });
+    res.status(201).json({ message: "Administrador de hospital creado con éxito" });
 
   } catch (error) {
     await client.query("ROLLBACK");
     console.error("❌ Error al crear municipioadmin:", error);
-    res.status(500).json({ error: "Error al crear el administrador de municipio" });
+    res.status(500).json({ error: "Error al crear el administrador de hospital" });
   } finally {
     client.release();
   }
