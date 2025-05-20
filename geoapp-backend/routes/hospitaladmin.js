@@ -22,7 +22,7 @@ router.get("/hospitals-by-municipio", async (req, res) => {
 });
 
 router.post("/create-hospitaladmin", async (req, res) => {
-  const { nombre, ap_paterno, ap_materno, CURP, user, pass, role_name, id_estado, id_municipio } = req.body;
+  const { nombre, ap_paterno, ap_materno, CURP, user, pass, role_name, id_estado, id_municipio, id_hospital } = req.body;
 
   const client = await pool.connect();
 
@@ -31,10 +31,10 @@ router.post("/create-hospitaladmin", async (req, res) => {
 
     // 2. Insertar en user_data
     const userDataResult = await client.query(
-      `INSERT INTO user_data (nombre, ap_paterno, ap_materno, curp_user, id_estado, id_municipio)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO user_data (nombre, ap_paterno, ap_materno, curp_user, id_estado, id_municipio, id_hospital)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id_user`,
-      [nombre, ap_paterno, ap_materno, CURP, id_estado, id_municipio]
+      [nombre, ap_paterno, ap_materno, CURP, id_estado, id_municipio, id_hospital]
     );
     const newUserId = userDataResult.rows[0].id_user;
 
@@ -57,8 +57,8 @@ router.post("/create-hospitaladmin", async (req, res) => {
     // 5. Insertar en user_roles con id_hospital
     await client.query(
       `INSERT INTO user_roles (id_user, id_role, id_hospital)
-       VALUES ($1, $2, NULL)`,
-      [newUserId, roleId]
+       VALUES ($1, $2, $3)`,
+      [newUserId, roleId, id_hospital]
     );
 
     await client.query("COMMIT");
