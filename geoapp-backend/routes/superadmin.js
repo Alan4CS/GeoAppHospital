@@ -144,11 +144,15 @@ router.get("/totaladmins", async (req, res) => {
         u.ap_materno,
         u.curp_user,
         e.nombre_estado AS estado,
+        m.nombre_municipio AS municipio,
+        h.nombre_hospital AS hospital,
         r.role_name
       FROM user_data u
       JOIN user_roles ur ON u.id_user = ur.id_user
       JOIN roles r ON ur.id_role = r.id_role
       LEFT JOIN estados e ON u.id_estado = e.id_estado
+      LEFT JOIN municipios m ON u.id_municipio = m.id_municipio
+      LEFT JOIN hospitals h ON u.id_hospital = h.id_hospital
       ORDER BY u.id_user
     `);
 
