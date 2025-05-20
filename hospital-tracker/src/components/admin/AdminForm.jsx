@@ -34,6 +34,8 @@ export default function AdminForm({
   const [municipios, setMunicipios] = useState([]);
   const [hospitalesFiltrados, setHospitalesFiltrados] = useState([]);
   const [grupos, setGrupos] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   // 🔽 justo aquí puedes agregar los nuevos useEffect
   useEffect(() => {
     const estadoSeleccionado = estados.find(
@@ -318,7 +320,10 @@ export default function AdminForm({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
+
+    if (isSubmitting) return;
+  setIsSubmitting(true);
+
     const newErrors = {};
     let isValid = true;
   
@@ -425,7 +430,11 @@ export default function AdminForm({
         }
   
         // Añadir id_estado para todos los tipos de administradores
-        adminData.id_estado = parseInt(estadoSeleccionado.id_estado);
+        if (adminForm.tipoAdmin === "estadoadmin") {
+          adminData.estado = estadoSeleccionado.nombre_estado;
+        } else {
+          adminData.id_estado = parseInt(estadoSeleccionado.id_estado);
+        }
         
         // Añadir id_municipio para municipioadmin y hospitaladmin
         if (adminForm.tipoAdmin === "municipioadmin" || adminForm.tipoAdmin === "hospitaladmin") {
@@ -445,9 +454,11 @@ export default function AdminForm({
     } catch (error) {
       console.error("Error al crear administrador:", error);
       alert("Hubo un error al crear el administrador.");
+    } finally {
+      setIsSubmitting(false); // 🔒 Libera el bloqueo
     }
   };
-
+  
   const getTipoAdminLabel = () => {
     switch (adminForm.tipoAdmin) {
       case "estadoadmin":
@@ -737,9 +748,13 @@ export default function AdminForm({
             Cancelar
           </button>
           <button
-            type="submit"
-            className="flex items-center px-4 py-2 rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-          >
+  type="submit"
+  disabled={isSubmitting}
+  className={`flex items-center px-4 py-2 rounded-md shadow-sm text-sm font-medium text-white ${
+    isSubmitting ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+  }`}
+>
+
             <Save className="h-4 w-4 mr-2" />
             Guardar Administrador
           </button>
