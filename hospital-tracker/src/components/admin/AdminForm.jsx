@@ -40,23 +40,23 @@ export default function AdminForm({
       (e) => e.nombre_estado === adminForm.estado
     );
     if (estadoSeleccionado) {
-      console.log(
-        "🟦 ID Estado seleccionado:",
-        estadoSeleccionado.id_estado,
-        "-",
-        typeof estadoSeleccionado.id_estado
-      );
+      //console.log(
+      //  "🟦 ID Estado seleccionado:",
+      //  estadoSeleccionado.id_estado,
+      //  "-",
+      //  typeof estadoSeleccionado.id_estado
+      //);
     }
   }, [adminForm.estado, estados]);
 
   useEffect(() => {
     if (adminForm.municipio) {
-      console.log(
-        "🟩 ID Municipio seleccionado:",
-        adminForm.municipio,
-        "-",
-        typeof adminForm.municipio
-      );
+      //console.log(
+      //  "🟩 ID Municipio seleccionado:",
+      //  adminForm.municipio,
+      //  "-",
+      //  typeof adminForm.municipio
+      //);
     }
   }, [adminForm.municipio]);
 
@@ -68,7 +68,7 @@ export default function AdminForm({
 
         setEstados(data);
       } catch (error) {
-        console.error("Error al obtener estados:", error);
+        //console.error("Error al obtener estados:", error);
       }
     };
     fetchEstados();
@@ -99,7 +99,7 @@ export default function AdminForm({
           const data = await res.json();
           setMunicipios(data);
         } catch (error) {
-          console.error("Error al obtener municipios:", error);
+          //console.error("Error al obtener municipios:", error);
           setMunicipios([]);
         }
       };
@@ -150,7 +150,7 @@ export default function AdminForm({
         setHospitalesFiltrados(data);
         setHospitalesFiltradosPorEstado(data);
       } catch (error) {
-        console.error("Error al obtener hospitales:", error);
+        //console.error("Error al obtener hospitales:", error);
         setHospitalesFiltrados([]);
         setHospitalesFiltradosPorEstado([]);
       }
@@ -178,7 +178,7 @@ export default function AdminForm({
 
           setGrupos(mockGrupos);
         } catch (error) {
-          console.error("Error al obtener grupos:", error);
+          //console.error("Error al obtener grupos:", error);
         }
       };
       fetchGrupos();
@@ -318,10 +318,10 @@ export default function AdminForm({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+  
     const newErrors = {};
     let isValid = true;
-
+  
     // Validar campos básicos
     const basicFields = [
       "nombres",
@@ -338,7 +338,7 @@ export default function AdminForm({
         isValid = false;
       }
     });
-
+  
     // Validar campos específicos según el tipo de administrador
     if (adminForm.tipoAdmin === "estadoadmin") {
       const error = validateField("estado", adminForm.estado);
@@ -359,9 +359,14 @@ export default function AdminForm({
       }
     } else if (adminForm.tipoAdmin === "hospitaladmin") {
       const estadoError = validateField("estado", adminForm.estado);
+      const municipioError = validateField("municipio", adminForm.municipio);
       const hospitalError = validateField("hospital", adminForm.hospital);
       if (estadoError) {
         newErrors.estado = estadoError;
+        isValid = false;
+      }
+      if (municipioError) {
+        newErrors.municipio = municipioError;
         isValid = false;
       }
       if (hospitalError) {
@@ -369,16 +374,16 @@ export default function AdminForm({
         isValid = false;
       }
     }
-
+  
     setErrors(newErrors);
     setTouched(basicFields.reduce((acc, key) => ({ ...acc, [key]: true }), {}));
-
+  
     if (!isValid) return;
-
+  
     const user =
       adminForm.nombres.trim().charAt(0).toLowerCase() +
       adminForm.ap_paterno.trim().toLowerCase().replace(/\s+/g, "");
-
+  
     const generarPassword = () => {
       const chars =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -388,12 +393,10 @@ export default function AdminForm({
       }
       return password;
     };
-
+  
     const pass = generarPassword();
-    console.log("IDs que se enviarán:");
-    console.log("ID Estado:", parseInt(adminForm.estado));
-    console.log("ID Municipio:", adminForm.municipio); // Ya es un entero
-
+  
+    // Preparar los datos básicos del administrador
     const adminData = {
       nombre: adminForm.nombres,
       ap_paterno: adminForm.ap_paterno,
@@ -403,31 +406,39 @@ export default function AdminForm({
       user,
       pass,
       role_name: adminForm.tipoAdmin,
-      estado: adminForm.estado,
-      municipio: adminForm.municipio,
-      hospital: adminForm.hospital,
       grupos: adminForm.grupos,
     };
-
+  
     try {
-      // Solo para municipioadmin, obtenemos los IDs necesarios
-      if (adminForm.tipoAdmin === "municipioadmin") {
+      // Añadir los IDs según el tipo de administrador
+      if (adminForm.tipoAdmin === "estadoadmin" || 
+          adminForm.tipoAdmin === "municipioadmin" || 
+          adminForm.tipoAdmin === "hospitaladmin") {
+        
+        // Obtener el ID del estado seleccionado
         const estadoSeleccionado = estados.find(
           (e) => e.nombre_estado === adminForm.estado
         );
-
-        const idEstado = estadoSeleccionado
-          ? parseInt(estadoSeleccionado.id_estado)
-          : null;
-
-        const idMunicipio = adminForm.municipio;
-
-        // Modificamos adminData para incluir los IDs correctos
-        adminData.id_estado = idEstado;
-        adminData.id_municipio = idMunicipio;
+        
+        if (!estadoSeleccionado) {
+          throw new Error("Estado no encontrado");
+        }
+  
+        // Añadir id_estado para todos los tipos de administradores
+        adminData.id_estado = parseInt(estadoSeleccionado.id_estado);
+        
+        // Añadir id_municipio para municipioadmin y hospitaladmin
+        if (adminForm.tipoAdmin === "municipioadmin" || adminForm.tipoAdmin === "hospitaladmin") {
+          adminData.id_municipio = adminForm.municipio; // Ya es el ID numérico
+        }
+        
+        // Añadir id_hospital solo para hospitaladmin
+        if (adminForm.tipoAdmin === "hospitaladmin") {
+          adminData.id_hospital = adminForm.hospital; // Ya es el ID numérico
+        }
       }
-
-      // Llamamos a onGuardar que debería manejar todas las creaciones
+  
+      // Llamar a onGuardar con los datos formateados correctamente
       if (onGuardar) {
         await onGuardar(adminData);
       }
