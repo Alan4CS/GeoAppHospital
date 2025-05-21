@@ -108,7 +108,7 @@ export default function SuperadminGeoApp() {
     fetchAdministradores();
   }, []);
 
-    const fetchGrupos = async () => {
+  const fetchGrupos = async () => {
     try {
       const res = await fetch("http://localhost:4000/api/groups/get-groups");
       const data = await res.json();
@@ -127,62 +127,19 @@ export default function SuperadminGeoApp() {
       }));
 
       setGrupos(gruposFormateados);
-
-      // 🧪 Empleados falsos conectados a grupos reales
-      const empleadosEjemplo = [
-        {
-          id: 1,
-          nombre: "Ana",
-          ap_paterno: "García",
-          ap_materno: "Ramírez",
-          curp: "GARA900517MDFNRN09",
-          telefono: "5512345678",
-          grupo_id: gruposFormateados[0]?.id ?? null,
-          grupo_nombre: gruposFormateados[0]?.nombre ?? "Grupo A",
-          hospital_id: null,
-          hospital_nombre: gruposFormateados[0]?.hospital_nombre ?? "Hospital X",
-          estado: gruposFormateados[0]?.estado ?? "Desconocido",
-          activo: true,
-        },
-        {
-          id: 2,
-          nombre: "Carlos",
-          ap_paterno: "Mendoza",
-          ap_materno: "López",
-          curp: "MERC880612HDFNRL03",
-          telefono: "5587654321",
-          grupo_id: gruposFormateados[0]?.id ?? null,
-          grupo_nombre: gruposFormateados[0]?.nombre ?? "Grupo A",
-          hospital_id: null,
-          hospital_nombre: gruposFormateados[0]?.hospital_nombre ?? "Hospital X",
-          estado: gruposFormateados[0]?.estado ?? "Desconocido",
-          activo: true,
-        },
-        {
-          id: 3,
-          nombre: "Laura",
-          ap_paterno: "Sánchez",
-          ap_materno: "Cruz",
-          curp: "SARL910823MDFNCR07",
-          telefono: "5523456789",
-          grupo_id: gruposFormateados[1]?.id ?? null,
-          grupo_nombre: gruposFormateados[1]?.nombre ?? "Grupo B",
-          hospital_id: null,
-          hospital_nombre: gruposFormateados[1]?.hospital_nombre ?? "Hospital Y",
-          estado: gruposFormateados[1]?.estado ?? "Desconocido",
-          activo: true,
-        },
-      ];
-
-      setEmpleados(empleadosEjemplo);
+      const empleadosResponse = await fetch(
+        "http://localhost:4000/api/employees/get-empleados"
+      );
+      const empleadosData = await empleadosResponse.json();
+      setEmpleados(empleadosData);
     } catch (err) {
       console.error("❌ Error al obtener grupos:", err);
     }
   };
 
   useEffect(() => {
-  fetchGrupos();
-}, []);
+    fetchGrupos();
+  }, []);
 
   // Función para resetear todos los estados de formularios
   const resetearFormularios = () => {
@@ -360,20 +317,25 @@ export default function SuperadminGeoApp() {
   // Manejador para guardar un empleado
   const handleGuardarEmpleado = async (nuevoEmpleado) => {
     try {
-      const response = await fetch("http://localhost:4000/api/employees/create-empleado", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(nuevoEmpleado),
-      });
-  
+      const response = await fetch(
+        "http://localhost:4000/api/employees/create-empleado",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(nuevoEmpleado),
+        }
+      );
+
       if (!response.ok) throw new Error("Fallo al crear el empleado");
-  
+
       const data = await response.json();
-  
-      alert(`✅ Empleado creado correctamente\n🆔 Usuario: ${nuevoEmpleado.user}\n🔑 Contraseña: ${nuevoEmpleado.pass}`);
-  
+
+      alert(
+        `✅ Empleado creado correctamente\n🆔 Usuario: ${nuevoEmpleado.user}\n🔑 Contraseña: ${nuevoEmpleado.pass}`
+      );
+
       // Puedes guardar el empleado también en el estado local si lo deseas
       const nuevoId = Math.max(...empleados.map((e) => e.id), 0) + 1;
       const empleadoCompleto = {
@@ -384,13 +346,17 @@ export default function SuperadminGeoApp() {
         curp: nuevoEmpleado.CURP,
         telefono: nuevoEmpleado.telefono,
         grupo_id: nuevoEmpleado.id_grupo,
-        grupo_nombre: grupos.find(g => g.id_group === nuevoEmpleado.id_grupo)?.nombre_grupo || "Grupo desconocido",
+        grupo_nombre:
+          grupos.find((g) => g.id_group === nuevoEmpleado.id_grupo)
+            ?.nombre_grupo || "Grupo desconocido",
         hospital_id: nuevoEmpleado.id_hospital,
-        hospital_nombre: hospitales.find(h => h.id_hospital === nuevoEmpleado.id_hospital)?.nombre_hospital || "Hospital desconocido",
+        hospital_nombre:
+          hospitales.find((h) => h.id_hospital === nuevoEmpleado.id_hospital)
+            ?.nombre_hospital || "Hospital desconocido",
         estado: nuevoEmpleado.id_estado,
         activo: true,
       };
-  
+
       setEmpleados([...empleados, empleadoCompleto]);
       resetearFormularios();
       setActiveTab("empleados");
@@ -399,7 +365,6 @@ export default function SuperadminGeoApp() {
       alert("❌ Error al crear el empleado.");
     }
   };
-  
 
   // FILTRO y PAGINADO
   const hospitalesFiltrados = estadoFiltro
@@ -1016,7 +981,7 @@ export default function SuperadminGeoApp() {
                                         <th className="px-4 py-2 text-left text-xs font-medium text-red-700 uppercase tracking-wider">
                                           CURP
                                         </th>
-                                        
+
                                         <th className="px-4 py-2 text-left text-xs font-medium text-red-700 uppercase tracking-wider">
                                           Rol
                                         </th>
@@ -1138,8 +1103,12 @@ export default function SuperadminGeoApp() {
                                             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                               CURP
                                             </th>
-                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Municipio</th>
-<th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hospital</th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                              Municipio
+                                            </th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                              Hospital
+                                            </th>
 
                                             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                               Rol
@@ -1165,11 +1134,11 @@ export default function SuperadminGeoApp() {
                                                 {admin.curp_user}
                                               </td>
                                               <td className="px-4 py-3 whitespace-nowrap text-sm">
-  {admin.municipio || "-"}
-</td>
-<td className="px-4 py-3 whitespace-nowrap text-sm">
-  {admin.hospital || "-"}
-</td>
+                                                {admin.municipio || "-"}
+                                              </td>
+                                              <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                                {admin.hospital || "-"}
+                                              </td>
 
                                               <td className="px-4 py-3 whitespace-nowrap text-sm">
                                                 <span
@@ -1323,46 +1292,46 @@ export default function SuperadminGeoApp() {
                           <thead>
                             <tr className="bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                               <th className="px-4 py-2">Nombre</th>
-                              <th className="px-4 py-2">Apellidos</th>
+                              <th className="px-4 py-2">Apellido Paterno</th>
+                              <th className="px-4 py-2">Apellido Materno</th>
                               <th className="px-4 py-2">CURP</th>
-                              <th className="px-4 py-2">Teléfono</th>
-                              <th className="px-4 py-2">Grupo</th>
-                              <th className="px-4 py-2">Hospital</th>
                               <th className="px-4 py-2">Estado</th>
+                              <th className="px-4 py-2">Municipio</th>
+                              <th className="px-4 py-2">Hospital</th>
+                              <th className="px-4 py-2">Rol</th>
                               <th className="px-4 py-2">Acciones</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-200">
                             {empleados.map((empleado) => (
                               <tr
-                                key={empleado.id}
+                                key={empleado.id_user}
                                 className="hover:bg-gray-50"
                               >
                                 <td className="px-4 py-3 text-sm">
                                   {empleado.nombre}
                                 </td>
-                                <td className="px-4 py-3 text-sm">{`${empleado.ap_paterno} ${empleado.ap_materno}`}</td>
                                 <td className="px-4 py-3 text-sm">
-                                  {empleado.curp}
+                                  {empleado.ap_paterno}
                                 </td>
                                 <td className="px-4 py-3 text-sm">
-                                  {empleado.telefono}
+                                  {empleado.ap_materno}
                                 </td>
                                 <td className="px-4 py-3 text-sm">
-                                  {empleado.grupo_nombre}
+                                  {empleado.curp_user}
                                 </td>
                                 <td className="px-4 py-3 text-sm">
-                                  {empleado.hospital_nombre}
+                                  {empleado.estado}
                                 </td>
                                 <td className="px-4 py-3 text-sm">
-                                  <span
-                                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                      empleado.activo
-                                        ? "bg-green-100 text-green-800"
-                                        : "bg-gray-100 text-gray-800"
-                                    }`}
-                                  >
-                                    {empleado.activo ? "Activo" : "Inactivo"}
+                                  {empleado.municipio}
+                                </td>
+                                <td className="px-4 py-3 text-sm">
+                                  {empleado.hospital}
+                                </td>
+                                <td className="px-4 py-3 text-sm capitalize">
+                                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-amber-100 text-amber-800">
+                                    {empleado.role_name}
                                   </span>
                                 </td>
                                 <td className="px-4 py-3 text-sm">
