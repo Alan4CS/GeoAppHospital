@@ -379,37 +379,48 @@ export default function SuperadminGeoApp() {
   };
 
   // Manejador para guardar un empleado
-  const handleGuardarEmpleado = (nuevoEmpleado) => {
-    // Crear un nuevo empleado
-    const nuevoId = Math.max(...empleados.map((e) => e.id), 0) + 1;
-
-    // Obtener el nombre del hospital y grupo
-    const hospital = hospitales[nuevoEmpleado.hospital_id];
-    const grupo = grupos.find(
-      (g) => g.id.toString() === nuevoEmpleado.grupo_id
-    );
-
-    const empleadoCompleto = {
-      id: nuevoId,
-      nombre: nuevoEmpleado.nombre,
-      ap_paterno: nuevoEmpleado.ap_paterno,
-      ap_materno: nuevoEmpleado.ap_materno,
-      curp: nuevoEmpleado.curp,
-      telefono: nuevoEmpleado.telefono,
-      grupo_id: nuevoEmpleado.grupo_id,
-      grupo_nombre: grupo ? grupo.nombre : "Grupo desconocido",
-      hospital_id: nuevoEmpleado.hospital_id,
-      hospital_nombre: hospital ? hospital.nombre : "Hospital desconocido",
-      estado: nuevoEmpleado.estado,
-      activo: true,
-    };
-
-    setEmpleados([...empleados, empleadoCompleto]);
-    console.log("Nuevo empleado creado:", empleadoCompleto);
-
-    resetearFormularios();
-    setActiveTab("empleados");
+  const handleGuardarEmpleado = async (nuevoEmpleado) => {
+    try {
+      const response = await fetch("http://localhost:4000/api/employees/create-empleado", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(nuevoEmpleado),
+      });
+  
+      if (!response.ok) throw new Error("Fallo al crear el empleado");
+  
+      const data = await response.json();
+  
+      alert(`✅ Empleado creado correctamente\n🆔 Usuario: ${nuevoEmpleado.user}\n🔑 Contraseña: ${nuevoEmpleado.pass}`);
+  
+      // Puedes guardar el empleado también en el estado local si lo deseas
+      const nuevoId = Math.max(...empleados.map((e) => e.id), 0) + 1;
+      const empleadoCompleto = {
+        id: nuevoId,
+        nombre: nuevoEmpleado.nombre,
+        ap_paterno: nuevoEmpleado.ap_paterno,
+        ap_materno: nuevoEmpleado.ap_materno,
+        curp: nuevoEmpleado.CURP,
+        telefono: nuevoEmpleado.telefono,
+        grupo_id: nuevoEmpleado.id_grupo,
+        grupo_nombre: grupos.find(g => g.id_group === nuevoEmpleado.id_grupo)?.nombre_grupo || "Grupo desconocido",
+        hospital_id: nuevoEmpleado.id_hospital,
+        hospital_nombre: hospitales.find(h => h.id_hospital === nuevoEmpleado.id_hospital)?.nombre_hospital || "Hospital desconocido",
+        estado: nuevoEmpleado.id_estado,
+        activo: true,
+      };
+  
+      setEmpleados([...empleados, empleadoCompleto]);
+      resetearFormularios();
+      setActiveTab("empleados");
+    } catch (error) {
+      console.error("❌ Error al crear empleado:", error);
+      alert("❌ Error al crear el empleado.");
+    }
   };
+  
 
   // FILTRO y PAGINADO
   const hospitalesFiltrados = estadoFiltro
