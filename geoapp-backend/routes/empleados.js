@@ -81,4 +81,34 @@ router.post("/create-empleado", async (req, res) => {
   }
 });
 
+router.get("/get-empleados", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        u.id_user,
+        u.nombre,
+        u.ap_paterno,
+        u.ap_materno,
+        u.curp_user,
+        e.nombre_estado AS estado,
+        m.nombre_municipio AS municipio,
+        h.nombre_hospital AS hospital,
+        r.role_name
+      FROM user_data u
+      JOIN user_roles ur ON u.id_user = ur.id_user
+      JOIN roles r ON ur.id_role = r.id_role
+      LEFT JOIN estados e ON u.id_estado = e.id_estado
+      LEFT JOIN municipios m ON u.id_municipio = m.id_municipio
+      LEFT JOIN hospitals h ON u.id_hospital = h.id_hospital
+      WHERE r.role_name = 'empleado'
+      ORDER BY u.id_user
+    `);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("❌ Error al obtener todos los admins:", error);
+    res.status(500).json({ error: "Error al obtener administradores" });
+  }
+});
+
 export default router;
