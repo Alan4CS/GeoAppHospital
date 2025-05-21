@@ -8,6 +8,7 @@ import estadoadminRoutes from "./routes/estadoadmin.js"
 import municipioladminRoutes from "./routes/municipioadmin.js"
 import hospitaladmin from "./routes/hospitaladmin.js"
 import groups from "./routes/groups.js"
+import empleados from "./routes/empleados.js"
 
 dotenv.config();
 const app = express();
@@ -21,6 +22,7 @@ app.use("/api/estadoadmin", estadoadminRoutes);
 app.use("/api/municipioadmin", municipioladminRoutes);
 app.use("/api/hospitaladmin", hospitaladmin);
 app.use("/api/groups", groups);
+app.use("/api/employees", empleados);
 
 
 const PORT = process.env.PORT || 4000;
