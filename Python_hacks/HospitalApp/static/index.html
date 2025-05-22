@@ -66,7 +66,13 @@
     if (drawnLayer) map.removeLayer(drawnLayer);
     drawnLayer = e.layer;
     drawnLayer.addTo(map);
+
+    const coords = drawnLayer.getLatLngs()[0]
+      .map(pt => `${pt.lat.toFixed(6)},${pt.lng.toFixed(6)}`)
+      .join(' | ');
+    document.getElementById('coord-geofence').innerText = coords;
   });
+
 
   async function cargarEstados() {
     const res = await fetch('/estados');
@@ -125,6 +131,15 @@
     if (marker) map.removeLayer(marker);
     marker = L.marker([data.latitud_hospital, data.longitud_hospital], { draggable: true }).addTo(map);
     map.setView([data.latitud_hospital, data.longitud_hospital], 16);
+  
+    document.getElementById('coord-actual').innerText = `${data.latitud_hospital.toFixed(6)}, ${data.longitud_hospital.toFixed(6)}`;
+    document.getElementById('coord-nueva').innerText = '--';
+    document.getElementById('coord-geofence').innerText = '--';
+
+    marker.on('move', function (e) {
+      const { lat, lng } = e.latlng;
+      document.getElementById('coord-nueva').innerText = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    });
 
     if (drawnLayer) map.removeLayer(drawnLayer);
   }
@@ -156,7 +171,7 @@
     const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
     window.open(url, '_blank');
   }
-  
+
   async function guardarCambios() {
     if (!hospitalActual || !marker) {
       Swal.fire("❌", "No hay hospital cargado.", "error");
@@ -235,5 +250,25 @@
 
   cargarEstados();
 </script>
+
+<div id="coord-panel" style="
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  background: rgba(255,255,255,0.9);
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  font-size: 12px;
+  z-index: 1000;
+">
+  <strong>Coordenadas:</strong><br>
+  Actual: <span id="coord-actual">--</span><br>
+  Nueva: <span id="coord-nueva">--</span><br>
+  Geocerca: <span id="coord-geofence">--</span>
+</div>
+
+
+
 </body>
 </html>
