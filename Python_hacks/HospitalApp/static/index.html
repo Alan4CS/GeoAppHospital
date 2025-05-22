@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Editor de Hospitales</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { height: calc(100vh - 170px); }
+    #info { padding: 15px; background: #f8f9fa; border-bottom: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+
+<div id="info" class="container-fluid">
+  <div class="row align-items-center">
+    <div class="col-md-3">
+      <label for="estado-select" class="form-label fw-bold">Estado:</label>
+      <select id="estado-select" class="form-select">
+        <option selected disabled value="">Selecciona un estado</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="fw-bold">Hospital:</label>
+      <div id="hospital-nombre" class="form-control-plaintext">Ninguno</div>
+    </div>
+    <div class="col-md-3">
+      <label class="fw-bold">Dirección:</label>
+      <div id="hospital-direccion" class="form-control-plaintext">Ninguna</div>
+    </div>
+    <div class="col-md-3 text-end">
+      <button onclick="anteriorHospital()" class="btn btn-outline-secondary me-2">⏪ Anterior</button>
+      <button onclick="siguienteHospital()" class="btn btn-outline-secondary me-2">⏩ Siguiente</button>
+      <button onclick="abrirGoogleMaps()" class="btn btn-secondary me-2">📍 Google Maps</button>
+      <button onclick="guardarCambios()" class="btn btn-primary">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script>
+  let map = L.map('map').setView([23.6345, -102.5528], 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+  let marker, drawnLayer;
+  let hospitalActual = null;
+  let hospitalesPendientes = [];
+  let historial = [];
+
+  const drawControl = new L.Control.Draw({
+    draw: { polygon: true, marker: false, polyline: false, circle: false, rectangle: false, circlemarker: false },
+    edit: { featureGroup: new L.FeatureGroup() }
+  });
+  map.addControl(drawControl);
+
+  map.on(L.Draw.Event.CREATED, function (e) {
+    if (drawnLayer) map.removeLayer(drawnLayer);
+    drawnLayer = e.layer;
+    drawnLayer.addTo(map);
+  });
+
+  async function cargarEstados() {
+    const res = await fetch('/estados');
+    const estados = await res.json();
+    const select = document.getElementById('estado-select');
+    estados.forEach(e => {
+      const opt = document.createElement('option');
+      opt.value = e;
+      opt.innerText = e;
+      select.appendChild(opt);
+    });
+    select.onchange = async () => {
+      hospitalesPendientes = [];
+      historial = [];
+      if (select.value) {
+        await precargarHospitales(select.value);
+        mostrarHospital(hospitalesPendientes.shift());
+      }
+    };
+  }
+
+  async function precargarHospitales(estado) {
+    for (let i = 0; i < 5; i++) {
+      const res = await fetch(`/hospital?estado=${encodeURIComponent(estado)}`);
+      const data = await res.json();
+      if (data?.id_hospital) {
+        hospitalesPendientes.push(data);
+      }
+    }
+  }
+
+  function mostrarHospital(data) {
+    if (!data) {
+      Swal.fire("⚠️", "No hay más hospitales para mostrar.", "info");
+      return;
+    }
+
+    hospitalActual = data;
+    historial.push(data);
+    document.getElementById('hospital-nombre').innerText = data.nombre_hospital;
+    document.getElementById('hospital-direccion').innerText = data.direccion_hospital || 'No disponible';
+
+    if (marker) map.removeLayer(marker);
+    marker = L.marker([data.latitud_hospital, data.longitud_hospital], { draggable: true }).addTo(map);
+    map.setView([data.latitud_hospital, data.longitud_hospital], 16);
+
+    if (drawnLayer) map.removeLayer(drawnLayer);
+  }
+
+  function siguienteHospital() {
+    if (hospitalesPendientes.length === 0) {
+      Swal.fire("⏳", "Cargando más hospitales...", "info");
+      precargarHospitales(document.getElementById('estado-select').value).then(() => {
+        mostrarHospital(hospitalesPendientes.shift());
+      });
+    } else {
+      mostrarHospital(hospitalesPendientes.shift());
+    }
+  }
+
+  function anteriorHospital() {
+    if (historial.length > 1) {
+      historial.pop(); // quitar el actual
+      const anterior = historial.pop(); // volver al anterior
+      mostrarHospital(anterior);
+    } else {
+      Swal.fire("ℹ️", "No hay hospitales anteriores.", "info");
+    }
+  }
+
+  function abrirGoogleMaps() {
+    if (!hospitalActual) return;
+    const { latitud_hospital: lat, longitud_hospital: lon, nombre_hospital: nombre } = hospitalActual;
+    const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+    window.open(url, '_blank');
+  }
+
+  async function guardarCambios() {
+    if (!hospitalActual || !marker) {
+      Swal.fire("❌", "No hay hospital cargado.", "error");
+      return;
+    }
+
+    const latlng = marker.getLatLng();
+    let geofence = null;
+    if (drawnLayer) {
+      const coords = drawnLayer.getLatLngs()[0].map(pt => [pt.lng, pt.lat]);
+      geofence = { type: 'Polygon', coordinates: [coords] };
+    }
+
+    const payload = {
+      id_hospital: hospitalActual.id_hospital,
+      latitud: latlng.lat,
+      longitud: latlng.lng,
+      geojson: geofence
+    };
+
+    const res = await fetch('/guardar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (res.ok) {
+      Swal.fire("✅ Guardado", "El hospital fue actualizado.", "success");
+      setTimeout(() => siguienteHospital(), 600);
+    } else {
+      Swal.fire("❌ Error", "No se pudo guardar.", "error");
+    }
+  }
+
+  cargarEstados();
+</script>
+</body>
+</html>

@@ -58,4 +58,4 @@ for idx, row in df.iterrows():
 
 # Guardar resultados en un Excel
 df.to_excel('hospitales_geocodificados.xlsx', index=False)
-print("📄 Archivo generado: hospitales_geocodificados.xlsx")
+print("📄 Archivo generado: hospitales_geocodificados_v2.xlsx")
