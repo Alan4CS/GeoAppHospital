@@ -93,6 +93,7 @@ router.get("/get-empleados", async (req, res) => {
         e.nombre_estado AS estado,
         m.nombre_municipio AS municipio,
         h.nombre_hospital AS hospital,
+        g.nombre_grupo,
         r.role_name
       FROM user_data u
       JOIN user_roles ur ON u.id_user = ur.id_user
@@ -100,6 +101,7 @@ router.get("/get-empleados", async (req, res) => {
       LEFT JOIN estados e ON u.id_estado = e.id_estado
       LEFT JOIN municipios m ON u.id_municipio = m.id_municipio
       LEFT JOIN hospitals h ON u.id_hospital = h.id_hospital
+      LEFT JOIN groups g ON u.id_group = g.id_group
       WHERE r.role_name = 'empleado'
       ORDER BY u.id_user
     `);
@@ -110,5 +112,58 @@ router.get("/get-empleados", async (req, res) => {
     res.status(500).json({ error: "Error al obtener administradores" });
   }
 });
+
+router.get("/get-empleados-by-groups", async (req, res) => {
+  try {
+    const gruposResult = await pool.query(`
+      SELECT 
+        g.id_group,
+        g.nombre_grupo,
+        g.descripcion_group,
+        e.nombre_estado,
+        m.nombre_municipio,
+        h.nombre_hospital
+      FROM groups g
+      JOIN hospitals h ON g.id_hospital = h.id_hospital
+      LEFT JOIN estados e ON h.estado_id = e.id_estado
+      LEFT JOIN municipios m ON h.id_municipio = m.id_municipio
+    `);
+
+    const grupos = gruposResult.rows;
+
+    const gruposConEmpleados = await Promise.all(
+      grupos.map(async (grupo) => {
+        const empleadosResult = await pool.query(`
+          SELECT 
+            u.nombre,
+            u.ap_paterno,
+            u.ap_materno,
+            u.curp_user
+          FROM group_users gu
+          JOIN user_data u ON gu.id_user = u.id_user
+          WHERE gu.id_group = $1
+        `, [grupo.id_group]);
+
+        return {
+          grupo: {
+            id_group: grupo.id_group,
+            nombre_grupo: grupo.nombre_grupo,
+            descripcion: grupo.descripcion_group,
+            estado: grupo.nombre_estado,
+            municipio: grupo.nombre_municipio,
+            hospital: grupo.nombre_hospital,
+          },
+          empleados: empleadosResult.rows
+        };
+      })
+    );
+
+    res.json(gruposConEmpleados);
+  } catch (error) {
+    console.error("❌ Error al obtener empleados por grupo:", error);
+    res.status(500).json({ error: "Error al obtener empleados por grupo" });
+  }
+});
+
 
 export default router;
