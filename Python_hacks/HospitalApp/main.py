@@ -47,7 +47,7 @@ class HospitalUpdate(BaseModel):
 
 @app.post("/guardar")
 def guardar(data: HospitalUpdate):
-    coords_text = f"{data.longitud} {data.latitud}"
+    coords_text = f"{data.longitud}, {data.latitud}"
     geofence_geojson = str(data.geojson) if data.geojson else None
 
     query = """

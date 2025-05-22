@@ -89,6 +89,16 @@
   }
 
   async function precargarHospitales(estado) {
+    Swal.fire({
+      title: 'Cargando hospitales...',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
+    hospitalesPendientes = [];
+
     for (let i = 0; i < 5; i++) {
       const res = await fetch(`/hospital?estado=${encodeURIComponent(estado)}`);
       const data = await res.json();
@@ -96,7 +106,10 @@
         hospitalesPendientes.push(data);
       }
     }
+
+    Swal.close();
   }
+
 
   function mostrarHospital(data) {
     if (!data) {
@@ -143,7 +156,7 @@
     const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
     window.open(url, '_blank');
   }
-
+  
   async function guardarCambios() {
     if (!hospitalActual || !marker) {
       Swal.fire("❌", "No hay hospital cargado.", "error");
@@ -164,11 +177,21 @@
       geojson: geofence
     };
 
+    Swal.fire({
+      title: 'Guardando...',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
     const res = await fetch('/guardar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+
+    Swal.close();
 
     if (res.ok) {
       Swal.fire("✅ Guardado", "El hospital fue actualizado.", "success");
@@ -177,6 +200,38 @@
       Swal.fire("❌ Error", "No se pudo guardar.", "error");
     }
   }
+
+  async function cargarEstados() {
+    Swal.fire({
+      title: 'Cargando estados...',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
+    const res = await fetch('/estados');
+    const estados = await res.json();
+    const select = document.getElementById('estado-select');
+    estados.forEach(e => {
+      const opt = document.createElement('option');
+      opt.value = e;
+      opt.innerText = e;
+      select.appendChild(opt);
+    });
+
+    Swal.close();
+
+    select.onchange = async () => {
+      hospitalesPendientes = [];
+      historial = [];
+      if (select.value) {
+        await precargarHospitales(select.value);
+        mostrarHospital(hospitalesPendientes.shift());
+      }
+    };
+  }
+
 
   cargarEstados();
 </script>
