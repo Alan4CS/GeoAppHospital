@@ -25,6 +25,7 @@ export default function HospitalForm({
   const [estados, setEstados] = useState([]);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+  const [municipios, setMunicipios] = useState([]);
 
   useEffect(() => {
     if (editandoHospital && hospitalEditando) {
@@ -54,11 +55,30 @@ export default function HospitalForm({
     fetchEstados();
   }, []);
 
+  const fetchMunicipios = async (idEstado) => {
+    try {
+      const response = await fetch(
+        `http://localhost:4000/api/municipioadmin/municipios-by-estado/${idEstado}`
+      );
+      const data = await response.json();
+      setMunicipios(data);
+    } catch (error) {
+      console.error("Error al obtener municipios:", error);
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm({ ...form, [name]: value });
     setTouched({ ...touched, [name]: true });
-    if (name === "estado") onBuscarCoordenadasEstado(value);
+
+    if (name === "estado") {
+      const estadoSeleccionado = estados.find((e) => e.id_estado == value);
+      if (estadoSeleccionado) {
+        onBuscarCoordenadasEstado(estadoSeleccionado.nombre_estado);
+        fetchMunicipios(value);
+      }
+    }
   };
 
   const handleCoordsManually = (e) => {
@@ -125,8 +145,30 @@ export default function HospitalForm({
             >
               <option value="">Selecciona un estado</option>
               {estados.map((estado) => (
-                <option key={estado.id_estado} value={estado.nombre_estado}>
+                <option key={estado.id_estado} value={estado.id_estado}>
                   {estado.nombre_estado}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Municipio
+            </label>
+            <select
+              name="municipio"
+              value={form.municipio}
+              onChange={handleChange}
+              className="w-full border px-4 py-2 rounded-lg"
+              required
+            >
+              <option value="">Selecciona un municipio</option>
+              {municipios.map((municipio) => (
+                <option
+                  key={municipio.id_municipio}
+                  value={municipio.nombre_municipio}
+                >
+                  {municipio.nombre_municipio}
                 </option>
               ))}
             </select>
@@ -222,7 +264,6 @@ export default function HospitalForm({
           onHospitalCoordsChange={handleHospitalCoordsChange}
           editando={editandoHospital}
         />
-
 
         <div className="flex justify-end space-x-4">
           <button
