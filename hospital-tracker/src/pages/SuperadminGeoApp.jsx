@@ -99,31 +99,29 @@ export default function SuperadminGeoApp() {
   }, [])
 
   const fetchGrupos = async () => {
-    try {
-      const res = await fetch("http://localhost:4000/api/groups/get-groups")
-      const data = await res.json()
+  try {
+    const res = await fetch("http://localhost:4000/api/groups/get-groups");
+    const data = await res.json();
 
-      const gruposFormateados = data.map((g) => ({
-        id: g.id_group,
-        nombre: g.nombre_grupo,
-        descripcion: g.descripcion_group,
-        hospital_id: null,
-        hospital_nombre: g.nombre_hospital,
-        estado: g.nombre_estado,
-        municipio: g.nombre_municipio || "-",
-        fechaCreacion: "2025-01-01",
-        totalMiembros: 0,
-        activo: true,
-      }))
+    const gruposFormateados = data.map((g) => ({
+      id: g.id_group,
+      nombre_grupo: g.nombre_grupo,
+      descripcion_group: g.descripcion_group,
+      nombre_hospital: g.nombre_hospital,
+      nombre_estado: g.nombre_estado,
+      nombre_municipio: g.nombre_municipio || "-",
+    }));
 
-      setGrupos(gruposFormateados)
-      const empleadosResponse = await fetch("http://localhost:4000/api/employees/get-empleados")
-      const empleadosData = await empleadosResponse.json()
-      setEmpleados(empleadosData)
-    } catch (err) {
-      console.error("❌ Error al obtener grupos:", err)
-    }
+    setGrupos(gruposFormateados);
+
+    const empleadosResponse = await fetch("http://localhost:4000/api/employees/get-empleados");
+    const empleadosData = await empleadosResponse.json();
+    setEmpleados(empleadosData);
+  } catch (err) {
+    console.error("❌ Error al obtener grupos:", err);
   }
+};
+
 
   useEffect(() => {
     fetchGrupos()

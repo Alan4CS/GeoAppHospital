@@ -1,4 +1,4 @@
-import { Settings, UsersRound } from "lucide-react"
+import { Settings, UsersRound } from "lucide-react";
 
 const GrupoList = ({ grupos }) => {
   return (
@@ -19,34 +19,18 @@ const GrupoList = ({ grupos }) => {
                 <th className="px-4 py-2">Descripción</th>
                 <th className="px-4 py-2">Hospital</th>
                 <th className="px-4 py-2">Estado</th>
-                <th className="px-4 py-2">Fecha Creación</th>
-                <th className="px-4 py-2">Miembros</th>
-                <th className="px-4 py-2">Estado</th>
+                <th className="px-4 py-2">Municipio</th>
                 <th className="px-4 py-2">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {grupos.map((grupo) => (
-                <tr key={grupo.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm">
-                    <div className="max-w-xs truncate font-medium">{grupo.nombre}</div>
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <div className="max-w-xs truncate">{grupo.descripcion}</div>
-                  </td>
-                  <td className="px-4 py-3 text-sm">{grupo.hospital_nombre}</td>
-                  <td className="px-4 py-3 text-sm">{grupo.estado}</td>
-                  <td className="px-4 py-3 text-sm">{grupo.fechaCreacion}</td>
-                  <td className="px-4 py-3 text-sm">{grupo.totalMiembros}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        grupo.activo ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {grupo.activo ? "Activo" : "Inactivo"}
-                    </span>
-                  </td>
+              {grupos.map((grupo, index) => (
+                <tr key={index} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm font-medium max-w-xs truncate">{grupo.nombre_grupo}</td>
+                  <td className="px-4 py-3 text-sm max-w-xs truncate">{grupo.descripcion_group}</td>
+                  <td className="px-4 py-3 text-sm">{grupo.nombre_hospital}</td>
+                  <td className="px-4 py-3 text-sm">{grupo.nombre_estado}</td>
+                  <td className="px-4 py-3 text-sm">{grupo.nombre_municipio || "—"}</td>
                   <td className="px-4 py-3 text-sm">
                     <button className="text-purple-600 hover:text-purple-800 transition-colors flex items-center">
                       <Settings className="h-4 w-4 mr-1" />
@@ -62,7 +46,7 @@ const GrupoList = ({ grupos }) => {
         <div className="p-6 text-center text-gray-500">No hay grupos registrados todavía.</div>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default GrupoList
+export default GrupoList;
