@@ -41,6 +41,13 @@ Desde la raíz del proyecto, corre:
 uvicorn main:app --reload
 ```
 
+y si no te jala hazlo con este comando
+
+```bash
+python -m uvicorn main:app --reload
+
+```
+
 Esto iniciará el servidor en:
 
 ```
