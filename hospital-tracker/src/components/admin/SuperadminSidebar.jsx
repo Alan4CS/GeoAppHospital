@@ -63,8 +63,8 @@ export default function SuperadminSidebar({
       onMouseEnter={() => setSidebarOpen(true)}
       onMouseLeave={() => setSidebarOpen(false)}
       className={`${
-        sidebarOpen ? "w-56" : "w-20"
-      } bg-gradient-to-b from-emerald-800 to-teal-900 text-white transition-all duration-500 ease-in-out flex flex-col h-screen fixed overflow-y-auto`}
+        sidebarOpen ? "w-56 overflow-y-auto" : "w-20 overflow-hidden"
+      } bg-gradient-to-b from-emerald-800 to-teal-900 text-white transition-all duration-500 ease-in-out flex flex-col h-screen fixed`}
     >
       {/* Header */}
       <div className="p-4 flex items-center justify-between">
