@@ -165,5 +165,29 @@ router.get("/get-empleados-by-groups", async (req, res) => {
   }
 });
 
+router.get("/monitoreo", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT DISTINCT ON (r.id_user)
+        r.id_user,
+        u.nombre,
+        u.ap_paterno,
+        u.ap_materno,
+        r.latitud,
+        r.longitud,
+        r.fecha_hora,
+        r.dentro_geocerca,
+        r.tipo_registro
+      FROM registro_ubicaciones r
+      JOIN user_data u ON r.id_user = u.id_user
+      ORDER BY r.id_user, r.fecha_hora DESC
+    `);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("❌ Error al obtener datos de monitoreo:", error);
+    res.status(500).json({ error: "Error al obtener datos de monitoreo" });
+  }
+});
 
 export default router;

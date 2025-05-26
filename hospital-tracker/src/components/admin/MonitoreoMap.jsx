@@ -14,9 +14,8 @@ import {
   FaFilter,
   FaSearch,
   FaMapMarkedAlt,
-  FaBuilding,
-  FaHospital,
-  FaLayerGroup,
+  FaSpinner,
+  FaSync,
 } from "react-icons/fa"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
@@ -53,74 +52,128 @@ const MonitoreoMap = () => {
   const [mapZoom, setMapZoom] = useState(7)
   const [searchTerm, setSearchTerm] = useState("")
   const [showGeofences, setShowGeofences] = useState(true)
+  const [employees, setEmployees] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [lastUpdate, setLastUpdate] = useState(null)
   const mapRef = useRef(null)
 
-  // Datos simulados de Quintana Roo
-  const states = ["Quintana Roo"]
-  const municipalities = {
-    "Quintana Roo": ["Cancún", "Playa del Carmen", "Chetumal"],
-  }
-  const hospitals = {
-    Cancún: ["Hospital Galenia", "Hospital Amerimed"],
-    "Playa del Carmen": ["Hospiten", "Hospital Costamed"],
-    Chetumal: ["Hospital General de Chetumal", "Clínica Carranza"],
+  // Estados y municipios dinámicos basados en los datos reales
+  const [states, setStates] = useState([])
+  const [municipalities, setMunicipalities] = useState({})
+  const [hospitals, setHospitals] = useState({})
+
+  // Función para obtener datos de monitoreo desde la API
+  const fetchMonitoringData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      const response = await fetch("http://localhost:4000/api/employees/monitoreo")
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+
+      // Transformar los datos de la API al formato esperado por el componente
+      const transformedEmployees = data.map((emp) => {
+        // Crear avatar con iniciales
+        const avatar = `${emp.nombre?.charAt(0) || ""}${emp.ap_paterno?.charAt(0) || ""}`
+
+        return {
+          id: emp.id_user,
+          name: `${emp.nombre} ${emp.ap_paterno} ${emp.ap_materno}`.trim(),
+          firstName: emp.nombre,
+          lastName: `${emp.ap_paterno} ${emp.ap_materno}`.trim(),
+          position: "Empleado", // Valor por defecto, se puede obtener de otra API si está disponible
+          hospital: "Hospital Asignado", // Valor por defecto, se puede obtener de otra API
+          municipality: "Municipio", // Valor por defecto, se puede obtener de otra API
+          state: "Estado", // Valor por defecto, se puede obtener de otra API
+          status: emp.tipo_registro === 1 ? "connected" : "disconnected",
+          outsideGeofence: !emp.dentro_geocerca,
+          location: [emp.latitud, emp.longitud],
+          lastConnection: new Date(emp.fecha_hora),
+          avatar: avatar,
+          // Datos adicionales calculados
+          hoursWorked: calculateHoursWorked(new Date(emp.fecha_hora)),
+          geofenceExits: emp.dentro_geocerca ? 0 : 1,
+        }
+      })
+
+      setEmployees(transformedEmployees)
+      setLastUpdate(new Date())
+
+      // Extraer estados, municipios y hospitales únicos de los datos
+      updateLocationFilters(transformedEmployees)
+    } catch (err) {
+      console.error("Error al obtener datos de monitoreo:", err)
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  // Datos simulados de empleados de Quintana Roo
-  const [employees, setEmployees] = useState([
-    {
-      id: 1,
-      name: "Laura Gómez",
-      position: "Médico",
-      hospital: "Hospital Galenia",
-      municipality: "Cancún",
-      state: "Quintana Roo",
-      status: "connected",
-      outsideGeofence: false,
-      location: [21.1216, -86.8459],
-      hoursWorked: 6.5,
-      lastConnection: new Date(),
-      geofenceExits: 0,
-      avatar: "LG",
-    },
-    {
-      id: 2,
-      name: "Mario Díaz",
-      position: "Enfermero",
-      hospital: "Hospiten",
-      municipality: "Playa del Carmen",
-      state: "Quintana Roo",
-      status: "connected",
-      outsideGeofence: true,
-      location: [20.6274, -87.0799],
-      hoursWorked: 7.1,
-      lastConnection: new Date(),
-      geofenceExits: 1,
-      avatar: "MD",
-    },
-    {
-      id: 3,
-      name: "Carmen Ruiz",
-      position: "Técnica",
-      hospital: "Hospital General de Chetumal",
-      municipality: "Chetumal",
-      state: "Quintana Roo",
-      status: "connected",
-      outsideGeofence: false,
-      location: [18.5001, -88.2961],
-      hoursWorked: 5.3,
-      lastConnection: new Date(),
-      geofenceExits: 0,
-      avatar: "CR",
-    },
-  ])
+  // Función para calcular horas trabajadas (simplificada)
+  const calculateHoursWorked = (lastConnection) => {
+    const now = new Date()
+    const diffMs = now - lastConnection
+    const diffHours = diffMs / (1000 * 60 * 60)
+    return Math.max(0, Math.min(24, diffHours)) // Máximo 24 horas
+  }
+
+  // Función para actualizar filtros de ubicación basados en datos reales
+  const updateLocationFilters = (employeeData) => {
+    const uniqueStates = [...new Set(employeeData.map((emp) => emp.state))].filter(Boolean)
+    const uniqueMunicipalities = {}
+    const uniqueHospitals = {}
+
+    employeeData.forEach((emp) => {
+      if (emp.state && emp.municipality) {
+        if (!uniqueMunicipalities[emp.state]) {
+          uniqueMunicipalities[emp.state] = new Set()
+        }
+        uniqueMunicipalities[emp.state].add(emp.municipality)
+      }
+
+      if (emp.municipality && emp.hospital) {
+        if (!uniqueHospitals[emp.municipality]) {
+          uniqueHospitals[emp.municipality] = new Set()
+        }
+        uniqueHospitals[emp.municipality].add(emp.hospital)
+      }
+    })
+
+    // Convertir Sets a arrays
+    Object.keys(uniqueMunicipalities).forEach((state) => {
+      uniqueMunicipalities[state] = Array.from(uniqueMunicipalities[state])
+    })
+
+    Object.keys(uniqueHospitals).forEach((municipality) => {
+      uniqueHospitals[municipality] = Array.from(uniqueHospitals[municipality])
+    })
+
+    setStates(uniqueStates)
+    setMunicipalities(uniqueMunicipalities)
+    setHospitals(uniqueHospitals)
+  }
+
+  // Cargar datos al montar el componente
+  useEffect(() => {
+    fetchMonitoringData()
+
+    // Configurar actualización automática cada 30 segundos
+    const interval = setInterval(fetchMonitoringData, 30000)
+
+    return () => clearInterval(interval)
+  }, [])
 
   // Filtrar empleados según los criterios seleccionados y búsqueda
   const filteredEmployees = employees.filter((emp) => {
     if (selectedState && emp.state !== selectedState) return false
     if (selectedMunicipality && emp.municipality !== selectedMunicipality) return false
     if (selectedHospital && emp.hospital !== selectedHospital) return false
-    if (emp.status !== "connected") return false // Solo mostrar conectados en el mapa
     if (searchTerm && !emp.name.toLowerCase().includes(searchTerm.toLowerCase())) return false
     return true
   })
@@ -134,33 +187,14 @@ const MonitoreoMap = () => {
   useEffect(() => {
     if (selectedEmployee && mapRef.current) {
       const employee = employees.find((emp) => emp.id === selectedEmployee)
-      if (employee) {
+      if (employee && employee.location) {
         mapRef.current.setView(employee.location, 15)
       }
     }
   }, [selectedEmployee, employees])
 
-  // Actualizar el mapa cuando cambian los filtros
-  useEffect(() => {
-    if (mapRef.current) {
-      if (selectedMunicipality) {
-        // Centrar en el municipio seleccionado
-        const municipalityLocations = {
-          Cancún: [21.1619, -86.8515],
-          "Playa del Carmen": [20.6296, -87.0739],
-          Chetumal: [18.5018, -88.2962],
-        }
-        if (municipalityLocations[selectedMunicipality]) {
-          mapRef.current.setView(municipalityLocations[selectedMunicipality], 12)
-        }
-      } else if (selectedState) {
-        // Centrar en el estado seleccionado
-        mapRef.current.setView([20.5, -87.0], 7) // Centro de Quintana Roo
-      }
-    }
-  }, [selectedState, selectedMunicipality, selectedHospital])
-
   // Simular geofences para hospitales (círculos en el mapa)
+  // En una implementación real, estos también vendrían de la API
   const geofences = [
     { id: 1, name: "Hospital Galenia", center: [21.1216, -86.8459], radius: 200 },
     { id: 2, name: "Hospital Amerimed", center: [21.1419, -86.82], radius: 180 },
@@ -176,11 +210,17 @@ const MonitoreoMap = () => {
 
     if (filteredEmployees.length > 0) {
       // Si hay empleados filtrados, ajustar la vista para mostrarlos a todos
-      const bounds = L.latLngBounds(filteredEmployees.map((emp) => emp.location))
-      mapRef.current.fitBounds(bounds, { padding: [50, 50] })
+      const validLocations = filteredEmployees
+        .filter((emp) => emp.location && emp.location[0] && emp.location[1])
+        .map((emp) => emp.location)
+
+      if (validLocations.length > 0) {
+        const bounds = L.latLngBounds(validLocations)
+        mapRef.current.fitBounds(bounds, { padding: [50, 50] })
+      }
     } else {
-      // Si no hay empleados filtrados, mostrar todo Quintana Roo
-      mapRef.current.setView([20.5, -87.0], 7)
+      // Si no hay empleados filtrados, mostrar todo México
+      mapRef.current.setView([23.6345, -102.5528], 5)
     }
   }
 
@@ -200,22 +240,29 @@ const MonitoreoMap = () => {
 
   // Generar color de avatar basado en el nombre
   const getAvatarColor = (name) => {
-    const colors = [
-      "bg-blue-500",
-      "bg-emerald-500",
-      "bg-amber-500",
-      "bg-rose-500",
-      "bg-violet-500",
-      "bg-cyan-500",
-    ]
+    const colors = ["bg-blue-500", "bg-emerald-500", "bg-amber-500", "bg-rose-500", "bg-violet-500", "bg-cyan-500"]
     const index = name.charCodeAt(0) % colors.length
     return colors[index]
+  }
+
+  // Función para refrescar datos manualmente
+  const handleRefresh = () => {
+    fetchMonitoringData()
+  }
+
+  if (loading && employees.length === 0) {
+    return (
+      <div className="flex flex-col h-[calc(100vh-64px)] bg-gray-50 items-center justify-center">
+        <FaSpinner className="animate-spin text-4xl text-emerald-600 mb-4" />
+        <p className="text-gray-600">Cargando datos de monitoreo...</p>
+      </div>
+    )
   }
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] bg-gray-50">
       {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4">
         <div className="flex items-center p-4 bg-white rounded-xl shadow-sm border border-gray-100">
           <div className="p-3 bg-emerald-50 rounded-full mr-4">
             <FaUserCheck className="text-emerald-600 text-xl" />
@@ -245,7 +292,32 @@ const MonitoreoMap = () => {
             <p className="text-2xl font-bold text-gray-800">{outsideGeofenceCount}</p>
           </div>
         </div>
+
+        <div className="flex items-center p-4 bg-white rounded-xl shadow-sm border border-gray-100">
+          <div className="p-3 bg-blue-50 rounded-full mr-4">
+            <FaSync className="text-blue-600 text-xl" />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-gray-500">Última actualización</h3>
+            <p className="text-sm font-medium text-gray-800">
+              {lastUpdate ? format(lastUpdate, "HH:mm:ss", { locale: es }) : "---"}
+            </p>
+          </div>
+        </div>
       </div>
+
+      {/* Error message */}
+      {error && (
+        <div className="mx-4 mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-center">
+            <FaExclamationTriangle className="text-red-600 mr-2" />
+            <span className="text-red-800">Error al cargar datos: {error}</span>
+            <button onClick={handleRefresh} className="ml-auto text-red-600 hover:text-red-800 underline">
+              Reintentar
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden p-4 pt-0">
         <div className="flex flex-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -258,9 +330,19 @@ const MonitoreoMap = () => {
             <div className="p-5 h-full flex flex-col">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="font-semibold text-lg text-gray-800">Filtros</h3>
-                <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full">
-                  {filteredEmployees.length} empleados
-                </span>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full">
+                    {filteredEmployees.length} empleados
+                  </span>
+                  <button
+                    onClick={handleRefresh}
+                    disabled={loading}
+                    className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                    title="Actualizar datos"
+                  >
+                    <FaSync className={loading ? "animate-spin" : ""} />
+                  </button>
+                </div>
               </div>
 
               {/* Buscador */}
@@ -278,35 +360,6 @@ const MonitoreoMap = () => {
               </div>
 
               <div className="space-y-5">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-                    <FaLayerGroup className="mr-2 text-emerald-600" />
-                    Nivel de visualización
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      className={`px-3 py-2 text-sm rounded-lg flex items-center justify-center ${
-                        selectedLevel === "hospital"
-                          ? "bg-emerald-100 text-emerald-800 font-medium"
-                          : "bg-gray-50 text-gray-700 hover:bg-gray-100"
-                      }`}
-                      onClick={() => setSelectedLevel("hospital")}
-                    >
-                      <FaHospital className="mr-1" /> Hospital
-                    </button>
-                    <button
-                      className={`px-3 py-2 text-sm rounded-lg flex items-center justify-center ${
-                        selectedLevel === "municipality"
-                          ? "bg-emerald-100 text-emerald-800 font-medium"
-                          : "bg-gray-50 text-gray-700 hover:bg-gray-100"
-                      }`}
-                      onClick={() => setSelectedLevel("municipality")}
-                    >
-                      <FaBuilding className="mr-1" /> Municipio
-                    </button>
-                  </div>
-                </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Estado</label>
                   <select
@@ -327,7 +380,7 @@ const MonitoreoMap = () => {
                   </select>
                 </div>
 
-                {selectedState && (
+                {selectedState && municipalities[selectedState] && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Municipio</label>
                     <select
@@ -339,7 +392,7 @@ const MonitoreoMap = () => {
                       }}
                     >
                       <option value="">Todos los municipios</option>
-                      {municipalities[selectedState]?.map((municipality) => (
+                      {municipalities[selectedState].map((municipality) => (
                         <option key={municipality} value={municipality}>
                           {municipality}
                         </option>
@@ -348,7 +401,7 @@ const MonitoreoMap = () => {
                   </div>
                 )}
 
-                {selectedMunicipality && (
+                {selectedMunicipality && hospitals[selectedMunicipality] && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Hospital</label>
                     <select
@@ -357,7 +410,7 @@ const MonitoreoMap = () => {
                       onChange={(e) => setSelectedHospital(e.target.value)}
                     >
                       <option value="">Todos los hospitales</option>
-                      {hospitals[selectedMunicipality]?.map((hospital) => (
+                      {hospitals[selectedMunicipality].map((hospital) => (
                         <option key={hospital} value={hospital}>
                           {hospital}
                         </option>
@@ -451,60 +504,62 @@ const MonitoreoMap = () => {
                 ))}
 
               {/* Marcadores de empleados */}
-              {filteredEmployees.map((employee) => (
-                <Marker
-                  key={employee.id}
-                  position={employee.location}
-                  icon={employee.outsideGeofence ? outsideGeofenceIcon : connectedIcon}
-                  eventHandlers={{
-                    click: () => {
-                      setSelectedEmployee(employee.id)
-                    },
-                  }}
-                >
-                  <Popup className="custom-popup">
-                    <div className="text-sm p-1">
-                      <div className="flex items-center mb-2">
-                        <div
-                          className={`w-8 h-8 rounded-full ${getAvatarColor(
-                            employee.name
-                          )} text-white flex items-center justify-center font-medium mr-2`}
+              {filteredEmployees
+                .filter((employee) => employee.location && employee.location[0] && employee.location[1])
+                .map((employee) => (
+                  <Marker
+                    key={employee.id}
+                    position={employee.location}
+                    icon={employee.outsideGeofence ? outsideGeofenceIcon : connectedIcon}
+                    eventHandlers={{
+                      click: () => {
+                        setSelectedEmployee(employee.id)
+                      },
+                    }}
+                  >
+                    <Popup className="custom-popup">
+                      <div className="text-sm p-1">
+                        <div className="flex items-center mb-2">
+                          <div
+                            className={`w-8 h-8 rounded-full ${getAvatarColor(
+                              employee.name,
+                            )} text-white flex items-center justify-center font-medium mr-2 text-xs`}
+                          >
+                            {employee.avatar}
+                          </div>
+                          <div>
+                            <h3 className="font-medium text-base">{employee.name}</h3>
+                            <p className="text-gray-600 text-xs">{employee.position}</p>
+                          </div>
+                        </div>
+                        <p className="text-gray-700 mb-2">{employee.hospital}</p>
+                        <div className="flex justify-between items-center mb-2">
+                          <div className="flex items-center text-gray-600">
+                            <FaClock className="mr-1" />
+                            <span>{employee.hoursWorked.toFixed(1)} hrs</span>
+                          </div>
+                          {employee.outsideGeofence ? (
+                            <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full flex items-center">
+                              <FaExclamationTriangle className="mr-1" />
+                              Fuera de geocerca
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 bg-emerald-100 text-emerald-800 text-xs rounded-full flex items-center">
+                              <FaMapMarkerAlt className="mr-1" />
+                              En geocerca
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          className="w-full mt-2 text-emerald-600 text-xs flex items-center justify-center border border-emerald-200 rounded-lg py-1 px-2 hover:bg-emerald-50"
+                          onClick={() => setSelectedEmployee(employee.id)}
                         >
-                          {employee.avatar}
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-base">{employee.name}</h3>
-                          <p className="text-gray-600 text-xs">{employee.position}</p>
-                        </div>
+                          <FaInfoCircle className="mr-1" /> Ver detalles
+                        </button>
                       </div>
-                      <p className="text-gray-700 mb-2">{employee.hospital}</p>
-                      <div className="flex justify-between items-center mb-2">
-                        <div className="flex items-center text-gray-600">
-                          <FaClock className="mr-1" />
-                          <span>{employee.hoursWorked.toFixed(1)} hrs</span>
-                        </div>
-                        {employee.outsideGeofence ? (
-                          <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full flex items-center">
-                            <FaExclamationTriangle className="mr-1" />
-                            Fuera de geocerca
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 bg-emerald-100 text-emerald-800 text-xs rounded-full flex items-center">
-                            <FaMapMarkerAlt className="mr-1" />
-                            En geocerca
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        className="w-full mt-2 text-emerald-600 text-xs flex items-center justify-center border border-emerald-200 rounded-lg py-1 px-2 hover:bg-emerald-50"
-                        onClick={() => setSelectedEmployee(employee.id)}
-                      >
-                        <FaInfoCircle className="mr-1" /> Ver detalles
-                      </button>
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
+                    </Popup>
+                  </Marker>
+                ))}
             </MapContainer>
           </div>
 
@@ -531,8 +586,8 @@ const MonitoreoMap = () => {
                       <div className="flex items-center mb-6">
                         <div
                           className={`w-12 h-12 rounded-full ${getAvatarColor(
-                            employee.name
-                          )} text-white flex items-center justify-center text-xl font-medium mr-3`}
+                            employee.name,
+                          )} text-white flex items-center justify-center text-lg font-medium mr-3`}
                         >
                           {employee.avatar}
                         </div>
@@ -551,6 +606,9 @@ const MonitoreoMap = () => {
                           <p className="text-gray-800 font-medium">{employee.hospital}</p>
                           <p className="text-gray-600 text-sm">
                             {employee.municipality}, {employee.state}
+                          </p>
+                          <p className="text-gray-500 text-xs mt-1">
+                            Lat: {employee.location[0]?.toFixed(6)}, Lng: {employee.location[1]?.toFixed(6)}
                           </p>
                         </div>
 
@@ -578,26 +636,6 @@ const MonitoreoMap = () => {
                           </p>
                         </div>
 
-                        <div className="flex justify-between">
-                          <div>
-                            <h5 className="text-sm font-medium text-gray-700 mb-1">Tiempo de trabajo</h5>
-                            <div className="flex items-center">
-                              <FaClock className="mr-1 text-emerald-600" />
-                              <span className="font-medium">{employee.hoursWorked.toFixed(1)} horas</span>
-                            </div>
-                          </div>
-
-                          <div>
-                            <h5 className="text-sm font-medium text-gray-700 mb-1">Salidas</h5>
-                            <div className="flex items-center">
-                              <FaExclamationTriangle
-                                className={`mr-1 ${employee.geofenceExits > 0 ? "text-orange-500" : "text-gray-400"}`}
-                              />
-                              <span className="font-medium">{employee.geofenceExits}</span>
-                            </div>
-                          </div>
-                        </div>
-
                         <div>
                           <h5 className="text-sm font-medium text-gray-700 mb-2">Geocerca</h5>
                           {employee.outsideGeofence ? (
@@ -621,49 +659,6 @@ const MonitoreoMap = () => {
                               </div>
                             </div>
                           )}
-                        </div>
-
-                        <div className="border-t border-gray-100 pt-4">
-                          <h5 className="text-sm font-medium text-gray-700 mb-3">Historial de actividad</h5>
-                          <div className="space-y-3">
-                            <div className="flex justify-between items-center">
-                              <div className="flex items-center text-gray-600">
-                                <div className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></div>
-                                <span>Inicio de sesión</span>
-                              </div>
-                              <span className="text-gray-800 font-medium">
-                                {format(
-                                  new Date(employee.lastConnection.getTime() - employee.hoursWorked * 3600000),
-                                  "HH:mm",
-                                  { locale: es }
-                                )}
-                              </span>
-                            </div>
-
-                            {employee.geofenceExits > 0 && (
-                              <div className="flex justify-between items-center">
-                                <div className="flex items-center text-gray-600">
-                                  <div className="w-2 h-2 bg-orange-500 rounded-full mr-2"></div>
-                                  <span>Primera salida</span>
-                                </div>
-                                <span className="text-gray-800 font-medium">
-                                  {format(new Date(employee.lastConnection.getTime() - 5400000), "HH:mm", { locale: es })}
-                                </span>
-                              </div>
-                            )}
-
-                            <div className="flex justify-between items-center">
-                              <div className="flex items-center text-gray-600">
-                                <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-                                <span>
-                                  {employee.status === "connected" ? "Última actualización" : "Desconexión"}
-                                </span>
-                              </div>
-                              <span className="text-gray-800 font-medium">
-                                {format(employee.lastConnection, "HH:mm", { locale: es })}
-                              </span>
-                            </div>
-                          </div>
                         </div>
                       </div>
 

@@ -1,13 +1,11 @@
-// HospitalForm.jsx
 import { useState, useEffect } from "react";
 import GeocercaMap from "../GeocercaMap";
-import { Building2, Check, MapPin, Save, X } from "lucide-react";
+import { Building2, Check, Save, X } from "lucide-react";
 
 export default function HospitalForm({
   editandoHospital = false,
   hospitalEditando = null,
   mapCenter,
-  geocerca,
   onCoordsChange,
   onBuscarCoordenadasEstado,
   onGuardar,
@@ -23,12 +21,13 @@ export default function HospitalForm({
   });
 
   const [estados, setEstados] = useState([]);
-  const [errors, setErrors] = useState({});
-  const [touched, setTouched] = useState({});
   const [municipios, setMunicipios] = useState([]);
+  const [geocercaState, setGeocercaState] = useState(null);
 
   useEffect(() => {
     if (editandoHospital && hospitalEditando) {
+      console.log("🛑 hospitalEditando recibido:", hospitalEditando);
+
       setForm({
         estado: hospitalEditando.estado || "",
         nombre: hospitalEditando.nombre || "",
@@ -37,15 +36,25 @@ export default function HospitalForm({
         lat: hospitalEditando.geocerca?.lat?.toString() || "",
         lng: hospitalEditando.geocerca?.lng?.toString() || "",
       });
+
+      if (hospitalEditando.geocerca?.radio) {
+        try {
+          const parsedGeo = JSON.parse(hospitalEditando.geocerca.radio.replace(/'/g, '"'));
+          console.log("📦 Parsed geocerca from .geocerca.radio:", parsedGeo);
+          setGeocercaState(parsedGeo);
+        } catch (err) {
+          console.error("❌ Error parsing geocerca.radio:", err);
+        }
+      } else {
+        console.warn("⚠️ hospitalEditando.geocerca.radio viene null o vacío");
+      }
     }
   }, [editandoHospital, hospitalEditando]);
 
   useEffect(() => {
     const fetchEstados = async () => {
       try {
-        const response = await fetch(
-          "http://localhost:4000/api/superadmin/estados"
-        );
+        const response = await fetch("http://localhost:4000/api/superadmin/estados");
         const data = await response.json();
         setEstados(data);
       } catch (error) {
@@ -70,7 +79,6 @@ export default function HospitalForm({
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm({ ...form, [name]: value });
-    setTouched({ ...touched, [name]: true });
 
     if (name === "estado") {
       const estadoSeleccionado = estados.find((e) => e.id_estado == value);
@@ -85,11 +93,6 @@ export default function HospitalForm({
     const { name, value } = e.target;
     const newCoords = { ...form, [name]: value };
     setForm(newCoords);
-    if (name === "lat" || name === "lng") {
-      const lat = parseFloat(newCoords.lat);
-      const lng = parseFloat(newCoords.lng);
-      if (!isNaN(lat) && !isNaN(lng)) handleHospitalCoordsChange({ lat, lng });
-    }
   };
 
   const handleHospitalCoordsChange = (coords) => {
@@ -102,16 +105,25 @@ export default function HospitalForm({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!editandoHospital && (!form.lat || !form.lng)) {
+
+    const lat = parseFloat(form.lat);
+    const lng = parseFloat(form.lng);
+
+    if (!editandoHospital && (isNaN(lat) || isNaN(lng))) {
       alert("Debes ingresar coordenadas válidas para el hospital.");
       return;
     }
 
-    const geocercaFinal = geocerca || { lat: 0, lng: 0, radio: 0 };
+    if (!geocercaState || geocercaState.type !== "Polygon") {
+      alert("Debes ingresar una geocerca válida para el hospital.");
+      return;
+    }
 
     const hospitalData = {
       ...form,
-      geocerca: geocercaFinal,
+      lat,
+      lng,
+      geocerca: geocercaState,
     };
 
     onGuardar(hospitalData);
@@ -151,6 +163,7 @@ export default function HospitalForm({
               ))}
             </select>
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Municipio
@@ -164,10 +177,7 @@ export default function HospitalForm({
             >
               <option value="">Selecciona un municipio</option>
               {municipios.map((municipio) => (
-                <option
-                  key={municipio.id_municipio}
-                  value={municipio.nombre_municipio}
-                >
+                <option key={municipio.id_municipio} value={municipio.nombre_municipio}>
                   {municipio.nombre_municipio}
                 </option>
               ))}
@@ -233,7 +243,6 @@ export default function HospitalForm({
               onChange={handleCoordsManually}
               className="w-full border px-4 py-2 rounded-lg"
               required={!editandoHospital}
-              disabled={editandoHospital}
             />
           </div>
 
@@ -249,7 +258,6 @@ export default function HospitalForm({
               onChange={handleCoordsManually}
               className="w-full border px-4 py-2 rounded-lg"
               required={!editandoHospital}
-              disabled={editandoHospital}
             />
           </div>
         </div>
@@ -259,8 +267,8 @@ export default function HospitalForm({
           editableGeocerca={editandoHospital || (!!form.lat && !!form.lng)}
           centerFromOutside={mapCenter}
           initialHospitalCoords={hasCoords ? { lat, lng } : null}
-          initialGeocerca={geocerca}
-          onCoordsChange={onCoordsChange}
+          initialGeocerca={geocercaState}
+          onCoordsChange={setGeocercaState}
           onHospitalCoordsChange={handleHospitalCoordsChange}
           editando={editandoHospital}
         />

@@ -1,4 +1,3 @@
-"use client"
 import { ChevronRight, Hospital, Settings } from "lucide-react"
 
 const HospitalList = ({
@@ -86,7 +85,17 @@ const HospitalList = ({
                       <td className="px-4 py-3 text-sm">
                         <div className="max-w-xs truncate">{h.region}</div>
                       </td>
-                      <td className="px-4 py-3 text-sm">{h.geocerca?.radio ?? "N/A"}</td>
+                      <td className="px-4 py-3 text-sm">
+                        {h.geocerca?.radio ? (
+                          <span className="px-2 py-1 text-xs font-semibold rounded bg-emerald-100 text-emerald-700">
+                            Geocerca definida
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 text-xs font-semibold rounded bg-gray-100 text-gray-500">
+                            Sin geocerca
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-sm">
                         <button
                           onClick={() => handleEditarHospital(h, indiceReal)}
