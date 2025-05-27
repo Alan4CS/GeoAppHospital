@@ -240,22 +240,31 @@ router.post("/delete-employee/:id_user", async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    // 1️ Eliminar relaciones en group_users
+    // Eliminar relaciones en registro_ubicaciones
+    await client.query(
+      `DELETE FROM registro_ubicaciones WHERE id_user = $1`,
+      [id_user]
+    );
+
+    // Eliminar relaciones en group_users
     await client.query(
       `DELETE FROM group_users WHERE id_user = $1`,
       [id_user]
     );
 
+    // Eliminar en user_credentials
     await client.query(
       `DELETE FROM user_credentials WHERE id_user = $1`,
       [id_user]
     );
 
+    // Eliminar en user_roles
     await client.query(
       `DELETE FROM user_roles WHERE id_user = $1`,
       [id_user]
     );
 
+    //  Finalmente eliminar en user_data
     await client.query(
       `DELETE FROM user_data WHERE id_user = $1`,
       [id_user]
@@ -272,6 +281,5 @@ router.post("/delete-employee/:id_user", async (req, res) => {
     client.release();
   }
 });
-
 
 export default router;
