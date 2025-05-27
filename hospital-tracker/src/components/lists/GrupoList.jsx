@@ -121,7 +121,7 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
       const response = await fetch(
         `http://localhost:4000/api/groups/update-groups`,
         {
-          method: "POST",
+          method: "PUT",
           headers: {
             "Content-Type": "application/json",
           },

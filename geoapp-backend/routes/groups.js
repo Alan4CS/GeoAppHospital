@@ -18,6 +18,7 @@ router.get("/get-groups", async (req, res) => {
         JOIN hospitals h ON g.id_hospital = h.id_hospital
         JOIN estados s ON h.estado_id = s.id_estado
         LEFT JOIN municipios m ON h.id_municipio = m.id_municipio
+        ORDER BY g.id_group ASC
         ` 
     );
 
