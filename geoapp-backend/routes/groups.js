@@ -55,7 +55,7 @@ router.post("/create-groups", async (req, res) => {
   }
 });
 
-router.post("/update-groups", async (req, res) => {
+router.put("/update-groups", async (req, res) => {
   const { id_group, nombre_grupo, id_hospital, descripcion_grupo } = req.body;
 
   const client = await pool.connect();
