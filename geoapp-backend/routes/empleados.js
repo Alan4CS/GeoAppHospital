@@ -190,4 +190,88 @@ router.get("/monitoreo", async (req, res) => {
   }
 });
 
+router.post("/update-employee", async (req, res) => {
+  const { id_user, nombre, ap_paterno, ap_materno, curp_user, id_estado, id_municipio, id_hospital, id_group } = req.body;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    await client.query(
+      `UPDATE user_data
+       SET nombre = $2,
+           ap_paterno = $3,
+           ap_materno = $4,
+           curp_user = $5,
+           id_estado = $6,
+           id_municipio = $7,
+           id_hospital = $8,
+           id_group = $9
+       WHERE id_user = $1`,
+      [id_user, nombre, ap_paterno, ap_materno, curp_user, id_estado, id_municipio, id_hospital, id_group]
+    );
+
+    await client.query(
+      `UPDATE group_users
+      SET id_group = $2
+      WHERE id_user = $1`,
+      [id_user, id_group]
+    );
+
+    await client.query("COMMIT");
+    res.status(200).json({ message: "Empleado actualizado con éxito" });
+
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("❌ Error al actualizar el empleado:", error);
+    res.status(500).json({ error: "Error al actualizar el empleado para el hospital" });
+  } finally {
+    client.release();
+  }
+});
+
+
+router.post("/delete-employee/:id_user", async (req, res) => {
+  const { id_user } = req.params;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // 1️ Eliminar relaciones en group_users
+    await client.query(
+      `DELETE FROM group_users WHERE id_user = $1`,
+      [id_user]
+    );
+
+    await client.query(
+      `DELETE FROM user_credentials WHERE id_user = $1`,
+      [id_user]
+    );
+
+    await client.query(
+      `DELETE FROM user_roles WHERE id_user = $1`,
+      [id_user]
+    );
+
+    await client.query(
+      `DELETE FROM user_data WHERE id_user = $1`,
+      [id_user]
+    );
+
+    await client.query("COMMIT");
+    res.status(200).json({ message: "Empleado eliminado con éxito" });
+
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("❌ Error al eliminar el empleado:", error);
+    res.status(500).json({ error: "Error al eliminar el empleado para el hospital" });
+  } finally {
+    client.release();
+  }
+});
+
+
 export default router;

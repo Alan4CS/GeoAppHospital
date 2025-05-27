@@ -55,4 +55,74 @@ router.post("/create-groups", async (req, res) => {
   }
 });
 
+router.post("/update-groups", async (req, res) => {
+  const { id_group, nombre_grupo, id_hospital, descripcion_grupo } = req.body;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    await client.query(
+      `UPDATE groups
+       SET nombre_grupo = $2,
+           id_hospital = $3,
+           descripcion_group = $4
+       WHERE id_group = $1`,
+      [id_group, nombre_grupo, id_hospital, descripcion_grupo]
+    );
+
+    await client.query("COMMIT");
+    res.status(200).json({ message: "Grupo actualizado con éxito" });
+
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("❌ Error al actualizar el grupo:", error);
+    res.status(500).json({ error: "Error al actualizar el grupo para el hospital" });
+  } finally {
+    client.release();
+  }
+});
+
+router.post("/delete-groups/:id_group", async (req, res) => {
+  const { id_group } = req.params;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // 1️ Eliminar relaciones en group_users
+    await client.query(
+      `DELETE FROM group_users WHERE id_group = $1`,
+      [id_group]
+    );
+
+    // 2️ Poner en NULL los usuarios que tienen este id_group
+    await client.query(
+      `UPDATE user_data
+       SET id_group = NULL
+       WHERE id_group = $1`,
+      [id_group]
+    );
+
+    // 3️ Eliminar el grupo
+    await client.query(
+      `DELETE FROM groups WHERE id_group = $1`,
+      [id_group]
+    );
+
+    await client.query("COMMIT");
+    res.status(200).json({ message: "Grupo eliminado y usuarios actualizados con éxito" });
+
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("❌ Error al eliminar el grupo:", error);
+    res.status(500).json({ error: "Error al eliminar el grupo para el hospital" });
+  } finally {
+    client.release();
+  }
+});
+
+
 export default router;
