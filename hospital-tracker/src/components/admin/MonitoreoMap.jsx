@@ -164,7 +164,8 @@ const MonitoreoMap = () => {
     fetchMonitoringData()
 
     // Configurar actualización automática cada 30 segundos
-    const interval = setInterval(fetchMonitoringData, 30000)
+    const interval = setInterval(fetchMonitoringData, 600000)
+
 
     return () => clearInterval(interval)
   }, [])
