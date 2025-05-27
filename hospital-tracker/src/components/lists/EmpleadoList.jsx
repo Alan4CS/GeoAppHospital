@@ -26,8 +26,6 @@ const EmpleadoList = ({
   onActualizarEmpleados,
 }) => {
   const [mostrarTodosEmpleados, setMostrarTodosEmpleados] = useState({});
-  const [grupoSeleccionado, setGrupoSeleccionado] = useState(null);
-  const [nuevoNombreGrupo, setNuevoNombreGrupo] = useState("");
   const [empleadoEditando, setEmpleadoEditando] = useState(null);
   const [empleadoEliminar, setEmpleadoEliminar] = useState(null);
   const [mostrarModalEditar, setMostrarModalEditar] = useState(false);
@@ -469,15 +467,6 @@ const EmpleadoList = ({
                             <span className="font-medium text-slate-700">
                               Grupo: {grupo} ({empleadosGrupo.length})
                             </span>
-                            <button
-                              onClick={() => {
-                                setGrupoSeleccionado({ nombre: grupo });
-                                setNuevoNombreGrupo(grupo);
-                              }}
-                              className="text-sm text-amber-600 hover:underline"
-                            >
-                              Editar grupo
-                            </button>
                           </div>
                           <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
@@ -580,54 +569,6 @@ const EmpleadoList = ({
           </div>
         ))}
       </div>
-
-      {/* MODAL DE EDICIÓN DE GRUPO (mantenido del original) */}
-      {grupoSeleccionado && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
-            <h2 className="text-lg font-semibold text-slate-800 mb-4">
-              Editar Grupo
-            </h2>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Nombre del grupo
-            </label>
-            <input
-              type="text"
-              value={nuevoNombreGrupo}
-              onChange={(e) => setNuevoNombreGrupo(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-amber-500"
-            />
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => {
-                  alert("Eliminar grupo: " + grupoSeleccionado.nombre);
-                  setGrupoSeleccionado(null);
-                }}
-                className="px-4 py-2 text-sm text-white bg-red-500 hover:bg-red-600 rounded-lg"
-              >
-                Eliminar
-              </button>
-              <button
-                onClick={() => {
-                  alert(
-                    `Renombrar grupo: "${grupoSeleccionado.nombre}" a "${nuevoNombreGrupo}"`
-                  );
-                  setGrupoSeleccionado(null);
-                }}
-                className="px-4 py-2 text-sm text-white bg-amber-600 hover:bg-amber-700 rounded-lg"
-              >
-                Guardar
-              </button>
-              <button
-                onClick={() => setGrupoSeleccionado(null)}
-                className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* MODAL DE EDICIÓN DE EMPLEADO */}
       {mostrarModalEditar && (

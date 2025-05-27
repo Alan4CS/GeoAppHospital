@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -8,7 +6,15 @@ import AdminForm from "../components/admin/AdminForm";
 import SuperadminSidebar from "../components/admin/SuperadminSidebar";
 import GrupoForm from "../components/admin/GrupoForm";
 import EmpleadoForm from "../components/admin/EmpleadoForm";
-import { Hospital, Map, Plus, Users, UsersRound, UserPlus } from "lucide-react";
+import {
+  Hospital,
+  Map,
+  Plus,
+  Users,
+  UsersRound,
+  UserPlus,
+  X,
+} from "lucide-react";
 import StatsCard from "../components/admin/StatsCard";
 import MonitoreoMap from "../components/admin/MonitoreoMap";
 import MonitoreoConfig from "../components/admin/MonitoreoConfig";
@@ -21,7 +27,6 @@ import EmpleadoList from "../components/lists/EmpleadoList";
 export default function SuperadminGeoApp() {
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [hospitales, setHospitales] = useState([]);
-  const [hospitalesCompletos, setHospitalesCompletos] = useState([]); // Nueva lista para datos completos
   const [administradores, setAdministradores] = useState([]);
   const [grupos, setGrupos] = useState([]);
   const [empleados, setEmpleados] = useState([]);
@@ -30,6 +35,8 @@ export default function SuperadminGeoApp() {
   const [mostrarFormAdmin, setMostrarFormAdmin] = useState(false);
   const [mostrarFormGrupo, setMostrarFormGrupo] = useState(false);
   const [mostrarFormEmpleado, setMostrarFormEmpleado] = useState(false);
+  const [mostrarCredenciales, setMostrarCredenciales] = useState(false);
+  const [credencialesGeneradas, setCredencialesGeneradas] = useState(null);
   const navigate = useNavigate();
   const { setIsAuthenticated } = useAuth();
   const [paginaActual, setPaginaActual] = useState(1);
@@ -47,7 +54,6 @@ export default function SuperadminGeoApp() {
   const [busquedaEmpleado, setBusquedaEmpleado] = useState("");
   const [estadoEmpleadoFiltro, setEstadoEmpleadoFiltro] = useState("");
   const [rolEmpleadoFiltro, setRolEmpleadoFiltro] = useState("");
-  const [grupoIndexEditando, setGrupoIndexEditando] = useState(null);
 
   const buscarCoordenadasEstado = async (estado) => {
     const response = await fetch(
@@ -68,9 +74,6 @@ export default function SuperadminGeoApp() {
         );
         const data = await response.json();
         console.log("Hospitales desde la API:", data);
-
-        // Guardar datos completos para usar en GrupoList
-        setHospitalesCompletos(data);
 
         const hospitalesFormateados = data.map((h) => ({
           nombre: (h.nombre_hospital || "").replace(/\s+/g, " ").trim(),
@@ -111,29 +114,43 @@ export default function SuperadminGeoApp() {
 
   const fetchGrupos = async () => {
     try {
-      const res = await fetch("http://localhost:4000/api/groups/get-groups");
-      const data = await res.json();
-      console.log("Datos de grupos desde API:", data); // Debug
+      const response = await fetch(
+        "http://localhost:4000/api/groups/get-groups"
+      );
+      if (!response.ok) {
+        throw new Error("Error al obtener grupos");
+      }
+
+      const data = await response.json();
+      console.log("Grupos obtenidos:", data); // Para debug
 
       const gruposFormateados = data.map((g) => ({
-        id: g.id_group,
+        id_group: g.id_group,
         nombre_grupo: g.nombre_grupo,
         descripcion_group: g.descripcion_group,
+        id_hospital: g.id_hospital,
         nombre_hospital: g.nombre_hospital,
         nombre_estado: g.nombre_estado,
         nombre_municipio: g.nombre_municipio || "-",
       }));
 
-      console.log("Grupos formateados:", gruposFormateados); // Debug
       setGrupos(gruposFormateados);
 
-      const empleadosResponse = await fetch(
-        "http://localhost:4000/api/employees/get-empleados"
-      );
-      const empleadosData = await empleadosResponse.json();
-      setEmpleados(empleadosData);
+      // Actualizar también la lista de empleados
+      try {
+        const empleadosResponse = await fetch(
+          "http://localhost:4000/api/employees/get-empleados"
+        );
+        if (empleadosResponse.ok) {
+          const empleadosData = await empleadosResponse.json();
+          setEmpleados(empleadosData);
+        }
+      } catch (empleadosError) {
+        console.error("Error al obtener empleados:", empleadosError);
+      }
     } catch (err) {
       console.error("❌ Error al obtener grupos:", err);
+      alert("Error al obtener la lista de grupos");
     }
   };
 
@@ -150,7 +167,6 @@ export default function SuperadminGeoApp() {
     setEditandoHospital(false);
     setHospitalEditando(null);
     setHospitalIndexEditando(null);
-    setGrupoIndexEditando(null);
   };
 
   const handleMostrarFormulario = () => {
@@ -257,6 +273,59 @@ export default function SuperadminGeoApp() {
     setActiveTab("hospitales");
   };
 
+  // Función para copiar al portapapeles
+  const copiarAlPortapapeles = (texto) => {
+    navigator.clipboard.writeText(texto).then(
+      () => {
+        // Crear un elemento de notificación
+        const notificacion = document.createElement("div");
+        notificacion.className =
+          "fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in-out";
+        notificacion.textContent = "✓ Copiado al portapapeles";
+        document.body.appendChild(notificacion);
+
+        // Eliminar la notificación después de 2 segundos
+        setTimeout(() => {
+          notificacion.remove();
+        }, 2000);
+      },
+      (err) => {
+        console.error("Error al copiar: ", err);
+        // Mostrar error de manera sutil
+        const notificacion = document.createElement("div");
+        notificacion.className =
+          "fixed bottom-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in-out";
+        notificacion.textContent = "❌ Error al copiar";
+        document.body.appendChild(notificacion);
+
+        setTimeout(() => {
+          notificacion.remove();
+        }, 2000);
+      }
+    );
+  };
+
+  // Agregar los estilos de animación al inicio del archivo
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.textContent = `
+      @keyframes fadeInOut {
+        0% { opacity: 0; transform: translateY(20px); }
+        10% { opacity: 1; transform: translateY(0); }
+        90% { opacity: 1; transform: translateY(0); }
+        100% { opacity: 0; transform: translateY(-20px); }
+      }
+      .animate-fade-in-out {
+        animation: fadeInOut 2s ease-in-out;
+      }
+    `;
+    document.head.appendChild(style);
+
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
   // Manejador para guardar un administrador
   const handleGuardarAdmin = async (nuevoAdmin) => {
     try {
@@ -292,11 +361,13 @@ export default function SuperadminGeoApp() {
 
       const data = await response.json();
 
-      alert(
-        `✅ ${
-          data.message || "Administrador creado correctamente"
-        }\n🆔 Usuario: ${nuevoAdmin.user}\n🔑 Contraseña: ${nuevoAdmin.pass}`
-      );
+      setCredencialesGeneradas({
+        titulo: "Administrador creado con éxito",
+        usuario: nuevoAdmin.user,
+        password: nuevoAdmin.pass,
+        tipo: "administrador",
+      });
+      setMostrarCredenciales(true);
 
       // Refrescar la lista
       await fetchAdministradores();
@@ -311,9 +382,6 @@ export default function SuperadminGeoApp() {
   // Manejador para guardar un grupo
   const handleGuardarGrupo = async () => {
     await fetchGrupos(); // Recarga los grupos reales desde el backend
-
-    console.log("Nuevo grupo creado");
-
     resetearFormularios();
     setActiveTab("grupos"); // Cambia a la pestaña de grupos
   };
@@ -336,9 +404,13 @@ export default function SuperadminGeoApp() {
 
       const data = await response.json();
 
-      alert(
-        `✅ Empleado creado correctamente\n🆔 Usuario: ${nuevoEmpleado.user}\n🔑 Contraseña: ${nuevoEmpleado.pass}`
-      );
+      setCredencialesGeneradas({
+        titulo: "Empleado creado con éxito",
+        usuario: nuevoEmpleado.user,
+        password: nuevoEmpleado.pass,
+        tipo: "empleado",
+      });
+      setMostrarCredenciales(true);
 
       // Puedes guardar el empleado también en el estado local si lo deseas
       const nuevoId = Math.max(...empleados.map((e) => e.id), 0) + 1;
@@ -656,11 +728,7 @@ export default function SuperadminGeoApp() {
                 )}
 
                 {activeTab === "grupos" && (
-                  <GrupoList
-                    grupos={grupos}
-                    onGuardar={fetchGrupos}
-                    hospitales={hospitalesCompletos}
-                  />
+                  <GrupoList grupos={grupos} onGrupoActualizado={fetchGrupos} />
                 )}
 
                 {activeTab === "empleados" && (
@@ -672,13 +740,88 @@ export default function SuperadminGeoApp() {
                     setEstadoEmpleadoFiltro={setEstadoEmpleadoFiltro}
                     rolEmpleadoFiltro={rolEmpleadoFiltro}
                     setRolEmpleadoFiltro={setRolEmpleadoFiltro}
-                    onActualizarEmpleados={fetchGrupos}
                   />
                 )}
               </>
             )}
         </main>
       </div>
+
+      {/* Modal de Credenciales */}
+      {mostrarCredenciales && credencialesGeneradas && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-800 flex items-center">
+                <span className="text-green-600 mr-2">✓</span>
+                {credencialesGeneradas.titulo}
+              </h2>
+              <button
+                onClick={() => setMostrarCredenciales(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Usuario:
+                  </label>
+                  <button
+                    onClick={() =>
+                      copiarAlPortapapeles(credencialesGeneradas.usuario)
+                    }
+                    className="text-blue-600 hover:text-blue-800 text-sm"
+                  >
+                    Copiar
+                  </button>
+                </div>
+                <p className="text-lg font-mono bg-white p-2 rounded border border-gray-200">
+                  {credencialesGeneradas.usuario}
+                </p>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Contraseña:
+                  </label>
+                  <button
+                    onClick={() =>
+                      copiarAlPortapapeles(credencialesGeneradas.password)
+                    }
+                    className="text-blue-600 hover:text-blue-800 text-sm"
+                  >
+                    Copiar
+                  </button>
+                </div>
+                <p className="text-lg font-mono bg-white p-2 rounded border border-gray-200">
+                  {credencialesGeneradas.password}
+                </p>
+              </div>
+
+              <div className="mt-6 bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Importante:</strong> Por favor, guarde estas
+                  credenciales en un lugar seguro. No se mostrarán nuevamente.
+                </p>
+              </div>
+
+              <div className="flex justify-end mt-6">
+                <button
+                  onClick={() => setMostrarCredenciales(false)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Entendido
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
