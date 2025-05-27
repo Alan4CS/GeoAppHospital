@@ -672,6 +672,7 @@ export default function SuperadminGeoApp() {
                     setEstadoEmpleadoFiltro={setEstadoEmpleadoFiltro}
                     rolEmpleadoFiltro={rolEmpleadoFiltro}
                     setRolEmpleadoFiltro={setRolEmpleadoFiltro}
+                    onActualizarEmpleados={fetchGrupos}
                   />
                 )}
               </>
