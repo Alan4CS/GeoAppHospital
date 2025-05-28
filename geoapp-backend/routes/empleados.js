@@ -190,7 +190,7 @@ router.get("/monitoreo", async (req, res) => {
   }
 });
 
-router.post("/update-employee", async (req, res) => {
+router.put("/update-employee", async (req, res) => {
   const { id_user, nombre, ap_paterno, ap_materno, curp_user, id_estado, id_municipio, id_hospital, id_group } = req.body;
 
   const client = await pool.connect();

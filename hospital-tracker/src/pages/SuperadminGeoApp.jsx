@@ -728,7 +728,7 @@ export default function SuperadminGeoApp() {
                 )}
 
                 {activeTab === "grupos" && (
-                  <GrupoList grupos={grupos} onGrupoActualizado={fetchGrupos} />
+                  <GrupoList grupos={grupos} onGuardar={fetchGrupos} />
                 )}
 
                 {activeTab === "empleados" && (
