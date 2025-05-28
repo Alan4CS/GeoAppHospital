@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect } from "react";
 import {
   Hospital,
   Map,
@@ -13,7 +13,7 @@ import {
   FileText,
   CheckCircle,
   AlertCircle,
-} from "lucide-react"
+} from "lucide-react";
 
 const EmpleadoList = ({
   empleados,
@@ -25,57 +25,68 @@ const EmpleadoList = ({
   setRolEmpleadoFiltro,
   onActualizarEmpleados,
 }) => {
-  const [mostrarTodosEmpleados, setMostrarTodosEmpleados] = useState({})
-  const [empleadoEditando, setEmpleadoEditando] = useState(null)
-  const [empleadoEliminar, setEmpleadoEliminar] = useState(null)
-  const [mostrarModalEditar, setMostrarModalEditar] = useState(false)
-  const [mostrarModalEliminar, setMostrarModalEliminar] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [loadingEliminar, setLoadingEliminar] = useState(false)
-  const [tiempoRestante, setTiempoRestante] = useState(5)
-  const [botonEliminarHabilitado, setBotonEliminarHabilitado] = useState(false)
-  const [notificacion, setNotificacion] = useState(null)
+  const [mostrarTodosEmpleados, setMostrarTodosEmpleados] = useState({});
+  const [empleadoEditando, setEmpleadoEditando] = useState(null);
+  const [empleadoEliminar, setEmpleadoEliminar] = useState(null);
+  const [mostrarModalEditar, setMostrarModalEditar] = useState(false);
+  const [mostrarModalEliminar, setMostrarModalEliminar] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loadingEliminar, setLoadingEliminar] = useState(false);
+  const [tiempoRestante, setTiempoRestante] = useState(5);
+  const [botonEliminarHabilitado, setBotonEliminarHabilitado] = useState(false);
+  const [notificacion, setNotificacion] = useState(null);
   const [formData, setFormData] = useState({
     nombre: "",
     ap_paterno: "",
     ap_materno: "",
     telefono: "",
-  })
+    grupo: "",
+  });
+  const [grupos, setGrupos] = useState([]);
 
   // Función para mostrar notificaciones
   const mostrarNotificacion = (tipo, titulo, mensaje, duracion = 4000) => {
-    setNotificacion({ tipo, titulo, mensaje, duracion })
-    setTimeout(() => setNotificacion(null), duracion)
-  }
+    setNotificacion({ tipo, titulo, mensaje, duracion });
+    setTimeout(() => setNotificacion(null), duracion);
+  };
 
   const empleadosFiltrados = empleados.filter((empleado) => {
     const coincideBusqueda =
       !busquedaEmpleado ||
       empleado.nombre?.toLowerCase().includes(busquedaEmpleado.toLowerCase()) ||
-      empleado.ap_paterno?.toLowerCase().includes(busquedaEmpleado.toLowerCase()) ||
-      empleado.ap_materno?.toLowerCase().includes(busquedaEmpleado.toLowerCase()) ||
-      empleado.curp_user?.toLowerCase().includes(busquedaEmpleado.toLowerCase())
+      empleado.ap_paterno
+        ?.toLowerCase()
+        .includes(busquedaEmpleado.toLowerCase()) ||
+      empleado.ap_materno
+        ?.toLowerCase()
+        .includes(busquedaEmpleado.toLowerCase()) ||
+      empleado.curp_user
+        ?.toLowerCase()
+        .includes(busquedaEmpleado.toLowerCase());
 
-    const coincideEstado = !estadoEmpleadoFiltro || empleado.estado === estadoEmpleadoFiltro
-    const coincideRol = !rolEmpleadoFiltro || empleado.role_name === rolEmpleadoFiltro
+    const coincideEstado =
+      !estadoEmpleadoFiltro || empleado.estado === estadoEmpleadoFiltro;
+    const coincideRol =
+      !rolEmpleadoFiltro || empleado.role_name === rolEmpleadoFiltro;
 
-    return coincideBusqueda && coincideEstado && coincideRol
-  })
+    return coincideBusqueda && coincideEstado && coincideRol;
+  });
 
   const empleadosPorEstado = empleadosFiltrados.reduce((acc, empleado) => {
-    const estado = empleado.estado || "Sin estado"
-    const municipio = empleado.municipio || "Sin municipio"
-    const hospital = empleado.hospital || "Sin hospital"
-    const grupo = empleado.nombre_grupo || "Sin grupo"
+    const estado = empleado.estado || "Sin estado";
+    const municipio = empleado.municipio || "Sin municipio";
+    const hospital = empleado.hospital || "Sin hospital";
+    const grupo = empleado.nombre_grupo || "Sin grupo";
 
-    acc[estado] = acc[estado] || {}
-    acc[estado][municipio] = acc[estado][municipio] || {}
-    acc[estado][municipio][hospital] = acc[estado][municipio][hospital] || {}
-    acc[estado][municipio][hospital][grupo] = acc[estado][municipio][hospital][grupo] || []
+    acc[estado] = acc[estado] || {};
+    acc[estado][municipio] = acc[estado][municipio] || {};
+    acc[estado][municipio][hospital] = acc[estado][municipio][hospital] || {};
+    acc[estado][municipio][hospital][grupo] =
+      acc[estado][municipio][hospital][grupo] || [];
 
-    acc[estado][municipio][hospital][grupo].push(empleado)
-    return acc
-  }, {})
+    acc[estado][municipio][hospital][grupo].push(empleado);
+    return acc;
+  }, {});
 
   // Función para obtener IDs basándose en los nombres
   const obtenerIDs = async (empleado) => {
@@ -85,72 +96,87 @@ const EmpleadoList = ({
         municipio: empleado.municipio,
         hospital: empleado.hospital,
         grupo: empleado.nombre_grupo,
-      })
+      });
 
       // Obtener ID del estado
-      let id_estado = null
+      let id_estado = null;
       try {
-        const estadosResponse = await fetch("http://localhost:4000/api/superadmin/estados")
-        const estados = await estadosResponse.json()
-        console.log("📍 Estados disponibles:", estados)
+        const estadosResponse = await fetch(
+          "http://localhost:4000/api/superadmin/estados"
+        );
+        const estados = await estadosResponse.json();
+        console.log("📍 Estados disponibles:", estados);
 
-        const estadoEncontrado = estados.find((e) => e.nombre_estado?.toLowerCase() === empleado.estado?.toLowerCase())
-        id_estado = estadoEncontrado?.id_estado
-        console.log("📍 Estado encontrado:", estadoEncontrado)
+        const estadoEncontrado = estados.find(
+          (e) =>
+            e.nombre_estado?.toLowerCase() === empleado.estado?.toLowerCase()
+        );
+        id_estado = estadoEncontrado?.id_estado;
+        console.log("📍 Estado encontrado:", estadoEncontrado);
       } catch (error) {
-        console.error("❌ Error al obtener estados:", error)
+        console.error("❌ Error al obtener estados:", error);
       }
 
       // Obtener ID del municipio
-      let id_municipio = null
+      let id_municipio = null;
       if (id_estado) {
         try {
           const municipiosResponse = await fetch(
-            `http://localhost:4000/api/municipioadmin/municipios-by-estado/${id_estado}`,
-          )
-          const municipios = await municipiosResponse.json()
-          console.log("🏘️ Municipios disponibles:", municipios)
+            `http://localhost:4000/api/municipioadmin/municipios-by-estado/${id_estado}`
+          );
+          const municipios = await municipiosResponse.json();
+          console.log("🏘️ Municipios disponibles:", municipios);
 
           const municipioEncontrado = municipios.find(
-            (m) => m.nombre_municipio?.toLowerCase() === empleado.municipio?.toLowerCase(),
-          )
-          id_municipio = municipioEncontrado?.id_municipio
-          console.log("🏘️ Municipio encontrado:", municipioEncontrado)
+            (m) =>
+              m.nombre_municipio?.toLowerCase() ===
+              empleado.municipio?.toLowerCase()
+          );
+          id_municipio = municipioEncontrado?.id_municipio;
+          console.log("🏘️ Municipio encontrado:", municipioEncontrado);
         } catch (error) {
-          console.error("❌ Error al obtener municipios:", error)
+          console.error("❌ Error al obtener municipios:", error);
         }
       }
 
       // Obtener ID del hospital
-      let id_hospital = null
+      let id_hospital = null;
       try {
-        const hospitalesResponse = await fetch("http://localhost:4000/api/superadmin/hospitals")
-        const hospitales = await hospitalesResponse.json()
-        console.log("🏥 Hospitales disponibles:", hospitales)
+        const hospitalesResponse = await fetch(
+          "http://localhost:4000/api/superadmin/hospitals"
+        );
+        const hospitales = await hospitalesResponse.json();
+        console.log("🏥 Hospitales disponibles:", hospitales);
 
         const hospitalEncontrado = hospitales.find(
-          (h) => h.nombre_hospital?.toLowerCase() === empleado.hospital?.toLowerCase(),
-        )
-        id_hospital = hospitalEncontrado?.id_hospital
-        console.log("🏥 Hospital encontrado:", hospitalEncontrado)
+          (h) =>
+            h.nombre_hospital?.toLowerCase() ===
+            empleado.hospital?.toLowerCase()
+        );
+        id_hospital = hospitalEncontrado?.id_hospital;
+        console.log("🏥 Hospital encontrado:", hospitalEncontrado);
       } catch (error) {
-        console.error("❌ Error al obtener hospitales:", error)
+        console.error("❌ Error al obtener hospitales:", error);
       }
 
       // Obtener ID del grupo
-      let id_group = null
+      let id_group = null;
       try {
-        const gruposResponse = await fetch("http://localhost:4000/api/groups/get-groups")
-        const grupos = await gruposResponse.json()
-        console.log("👥 Grupos disponibles:", grupos)
+        const gruposResponse = await fetch(
+          "http://localhost:4000/api/groups/get-groups"
+        );
+        const grupos = await gruposResponse.json();
+        console.log("👥 Grupos disponibles:", grupos);
 
         const grupoEncontrado = grupos.find(
-          (g) => g.nombre_grupo?.toLowerCase().trim() === empleado.nombre_grupo?.toLowerCase().trim(),
-        )
-        id_group = grupoEncontrado?.id_group
-        console.log("👥 Grupo encontrado:", grupoEncontrado)
+          (g) =>
+            g.nombre_grupo?.toLowerCase().trim() ===
+            empleado.nombre_grupo?.toLowerCase().trim()
+        );
+        id_group = grupoEncontrado?.id_group;
+        console.log("👥 Grupo encontrado:", grupoEncontrado);
       } catch (error) {
-        console.error("❌ Error al obtener grupos:", error)
+        console.error("❌ Error al obtener grupos:", error);
       }
 
       const resultado = {
@@ -158,107 +184,134 @@ const EmpleadoList = ({
         id_municipio,
         id_hospital,
         id_group,
-      }
+      };
 
-      console.log("✅ IDs obtenidos:", resultado)
-      return resultado
+      console.log("✅ IDs obtenidos:", resultado);
+      return resultado;
     } catch (error) {
-      console.error("💥 Error general al obtener IDs:", error)
+      console.error("💥 Error general al obtener IDs:", error);
       return {
         id_estado: null,
         id_municipio: null,
         id_hospital: null,
         id_group: null,
-      }
+      };
     }
-  }
+  };
 
-  const handleEditar = (empleado) => {
-    console.log("🎯 Empleado seleccionado para editar:", empleado)
-    setEmpleadoEditando(empleado)
+  const handleEditar = async (empleado) => {
+    console.log("🎯 Empleado seleccionado para editar:", empleado);
+    setEmpleadoEditando(empleado);
     setFormData({
       nombre: empleado.nombre || "",
       ap_paterno: empleado.ap_paterno || "",
       ap_materno: empleado.ap_materno || "",
       telefono: empleado.telefono || "",
-    })
-    setMostrarModalEditar(true)
-  }
+      grupo: empleado.nombre_grupo || "",
+    });
+
+    // Cargar grupos disponibles
+    try {
+      const ids = await obtenerIDs(empleado);
+      if (ids.id_hospital) {
+        const gruposResponse = await fetch(
+          `http://localhost:4000/api/employees/grupos-by-hospital?id_hospital=${ids.id_hospital}`
+        );
+        if (gruposResponse.ok) {
+          const gruposData = await gruposResponse.json();
+          setGrupos(gruposData);
+        }
+      }
+    } catch (error) {
+      console.error("Error al cargar grupos:", error);
+      setGrupos([]);
+    }
+
+    setMostrarModalEditar(true);
+  };
 
   const handleEliminar = (empleado) => {
-    setEmpleadoEliminar(empleado)
-    setMostrarModalEliminar(true)
-    setBotonEliminarHabilitado(false)
-    setTiempoRestante(5)
+    setEmpleadoEliminar(empleado);
+    setMostrarModalEliminar(true);
+    setBotonEliminarHabilitado(false);
+    setTiempoRestante(5);
 
     // Iniciar el temporizador
     const intervalo = setInterval(() => {
       setTiempoRestante((prevTiempo) => {
         if (prevTiempo <= 1) {
-          clearInterval(intervalo)
-          setBotonEliminarHabilitado(true)
-          return 0
+          clearInterval(intervalo);
+          setBotonEliminarHabilitado(true);
+          return 0;
         }
-        return prevTiempo - 1
-      })
-    }, 1000)
-  }
+        return prevTiempo - 1;
+      });
+    }, 1000);
+  };
 
   const handleCerrarModalEditar = () => {
-    setMostrarModalEditar(false)
-    setEmpleadoEditando(null)
+    setMostrarModalEditar(false);
+    setEmpleadoEditando(null);
     setFormData({
       nombre: "",
       ap_paterno: "",
       ap_materno: "",
       telefono: "",
-    })
-  }
+      grupo: "",
+    });
+  };
 
   const handleCerrarModalEliminar = () => {
-    setMostrarModalEliminar(false)
-    setEmpleadoEliminar(null)
-    setBotonEliminarHabilitado(false)
-    setTiempoRestante(5)
-  }
+    setMostrarModalEliminar(false);
+    setEmpleadoEliminar(null);
+    setBotonEliminarHabilitado(false);
+    setTiempoRestante(5);
+  };
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target
+    const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
       [name]: value,
-    }))
-  }
+    }));
+  };
 
   const handleSubmitEditar = async (e) => {
-    e.preventDefault()
-    setLoading(true)
+    e.preventDefault();
+    setLoading(true);
 
     try {
-      console.log("🔍 Iniciando actualización de empleado...")
-      console.log("📝 Datos del formulario:", formData)
-      console.log("👤 Empleado original:", empleadoEditando)
+      console.log("🔍 Iniciando actualización de empleado...");
+      console.log("📝 Datos del formulario:", formData);
+      console.log("👤 Empleado original:", empleadoEditando);
 
       // Obtener los IDs necesarios
-      console.log("🔄 Obteniendo IDs...")
-      const ids = await obtenerIDs(empleadoEditando)
+      console.log("🔄 Obteniendo IDs...");
+      const ids = await obtenerIDs(empleadoEditando);
+
+      // Encontrar el ID del grupo seleccionado
+      const grupoSeleccionado = grupos.find(
+        (g) => g.nombre_grupo === formData.grupo
+      );
+      const id_group = grupoSeleccionado?.id_group || null;
 
       // Verificar que todos los IDs requeridos estén presentes
-      if (!ids.id_estado || !ids.id_hospital || !ids.id_group) {
-        console.error("❌ IDs faltantes:")
-        console.error("  - id_estado:", ids.id_estado)
-        console.error("  - id_municipio:", ids.id_municipio)
-        console.error("  - id_hospital:", ids.id_hospital)
-        console.error("  - id_group:", ids.id_group)
+      if (!ids.id_estado || !ids.id_hospital) {
+        console.error("❌ IDs faltantes:");
+        console.error("  - id_estado:", ids.id_estado);
+        console.error("  - id_municipio:", ids.id_municipio);
+        console.error("  - id_hospital:", ids.id_hospital);
+        console.error("  - id_group:", id_group);
 
-        const faltantes = []
-        if (!ids.id_estado) faltantes.push("estado")
-        if (!ids.id_hospital) faltantes.push("hospital")
-        if (!ids.id_group) faltantes.push("grupo")
+        const faltantes = [];
+        if (!ids.id_estado) faltantes.push("estado");
+        if (!ids.id_hospital) faltantes.push("hospital");
 
         throw new Error(
-          `No se pudieron obtener los IDs de: ${faltantes.join(", ")}. Verifica que existan en el sistema.`,
-        )
+          `No se pudieron obtener los IDs de: ${faltantes.join(
+            ", "
+          )}. Verifica que existan en el sistema.`
+        );
       }
 
       const body = {
@@ -271,127 +324,137 @@ const EmpleadoList = ({
         id_estado: ids.id_estado,
         id_municipio: ids.id_municipio,
         id_hospital: ids.id_hospital,
-        id_group: ids.id_group,
-      }
+        id_group: id_group,
+      };
 
-      console.log("📤 Datos que se enviarán al servidor:", body)
+      console.log("📤 Datos que se enviarán al servidor:", body);
 
-      const response = await fetch(`http://localhost:4000/api/employees/update-employee`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      })
+      const response = await fetch(
+        `http://localhost:4000/api/employees/update-employee`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        }
+      );
 
-      console.log("📡 Status de respuesta:", response.status)
+      console.log("📡 Status de respuesta:", response.status);
 
       if (!response.ok) {
-        const errorText = await response.text()
-        console.error("❌ Error del servidor:", errorText)
-        throw new Error(`Error ${response.status}: ${response.statusText} - ${errorText}`)
+        const errorText = await response.text();
+        console.error("❌ Error del servidor:", errorText);
+        throw new Error(
+          `Error ${response.status}: ${response.statusText} - ${errorText}`
+        );
       }
 
-      const data = await response.json()
-      console.log("✅ Respuesta exitosa del servidor:", data)
+      const data = await response.json();
+      console.log("✅ Respuesta exitosa del servidor:", data);
 
       mostrarNotificacion(
         "exito",
         "¡Empleado actualizado!",
-        `Los datos de ${formData.nombre} ${formData.ap_paterno} han sido actualizados correctamente.`,
-      )
+        `Los datos de ${formData.nombre} ${formData.ap_paterno} han sido actualizados correctamente.`
+      );
 
-      handleCerrarModalEditar()
+      handleCerrarModalEditar();
 
       if (onActualizarEmpleados) {
-        console.log("🔄 Actualizando lista de empleados...")
-        onActualizarEmpleados()
+        console.log("🔄 Actualizando lista de empleados...");
+        onActualizarEmpleados();
       }
     } catch (error) {
-      console.error("💥 Error completo al actualizar empleado:", error)
+      console.error("💥 Error completo al actualizar empleado:", error);
       mostrarNotificacion(
         "error",
         "Error al actualizar empleado",
         `No se pudo actualizar el empleado: ${error.message}`,
-        5000,
-      )
+        5000
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleConfirmarEliminar = async () => {
-    setLoadingEliminar(true)
+    setLoadingEliminar(true);
 
     try {
-      const response = await fetch(`http://localhost:4000/api/employees/delete-employee/${empleadoEliminar.id_user}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
+      const response = await fetch(
+        `http://localhost:4000/api/employees/delete-employee/${empleadoEliminar.id_user}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`)
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json()
-      console.log("Respuesta del servidor:", data)
+      const data = await response.json();
+      console.log("Respuesta del servidor:", data);
 
       mostrarNotificacion(
         "exito",
         "¡Empleado eliminado!",
-        `${empleadoEliminar.nombre} ${empleadoEliminar.ap_paterno} ha sido eliminado del sistema.`,
-      )
+        `${empleadoEliminar.nombre} ${empleadoEliminar.ap_paterno} ha sido eliminado del sistema.`
+      );
 
-      handleCerrarModalEliminar()
+      handleCerrarModalEliminar();
 
       if (onActualizarEmpleados) {
-        onActualizarEmpleados()
+        onActualizarEmpleados();
       }
     } catch (error) {
-      console.error("Error al eliminar empleado:", error)
+      console.error("Error al eliminar empleado:", error);
       mostrarNotificacion(
         "error",
         "Error al eliminar empleado",
         `No se pudo eliminar el empleado: ${error.message}`,
-        5000,
-      )
+        5000
+      );
     } finally {
-      setLoadingEliminar(false)
+      setLoadingEliminar(false);
     }
-  }
+  };
 
   // Componente de notificación toast
   const NotificacionToast = ({ notificacion, onCerrar }) => {
-    const [progreso, setProgreso] = useState(100)
+    const [progreso, setProgreso] = useState(100);
 
     useEffect(() => {
-      if (!notificacion) return
+      if (!notificacion) return;
 
       const intervalo = setInterval(() => {
         setProgreso((prev) => {
-          const nuevo = prev - 100 / (notificacion.duracion / 100)
+          const nuevo = prev - 100 / (notificacion.duracion / 100);
           if (nuevo <= 0) {
-            clearInterval(intervalo)
-            return 0
+            clearInterval(intervalo);
+            return 0;
           }
-          return nuevo
-        })
-      }, 100)
+          return nuevo;
+        });
+      }, 100);
 
-      return () => clearInterval(intervalo)
-    }, [notificacion])
+      return () => clearInterval(intervalo);
+    }, [notificacion]);
 
-    if (!notificacion) return null
+    if (!notificacion) return null;
 
-    const esExito = notificacion.tipo === "exito"
+    const esExito = notificacion.tipo === "exito";
 
     return (
       <div className="fixed top-4 right-4 z-[9999] max-w-md w-full">
         <div
           className={`rounded-lg shadow-lg border-l-4 p-4 ${
-            esExito ? "bg-white border-green-500 text-green-800" : "bg-white border-red-500 text-red-800"
+            esExito
+              ? "bg-white border-green-500 text-green-800"
+              : "bg-white border-red-500 text-red-800"
           } transform transition-all duration-300 ease-in-out`}
         >
           <div className="flex items-start">
@@ -403,10 +466,20 @@ const EmpleadoList = ({
               )}
             </div>
             <div className="ml-3 flex-1">
-              <h3 className={`text-sm font-medium ${esExito ? "text-green-800" : "text-red-800"}`}>
+              <h3
+                className={`text-sm font-medium ${
+                  esExito ? "text-green-800" : "text-red-800"
+                }`}
+              >
                 {notificacion.titulo}
               </h3>
-              <p className={`mt-1 text-sm ${esExito ? "text-green-700" : "text-red-700"}`}>{notificacion.mensaje}</p>
+              <p
+                className={`mt-1 text-sm ${
+                  esExito ? "text-green-700" : "text-red-700"
+                }`}
+              >
+                {notificacion.mensaje}
+              </p>
             </div>
             <div className="ml-4 flex-shrink-0">
               <button
@@ -422,7 +495,11 @@ const EmpleadoList = ({
             </div>
           </div>
           {/* Barra de progreso */}
-          <div className={`mt-2 w-full bg-gray-200 rounded-full h-1 ${esExito ? "bg-green-100" : "bg-red-100"}`}>
+          <div
+            className={`mt-2 w-full bg-gray-200 rounded-full h-1 ${
+              esExito ? "bg-green-100" : "bg-red-100"
+            }`}
+          >
             <div
               className={`h-1 rounded-full transition-all duration-100 ease-linear ${
                 esExito ? "bg-green-500" : "bg-red-500"
@@ -432,13 +509,16 @@ const EmpleadoList = ({
           </div>
         </div>
       </div>
-    )
-  }
+    );
+  };
 
   return (
     <>
       {/* Notificación Toast */}
-      <NotificacionToast notificacion={notificacion} onCerrar={() => setNotificacion(null)} />
+      <NotificacionToast
+        notificacion={notificacion}
+        onCerrar={() => setNotificacion(null)}
+      />
 
       <div className="bg-white shadow-md rounded-xl overflow-hidden">
         <div className="p-6 border-b border-gray-200">
@@ -463,7 +543,9 @@ const EmpleadoList = ({
               </div>
 
               <div className="flex items-center">
-                <label className="text-gray-700 font-medium mr-2">Estado:</label>
+                <label className="text-gray-700 font-medium mr-2">
+                  Estado:
+                </label>
                 <select
                   value={estadoEmpleadoFiltro || ""}
                   onChange={(e) => setEstadoEmpleadoFiltro(e.target.value)}
@@ -506,7 +588,10 @@ const EmpleadoList = ({
         {Object.entries(empleadosPorEstado).map(([estado, municipios]) => (
           <div key={estado} className="p-6 space-y-6">
             {Object.entries(municipios).map(([municipio, hospitales]) => (
-              <div key={municipio} className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+              <div
+                key={municipio}
+                className="bg-slate-50 p-4 rounded-lg border border-slate-200"
+              >
                 <h4 className="text-lg font-semibold text-slate-700 mb-4 flex items-center">
                   <Map className="h-5 w-5 mr-2 text-amber-600" />
                   Estado: {estado} / Municipio: {municipio}
@@ -518,10 +603,15 @@ const EmpleadoList = ({
                       Hospital: {hospital}
                     </h5>
                     {Object.entries(grupos).map(([grupo, empleadosGrupo]) => {
-                      const key = `${estado}-${municipio}-${hospital}-${grupo}`
-                      const visibles = mostrarTodosEmpleados[key] ? empleadosGrupo : empleadosGrupo.slice(0, 5)
+                      const key = `${estado}-${municipio}-${hospital}-${grupo}`;
+                      const visibles = mostrarTodosEmpleados[key]
+                        ? empleadosGrupo
+                        : empleadosGrupo.slice(0, 5);
                       return (
-                        <div key={key} className="mb-6 border border-slate-300 rounded-lg overflow-hidden">
+                        <div
+                          key={key}
+                          className="mb-6 border border-slate-300 rounded-lg overflow-hidden"
+                        >
                           <div className="bg-slate-100 px-4 py-2 flex justify-between items-center">
                             <span className="font-medium text-slate-700">
                               Grupo: {grupo} ({empleadosGrupo.length})
@@ -555,12 +645,25 @@ const EmpleadoList = ({
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-100">
                               {visibles.map((empleado) => (
-                                <tr key={empleado.id_user} className="hover:bg-gray-50">
-                                  <td className="px-4 py-2 text-sm">{empleado.nombre}</td>
-                                  <td className="px-4 py-2 text-sm">{empleado.ap_paterno}</td>
-                                  <td className="px-4 py-2 text-sm">{empleado.ap_materno}</td>
-                                  <td className="px-4 py-2 text-sm font-mono text-xs">{empleado.curp_user}</td>
-                                  <td className="px-4 py-2 text-sm">{empleado.telefono || "—"}</td>
+                                <tr
+                                  key={empleado.id_user}
+                                  className="hover:bg-gray-50"
+                                >
+                                  <td className="px-4 py-2 text-sm">
+                                    {empleado.nombre}
+                                  </td>
+                                  <td className="px-4 py-2 text-sm">
+                                    {empleado.ap_paterno}
+                                  </td>
+                                  <td className="px-4 py-2 text-sm">
+                                    {empleado.ap_materno}
+                                  </td>
+                                  <td className="px-4 py-2 text-sm font-mono text-xs">
+                                    {empleado.curp_user}
+                                  </td>
+                                  <td className="px-4 py-2 text-sm">
+                                    {empleado.telefono || "—"}
+                                  </td>
                                   <td className="px-4 py-2 text-sm">
                                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-amber-100 text-amber-800">
                                       {empleado.role_name || "Empleado"}
@@ -599,12 +702,14 @@ const EmpleadoList = ({
                                 }
                                 className="text-amber-600 hover:text-amber-800 text-sm"
                               >
-                                {mostrarTodosEmpleados[key] ? "Mostrar menos" : `Ver todos (${empleadosGrupo.length})`}
+                                {mostrarTodosEmpleados[key]
+                                  ? "Mostrar menos"
+                                  : `Ver todos (${empleadosGrupo.length})`}
                               </button>
                             </div>
                           )}
                         </div>
-                      )
+                      );
                     })}
                   </div>
                 ))}
@@ -623,7 +728,10 @@ const EmpleadoList = ({
                 <User className="h-6 w-6 mr-2 text-amber-600" />
                 Editar Empleado
               </h2>
-              <button onClick={handleCerrarModalEditar} className="text-gray-400 hover:text-gray-600 transition-colors">
+              <button
+                onClick={handleCerrarModalEditar}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
                 <X className="h-6 w-6" />
               </button>
             </div>
@@ -633,24 +741,44 @@ const EmpleadoList = ({
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">CURP (No editable)</label>
-                    <p className="text-sm text-gray-600 font-mono">{empleadoEditando?.curp_user}</p>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      CURP (No editable)
+                    </label>
+                    <p className="text-sm text-gray-600 font-mono">
+                      {empleadoEditando?.curp_user}
+                    </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Hospital</label>
-                    <p className="text-sm text-gray-600">{empleadoEditando?.hospital}</p>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Hospital
+                    </label>
+                    <p className="text-sm text-gray-600">
+                      {empleadoEditando?.hospital}
+                    </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Grupo</label>
-                    <p className="text-sm text-gray-600">{empleadoEditando?.nombre_grupo}</p>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Grupo
+                    </label>
+                    <p className="text-sm text-gray-600">
+                      {empleadoEditando?.nombre_grupo}
+                    </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                    <p className="text-sm text-gray-600">{empleadoEditando?.estado}</p>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Estado
+                    </label>
+                    <p className="text-sm text-gray-600">
+                      {empleadoEditando?.estado}
+                    </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Municipio</label>
-                    <p className="text-sm text-gray-600">{empleadoEditando?.municipio}</p>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Municipio
+                    </label>
+                    <p className="text-sm text-gray-600">
+                      {empleadoEditando?.municipio}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -722,6 +850,26 @@ const EmpleadoList = ({
                     placeholder="Número de teléfono"
                   />
                 </div>
+
+                {/* Grupo */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Grupo
+                  </label>
+                  <select
+                    name="grupo"
+                    value={formData.grupo}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 border-gray-300"
+                  >
+                    <option value="">Selecciona un grupo</option>
+                    {grupos.map((grupo) => (
+                      <option key={grupo.id_group} value={grupo.nombre_grupo}>
+                        {grupo.nombre_grupo}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {/* Botones */}
@@ -769,34 +917,51 @@ const EmpleadoList = ({
               <div className="bg-gray-50 p-4 rounded-lg mb-4">
                 <div className="grid grid-cols-1 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Completo</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nombre Completo
+                    </label>
                     <p className="text-sm text-gray-600">
-                      {empleadoEliminar?.nombre} {empleadoEliminar?.ap_paterno} {empleadoEliminar?.ap_materno}
+                      {empleadoEliminar?.nombre} {empleadoEliminar?.ap_paterno}{" "}
+                      {empleadoEliminar?.ap_materno}
                     </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">CURP</label>
-                    <p className="text-sm text-gray-600 font-mono">{empleadoEliminar?.curp_user}</p>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      CURP
+                    </label>
+                    <p className="text-sm text-gray-600 font-mono">
+                      {empleadoEliminar?.curp_user}
+                    </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Hospital</label>
-                    <p className="text-sm text-gray-600">{empleadoEliminar?.hospital}</p>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Hospital
+                    </label>
+                    <p className="text-sm text-gray-600">
+                      {empleadoEliminar?.hospital}
+                    </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Grupo</label>
-                    <p className="text-sm text-gray-600">{empleadoEliminar?.nombre_grupo}</p>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Grupo
+                    </label>
+                    <p className="text-sm text-gray-600">
+                      {empleadoEliminar?.nombre_grupo}
+                    </p>
                   </div>
                 </div>
               </div>
 
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <p className="text-sm text-red-800">
-                  <strong>⚠️ Advertencia:</strong> Esta acción eliminará permanentemente al empleado del sistema y no
-                  podrá ser recuperado.
+                  <strong>⚠️ Advertencia:</strong> Esta acción eliminará
+                  permanentemente al empleado del sistema y no podrá ser
+                  recuperado.
                 </p>
                 {!botonEliminarHabilitado && (
                   <p className="text-sm text-red-800 mt-2">
-                    Por seguridad, el botón de eliminar se habilitará en {tiempoRestante} segundos.
+                    Por seguridad, el botón de eliminar se habilitará en{" "}
+                    {tiempoRestante} segundos.
                   </p>
                 )}
               </div>
@@ -815,22 +980,24 @@ const EmpleadoList = ({
                 onClick={handleConfirmarEliminar}
                 disabled={loadingEliminar || !botonEliminarHabilitado}
                 className={`flex items-center px-4 py-2 text-white rounded-lg transition-colors ${
-                  botonEliminarHabilitado ? "bg-red-600 hover:bg-red-700" : "bg-gray-400 cursor-not-allowed"
+                  botonEliminarHabilitado
+                    ? "bg-red-600 hover:bg-red-700"
+                    : "bg-gray-400 cursor-not-allowed"
                 }`}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 {loadingEliminar
                   ? "Eliminando..."
                   : botonEliminarHabilitado
-                    ? "Eliminar Empleado"
-                    : `Espere ${tiempoRestante}s...`}
+                  ? "Eliminar Empleado"
+                  : `Espere ${tiempoRestante}s...`}
               </button>
             </div>
           </div>
         </div>
       )}
     </>
-  )
-}
+  );
+};
 
-export default EmpleadoList
+export default EmpleadoList;
