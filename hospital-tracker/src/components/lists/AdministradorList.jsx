@@ -1,7 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { Map, Search, Users, Edit3, Trash2, Building2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import {
+  Map,
+  Search,
+  Users,
+  Edit3,
+  Trash2,
+  Building2,
+  Loader2,
+  User,
+  X,
+  Save,
+  CheckCircle,
+  AlertCircle,
+} from "lucide-react";
 
 const AdministradorList = ({
   administradores,
@@ -16,6 +29,160 @@ const AdministradorList = ({
 }) => {
   const [mostrarTodosSuperAdmins, setMostrarTodosSuperAdmins] = useState(false);
   const [mostrarTodosEstados, setMostrarTodosEstados] = useState({});
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const [modalEliminarAbierto, setModalEliminarAbierto] = useState(false);
+  const [adminEditando, setAdminEditando] = useState(null);
+  const [adminEliminar, setAdminEliminar] = useState(null);
+  const [estados, setEstados] = useState([]);
+  const [municipios, setMunicipios] = useState([]);
+  const [hospitales, setHospitales] = useState([]);
+  const [cargandoMunicipios, setCargandoMunicipios] = useState(false);
+  const [cargandoHospitales, setCargandoHospitales] = useState(false);
+  const [cacheMunicipios, setCacheMunicipios] = useState({});
+  const [cacheHospitales, setCacheHospitales] = useState({});
+  const [tiempoRestante, setTiempoRestante] = useState(5);
+  const [botonEliminarHabilitado, setBotonEliminarHabilitado] = useState(false);
+  const [loadingEliminar, setLoadingEliminar] = useState(false);
+  const [notificacion, setNotificacion] = useState(null);
+  const [formData, setFormData] = useState({
+    nombre: "",
+    ap_paterno: "",
+    ap_materno: "",
+    curp_user: "",
+    estado: "",
+    municipio: "",
+    hospital: "",
+  });
+
+  // Cargar estados al montar el componente
+  useEffect(() => {
+    const fetchEstados = async () => {
+      try {
+        const resEstados = await fetch(
+          "http://localhost:4000/api/superadmin/estados"
+        );
+        const dataEstados = await resEstados.json();
+        setEstados(dataEstados);
+      } catch (error) {
+        console.error("Error al cargar estados:", error);
+      }
+    };
+    fetchEstados();
+  }, []);
+
+  const abrirModal = async (admin) => {
+    setAdminEditando(admin);
+    setFormData({
+      nombre: admin.nombre || "",
+      ap_paterno: admin.ap_paterno || "",
+      ap_materno: admin.ap_materno || "",
+      curp_user: admin.curp_user || "",
+      estado: admin.estado || "",
+      municipio: admin.municipio || "",
+      hospital: admin.hospital || "",
+    });
+
+    // Si hay estado y municipio, cargar sus datos correspondientes
+    if (admin.estado) {
+      const estadoObj = estados.find((e) => e.nombre_estado === admin.estado);
+      if (estadoObj) {
+        await cargarMunicipios(estadoObj.id_estado);
+
+        if (admin.municipio) {
+          const municipioObj = municipios.find(
+            (m) => m.nombre_municipio === admin.municipio
+          );
+          if (municipioObj) {
+            await cargarHospitales(
+              estadoObj.id_estado,
+              municipioObj.id_municipio
+            );
+          }
+        }
+      }
+    }
+
+    setModalAbierto(true);
+  };
+
+  const cargarMunicipios = async (idEstado) => {
+    if (cacheMunicipios[idEstado]) {
+      setMunicipios(cacheMunicipios[idEstado]);
+      return;
+    }
+
+    setCargandoMunicipios(true);
+    try {
+      const resMunicipios = await fetch(
+        `http://localhost:4000/api/municipioadmin/municipios-by-estado/${idEstado}`
+      );
+      const dataMunicipios = await resMunicipios.json();
+      setMunicipios(dataMunicipios);
+      setCacheMunicipios((prev) => ({ ...prev, [idEstado]: dataMunicipios }));
+    } catch (error) {
+      console.error("Error al cargar municipios:", error);
+      setMunicipios([]);
+    } finally {
+      setCargandoMunicipios(false);
+    }
+  };
+
+  const cargarHospitales = async (idEstado, idMunicipio) => {
+    const cacheKey = `${idEstado}-${idMunicipio}`;
+    if (cacheHospitales[cacheKey]) {
+      setHospitales(cacheHospitales[cacheKey]);
+      return;
+    }
+
+    setCargandoHospitales(true);
+    try {
+      const resHospitales = await fetch(
+        `http://localhost:4000/api/hospitaladmin/hospitals-by-municipio?id_estado=${idEstado}&id_municipio=${idMunicipio}`
+      );
+      const dataHospitales = await resHospitales.json();
+      setHospitales(dataHospitales);
+      setCacheHospitales((prev) => ({ ...prev, [cacheKey]: dataHospitales }));
+    } catch (error) {
+      console.error("Error al cargar hospitales:", error);
+      setHospitales([]);
+    } finally {
+      setCargandoHospitales(false);
+    }
+  };
+
+  const handleEstadoChange = async (e) => {
+    const estadoNombre = e.target.value;
+    setFormData((prev) => ({
+      ...prev,
+      estado: estadoNombre,
+      municipio: "",
+      hospital: "",
+    }));
+    setHospitales([]);
+
+    const estadoObj = estados.find((e) => e.nombre_estado === estadoNombre);
+    if (estadoObj) {
+      await cargarMunicipios(estadoObj.id_estado);
+    }
+  };
+
+  const handleMunicipioChange = async (e) => {
+    const municipioNombre = e.target.value;
+    setFormData((prev) => ({
+      ...prev,
+      municipio: municipioNombre,
+      hospital: "",
+    }));
+
+    const estadoObj = estados.find((e) => e.nombre_estado === formData.estado);
+    const municipioObj = municipios.find(
+      (m) => m.nombre_municipio === municipioNombre
+    );
+
+    if (estadoObj && municipioObj) {
+      await cargarHospitales(estadoObj.id_estado, municipioObj.id_municipio);
+    }
+  };
 
   // Filtrado de administradores
   const administradoresFiltrados = administradores
@@ -40,6 +207,134 @@ const AdministradorList = ({
   const estadosAdministradores = [
     ...new Set(administradores.map((a) => a.estado || "Sin estado")),
   ].sort();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      // Obtener IDs necesarios
+      const estadoObj = estados.find(
+        (e) => e.nombre_estado === formData.estado
+      );
+      const municipioObj = municipios.find(
+        (m) => m.nombre_municipio === formData.municipio
+      );
+      const hospitalObj = hospitales.find(
+        (h) => h.nombre_hospital === formData.hospital
+      );
+
+      const dataToSend = {
+        id_user: adminEditando.id_user,
+        nombre: formData.nombre,
+        ap_paterno: formData.ap_paterno,
+        ap_materno: formData.ap_materno,
+        curp_user: formData.curp_user,
+        id_estado: estadoObj?.id_estado || null,
+        id_municipio: municipioObj?.id_municipio || null,
+        id_hospital: hospitalObj?.id_hospital || null,
+        id_group: adminEditando.id_group || null,
+      };
+
+      const response = await fetch(
+        "http://localhost:4000/api/superadmin/update-admins",
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(dataToSend),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al actualizar administrador");
+      }
+
+      // Cerrar modal y actualizar lista
+      setModalAbierto(false);
+      if (onEditar) {
+        onEditar(adminEditando);
+      }
+    } catch (error) {
+      console.error("Error al actualizar:", error);
+      alert("Error al actualizar el administrador");
+    }
+  };
+
+  const mostrarNotificacion = (tipo, titulo, mensaje) => {
+    setNotificacion({ tipo, titulo, mensaje });
+    setTimeout(() => setNotificacion(null), tipo === "exito" ? 4000 : 5000);
+  };
+
+  const handleEliminar = (admin) => {
+    setAdminEliminar(admin);
+    setModalEliminarAbierto(true);
+    setBotonEliminarHabilitado(false);
+    setTiempoRestante(5);
+
+    // Iniciar el temporizador
+    const intervalo = setInterval(() => {
+      setTiempoRestante((prevTiempo) => {
+        if (prevTiempo <= 1) {
+          clearInterval(intervalo);
+          setBotonEliminarHabilitado(true);
+          return 0;
+        }
+        return prevTiempo - 1;
+      });
+    }, 1000);
+  };
+
+  const handleCerrarModalEliminar = () => {
+    setModalEliminarAbierto(false);
+    setAdminEliminar(null);
+    setBotonEliminarHabilitado(false);
+    setTiempoRestante(5);
+  };
+
+  const handleConfirmarEliminar = async () => {
+    setLoadingEliminar(true);
+
+    try {
+      const response = await fetch(
+        `http://localhost:4000/api/superadmin/delete-admin/${adminEliminar.id_user}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log("Respuesta del servidor:", data);
+
+      mostrarNotificacion(
+        "exito",
+        "¡Administrador eliminado!",
+        `${adminEliminar.nombre} ${adminEliminar.ap_paterno} ha sido eliminado del sistema.`
+      );
+
+      handleCerrarModalEliminar();
+
+      if (onEliminar) {
+        onEliminar(adminEliminar);
+      }
+    } catch (error) {
+      console.error("Error al eliminar administrador:", error);
+      mostrarNotificacion(
+        "error",
+        "Error al eliminar administrador",
+        `No se pudo eliminar el administrador: ${error.message}`
+      );
+    } finally {
+      setLoadingEliminar(false);
+    }
+  };
 
   const renderSuperAdminTable = (admins) => (
     <div className="bg-white rounded-lg border border-red-200 overflow-hidden">
@@ -162,14 +457,14 @@ const AdministradorList = ({
               <td className="px-6 py-3 text-sm">
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => onEditar?.(admin)}
+                    onClick={() => abrirModal(admin)}
                     className="text-blue-600 hover:text-blue-800 transition-colors"
                     title="Editar administrador"
                   >
                     <Edit3 className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={() => onEliminar?.(admin)}
+                    onClick={() => handleEliminar(admin)}
                     className="text-red-600 hover:text-red-800 transition-colors"
                     title="Eliminar administrador"
                   >
@@ -398,6 +693,406 @@ const AdministradorList = ({
           No hay administradores registrados todavía.
         </div>
       )}
+
+      {/* Modal de Edición */}
+      {modalAbierto && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-md overflow-hidden w-full max-w-4xl">
+            <div className="p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-800 flex items-center">
+                <Edit3 className="h-5 w-5 mr-2 text-blue-600" />
+                Editar Administrador
+              </h2>
+              <p className="text-gray-500 mt-1">
+                Actualiza la información del administrador seleccionado
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6">
+              {/* Información Personal */}
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-gray-700 flex items-center mb-4 pb-2 border-b">
+                  <User className="h-4 w-4 mr-2 text-blue-600" />
+                  Información Personal
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nombre
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.nombre}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          nombre: e.target.value,
+                        }))
+                      }
+                      className="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-gray-300"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Apellido Paterno
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.ap_paterno}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          ap_paterno: e.target.value,
+                        }))
+                      }
+                      className="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-gray-300"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Apellido Materno
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.ap_materno}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          ap_materno: e.target.value,
+                        }))
+                      }
+                      className="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-gray-300"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      CURP
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.curp_user}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          curp_user: e.target.value,
+                        }))
+                      }
+                      className="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-gray-300"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Ubicación e Institución */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 flex items-center mb-4 pb-2 border-b">
+                  <Building2 className="h-4 w-4 mr-2 text-blue-600" />
+                  Ubicación e Institución
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Estado
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={formData.estado}
+                        onChange={handleEstadoChange}
+                        className="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-gray-300"
+                      >
+                        <option value="">Selecciona un estado</option>
+                        {estados.map((estado) => (
+                          <option
+                            key={estado.id_estado}
+                            value={estado.nombre_estado}
+                          >
+                            {estado.nombre_estado}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Municipio
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={formData.municipio}
+                        onChange={handleMunicipioChange}
+                        className="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-gray-300"
+                        disabled={!formData.estado || cargandoMunicipios}
+                      >
+                        <option value="">Selecciona un municipio</option>
+                        {municipios.map((municipio) => (
+                          <option
+                            key={municipio.id_municipio}
+                            value={municipio.nombre_municipio}
+                          >
+                            {municipio.nombre_municipio}
+                          </option>
+                        ))}
+                      </select>
+                      {cargandoMunicipios && (
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                          <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Hospital
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={formData.hospital}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            hospital: e.target.value,
+                          }))
+                        }
+                        className="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-gray-300"
+                        disabled={!formData.municipio || cargandoHospitales}
+                      >
+                        <option value="">Selecciona un hospital</option>
+                        {hospitales.map((hospital) => (
+                          <option
+                            key={hospital.id_hospital}
+                            value={hospital.nombre_hospital}
+                          >
+                            {hospital.nombre_hospital}
+                          </option>
+                        ))}
+                      </select>
+                      {cargandoHospitales && (
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                          <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 flex justify-end space-x-4">
+                <button
+                  type="button"
+                  onClick={() => setModalAbierto(false)}
+                  className="flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm text-sm font-medium hover:bg-blue-700"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Guardar Cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Eliminación */}
+      {modalEliminarAbierto && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-800 flex items-center">
+                <Trash2 className="h-6 w-6 mr-2 text-red-600" />
+                Eliminar Administrador
+              </h2>
+              <button
+                onClick={handleCerrarModalEliminar}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nombre Completo
+                    </label>
+                    <p className="text-sm text-gray-600">
+                      {adminEliminar?.nombre} {adminEliminar?.ap_paterno}{" "}
+                      {adminEliminar?.ap_materno}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      CURP
+                    </label>
+                    <p className="text-sm text-gray-600 font-mono">
+                      {adminEliminar?.curp_user}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Estado
+                    </label>
+                    <p className="text-sm text-gray-600">
+                      {adminEliminar?.estado || "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Rol
+                    </label>
+                    <p className="text-sm text-gray-600">
+                      {adminEliminar?.role_name === "estadoadmin"
+                        ? "Admin Estatal"
+                        : adminEliminar?.role_name === "municipioadmin"
+                        ? "Admin Municipal"
+                        : "Admin Hospital"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-sm text-red-800">
+                  <strong>⚠️ Advertencia:</strong> Esta acción eliminará
+                  permanentemente al administrador del sistema y no podrá ser
+                  recuperado.
+                </p>
+                {!botonEliminarHabilitado && (
+                  <p className="text-sm text-red-800 mt-2">
+                    Por seguridad, el botón de eliminar se habilitará en{" "}
+                    {tiempoRestante} segundos.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-4">
+              <button
+                type="button"
+                onClick={handleCerrarModalEliminar}
+                className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+              >
+                <X className="h-4 w-4 mr-2" />
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmarEliminar}
+                disabled={loadingEliminar || !botonEliminarHabilitado}
+                className={`flex items-center px-4 py-2 text-white rounded-lg transition-colors ${
+                  botonEliminarHabilitado
+                    ? "bg-red-600 hover:bg-red-700"
+                    : "bg-gray-400 cursor-not-allowed"
+                }`}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {loadingEliminar
+                  ? "Eliminando..."
+                  : botonEliminarHabilitado
+                  ? "Eliminar Administrador"
+                  : `Espere ${tiempoRestante}s...`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notificación Toast */}
+      {notificacion && (
+        <div className="fixed top-4 right-4 z-[9999] animate-in slide-in-from-top-2 duration-300">
+          <div
+            className={`
+              w-full min-w-[320px] max-w-lg sm:max-w-xl md:max-w-2xl bg-white rounded-lg shadow-lg border-l-4 p-5
+              ${
+                notificacion.tipo === "exito"
+                  ? "border-green-500 bg-green-50"
+                  : "border-red-500 bg-red-50"
+              }
+            `}
+          >
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                {notificacion.tipo === "exito" ? (
+                  <CheckCircle className="h-6 w-6 text-green-600" />
+                ) : (
+                  <AlertCircle className="h-6 w-6 text-red-600" />
+                )}
+              </div>
+              <div className="ml-4 flex-grow break-words">
+                <p
+                  className={`text-base font-medium ${
+                    notificacion.tipo === "exito"
+                      ? "text-green-800"
+                      : "text-red-800"
+                  }`}
+                >
+                  {notificacion.titulo}
+                </p>
+                <p
+                  className={`mt-2 text-sm ${
+                    notificacion.tipo === "exito"
+                      ? "text-green-700"
+                      : "text-red-700"
+                  }`}
+                >
+                  {notificacion.mensaje}
+                </p>
+              </div>
+              <div className="ml-4 flex-shrink-0 flex">
+                <button
+                  onClick={() => setNotificacion(null)}
+                  className={`rounded-md inline-flex ${
+                    notificacion.tipo === "exito"
+                      ? "text-green-400 hover:text-green-600"
+                      : "text-red-400 hover:text-red-600"
+                  } focus:outline-none`}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Barra de progreso */}
+            <div
+              className={`mt-3 w-full bg-gray-200 rounded-full h-2 ${
+                notificacion.tipo === "exito" ? "bg-green-200" : "bg-red-200"
+              }`}
+            >
+              <div
+                className={`h-2 rounded-full ${
+                  notificacion.tipo === "exito" ? "bg-green-500" : "bg-red-500"
+                }`}
+                style={{
+                  width: "100%",
+                  animation: `shrink ${
+                    notificacion.tipo === "exito" ? "4s" : "5s"
+                  } linear forwards`,
+                }}
+              ></div>
+            </div>
+          </div>
+        </div>
+      )}
+      <style jsx>{`
+        @keyframes shrink {
+          from {
+            width: 100%;
+          }
+          to {
+            width: 0%;
+          }
+        }
+      `}</style>
     </div>
   );
 };
