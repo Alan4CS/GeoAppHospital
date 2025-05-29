@@ -73,8 +73,6 @@ export default function SuperadminGeoApp() {
           "http://localhost:4000/api/superadmin/hospitals"
         );
         const data = await response.json();
-        console.log("Hospitales desde la API:", data);
-
         const hospitalesFormateados = data.map((h) => ({
           nombre: (h.nombre_hospital || "").replace(/\s+/g, " ").trim(),
           estado: (h.estado || "").trim(),
@@ -122,7 +120,6 @@ export default function SuperadminGeoApp() {
       }
 
       const data = await response.json();
-      console.log("Grupos obtenidos:", data); // Para debug
 
       const gruposFormateados = data.map((g) => ({
         id_group: g.id_group,
@@ -247,8 +244,6 @@ export default function SuperadminGeoApp() {
     } else if (hospital.estado) {
       buscarCoordenadasEstado(estadoNormalizado);
     }
-
-    console.log("Editando hospital:", hospitalProcesado);
   };
 
   // Manejador para guardar un hospital (nuevo o editado)
@@ -258,14 +253,9 @@ export default function SuperadminGeoApp() {
       const nuevosHospitales = [...hospitales];
       nuevosHospitales[hospitalIndexEditando] = nuevoHospital;
       setHospitales(nuevosHospitales);
-      console.log(
-        "Hospital actualizado:",
-        nuevosHospitales[hospitalIndexEditando]
-      );
     } else {
       // Crear un nuevo hospital
       setHospitales([...hospitales, nuevoHospital]);
-      console.log("Nuevo hospital creado:", nuevoHospital);
     }
 
     // Resetear el estado de edición
@@ -386,7 +376,43 @@ export default function SuperadminGeoApp() {
     setActiveTab("grupos"); // Cambia a la pestaña de grupos
   };
 
-  // Manejador para guardar un empleado
+  // Función para obtener empleados
+  const fetchEmpleados = async () => {
+    try {
+      const empleadosResponse = await fetch(
+        "http://localhost:4000/api/employees/get-empleados"
+      );
+      if (empleadosResponse.ok) {
+        const empleadosData = await empleadosResponse.json();
+        setEmpleados(empleadosData);
+      }
+    } catch (empleadosError) {
+      console.error("Error al obtener empleados:", empleadosError);
+    }
+  };
+
+  // Manejador para cambiar de pestaña
+  const handleTabChange = async (tab) => {
+    resetearFormularios();
+    setActiveTab(tab);
+    // Resetear la paginación cuando se cambia de pestaña
+    setPaginaActual(1);
+    setBusquedaAdmin("");
+    setEstadoAdminFiltro("");
+    setTipoAdminFiltro("");
+
+    // Resetear filtros de empleados
+    setBusquedaEmpleado("");
+    setEstadoEmpleadoFiltro("");
+    setRolEmpleadoFiltro("");
+
+    // Si cambiamos a la pestaña de empleados, actualizamos la lista
+    if (tab === "empleados") {
+      await fetchEmpleados();
+    }
+  };
+
+  // Modificar handleGuardarEmpleado para usar fetchEmpleados
   const handleGuardarEmpleado = async (nuevoEmpleado) => {
     try {
       const response = await fetch(
@@ -412,28 +438,9 @@ export default function SuperadminGeoApp() {
       });
       setMostrarCredenciales(true);
 
-      // Puedes guardar el empleado también en el estado local si lo deseas
-      const nuevoId = Math.max(...empleados.map((e) => e.id), 0) + 1;
-      const empleadoCompleto = {
-        id: nuevoId,
-        nombre: nuevoEmpleado.nombre,
-        ap_paterno: nuevoEmpleado.ap_paterno,
-        ap_materno: nuevoEmpleado.ap_materno,
-        curp: nuevoEmpleado.CURP,
-        telefono: nuevoEmpleado.telefono,
-        grupo_id: nuevoEmpleado.id_grupo,
-        grupo_nombre:
-          grupos.find((g) => g.id_group === nuevoEmpleado.id_grupo)
-            ?.nombre_grupo || "Grupo desconocido",
-        hospital_id: nuevoEmpleado.id_hospital,
-        hospital_nombre:
-          hospitales.find((h) => h.id_hospital === nuevoEmpleado.id_hospital)
-            ?.nombre_hospital || "Hospital desconocido",
-        estado: nuevoEmpleado.id_estado,
-        activo: true,
-      };
+      // Actualizar la lista de empleados
+      await fetchEmpleados();
 
-      setEmpleados([...empleados, empleadoCompleto]);
       resetearFormularios();
       setActiveTab("empleados");
     } catch (error) {
@@ -450,22 +457,6 @@ export default function SuperadminGeoApp() {
       .length,
     totalGrupos: grupos.length,
     totalEmpleados: empleados.length,
-  };
-
-  // Manejador para cambiar de pestaña
-  const handleTabChange = (tab) => {
-    resetearFormularios();
-    setActiveTab(tab);
-    // Resetear la paginación cuando se cambia de pestaña
-    setPaginaActual(1);
-    setBusquedaAdmin("");
-    setEstadoAdminFiltro("");
-    setTipoAdminFiltro("");
-
-    // Resetear filtros de empleados
-    setBusquedaEmpleado("");
-    setEstadoEmpleadoFiltro("");
-    setRolEmpleadoFiltro("");
   };
 
   return (
@@ -740,6 +731,7 @@ export default function SuperadminGeoApp() {
                     setEstadoEmpleadoFiltro={setEstadoEmpleadoFiltro}
                     rolEmpleadoFiltro={rolEmpleadoFiltro}
                     setRolEmpleadoFiltro={setRolEmpleadoFiltro}
+                    onEmpleadosUpdate={fetchEmpleados}
                   />
                 )}
               </>
