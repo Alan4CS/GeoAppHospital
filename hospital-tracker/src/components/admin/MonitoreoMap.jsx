@@ -1,5 +1,7 @@
+"use client"
+
 import { useState, useEffect, useRef } from "react"
-import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet"
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import {
@@ -16,6 +18,9 @@ import {
   FaMapMarkedAlt,
   FaSpinner,
   FaSync,
+  FaHospital,
+  FaLayerGroup,
+  FaBuilding,
 } from "react-icons/fa"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
@@ -38,6 +43,18 @@ const createCustomIcon = (color, borderColor = "white") => {
   })
 }
 
+// Icono personalizado para hospitales
+const hospitalIcon = L.divIcon({
+  className: "custom-div-icon",
+  html: `<div style="background-color: #3b82f6; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="12" height="12">
+            <path d="M19 8h-4V4a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v4H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h4v4a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-4h4a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1zm-3 6h-3v3h-2v-3H8v-2h3V9h2v3h3v2z"/>
+          </svg>
+        </div>`,
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+})
+
 const connectedIcon = createCustomIcon("#4CAF50") // Verde
 const outsideGeofenceIcon = createCustomIcon("#FF5722", "#FFF") // Naranja con borde blanco
 
@@ -48,20 +65,123 @@ const MonitoreoMap = () => {
   const [selectedMunicipality, setSelectedMunicipality] = useState("")
   const [selectedHospital, setSelectedHospital] = useState("")
   const [selectedEmployee, setSelectedEmployee] = useState(null)
-  const [mapCenter, setMapCenter] = useState([20.5, -87.0]) // Centro de Quintana Roo
-  const [mapZoom, setMapZoom] = useState(7)
+  const [selectedHospitalDetail, setSelectedHospitalDetail] = useState(null)
+  const [mapCenter, setMapCenter] = useState([23.6345, -102.5528]) // Centro de México
+  const [mapZoom, setMapZoom] = useState(5)
   const [searchTerm, setSearchTerm] = useState("")
   const [showGeofences, setShowGeofences] = useState(true)
+  const [showHospitals, setShowHospitals] = useState(true)
   const [employees, setEmployees] = useState([])
+  const [hospitals, setHospitals] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingHospitals, setLoadingHospitals] = useState(true)
   const [error, setError] = useState(null)
+  const [hospitalError, setHospitalError] = useState(null)
   const [lastUpdate, setLastUpdate] = useState(null)
   const mapRef = useRef(null)
 
   // Estados y municipios dinámicos basados en los datos reales
   const [states, setStates] = useState([])
   const [municipalities, setMunicipalities] = useState({})
-  const [hospitals, setHospitals] = useState({})
+  const [hospitalsByLocation, setHospitalsByLocation] = useState({})
+
+  // Función para obtener datos de hospitales desde la API
+  const fetchHospitalsData = async () => {
+    try {
+      setLoadingHospitals(true)
+      setHospitalError(null)
+
+      const response = await fetch("http://localhost:4000/api/superadmin/hospitals")
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      console.log("Hospitales cargados:", data.length)
+      setHospitals(data)
+
+      // Actualizar filtros con los hospitales
+      updateHospitalFilters(data)
+    } catch (err) {
+      console.error("Error al obtener datos de hospitales:", err)
+      setHospitalError(err.message)
+    } finally {
+      setLoadingHospitals(false)
+    }
+  }
+
+  // Función para actualizar filtros basados en hospitales
+  const updateHospitalFilters = (hospitalData) => {
+    const uniqueStates = [...new Set(hospitalData.map((h) => h.estado))].filter(Boolean)
+    const uniqueMunicipalities = {}
+    const uniqueHospitals = {}
+
+    hospitalData.forEach((hospital) => {
+      const state = hospital.estado || "Sin estado"
+      // Extraer municipio de la dirección (simplificado)
+      const addressParts = hospital.direccion_hospital?.split(",") || []
+      let municipality = "Sin municipio"
+
+      if (addressParts.length > 1) {
+        // Intentar extraer municipio de la dirección
+        const possibleMunicipality = addressParts.find(
+          (part) =>
+            part.trim().toUpperCase() !== hospital.estado?.toUpperCase() &&
+            !part.trim().includes("C.P.") &&
+            !part.trim().includes("COL."),
+        )
+        if (possibleMunicipality) {
+          municipality = possibleMunicipality.trim()
+        }
+      }
+
+      if (state) {
+        if (!uniqueMunicipalities[state]) {
+          uniqueMunicipalities[state] = new Set()
+        }
+        uniqueMunicipalities[state].add(municipality)
+      }
+
+      if (municipality) {
+        if (!uniqueHospitals[municipality]) {
+          uniqueHospitals[municipality] = new Set()
+        }
+        uniqueHospitals[municipality].add(hospital.nombre_hospital)
+      }
+    })
+
+    // Convertir Sets a arrays
+    Object.keys(uniqueMunicipalities).forEach((state) => {
+      uniqueMunicipalities[state] = Array.from(uniqueMunicipalities[state])
+    })
+
+    Object.keys(uniqueHospitals).forEach((municipality) => {
+      uniqueHospitals[municipality] = Array.from(uniqueHospitals[municipality])
+    })
+
+    setStates((prevStates) => [...new Set([...prevStates, ...uniqueStates])])
+    setMunicipalities((prev) => {
+      const updated = { ...prev }
+      Object.keys(uniqueMunicipalities).forEach((state) => {
+        if (!updated[state]) {
+          updated[state] = []
+        }
+        updated[state] = [...new Set([...updated[state], ...uniqueMunicipalities[state]])]
+      })
+      return updated
+    })
+    setHospitalsByLocation((prev) => {
+      const updated = { ...prev }
+      Object.keys(uniqueHospitals).forEach((municipality) => {
+        if (!updated[municipality]) {
+          updated[municipality] = []
+        }
+        updated[municipality] = [...new Set([...updated[municipality], ...uniqueHospitals[municipality]])]
+      })
+      return updated
+    })
+  }
 
   // Función para obtener datos de monitoreo desde la API
   const fetchMonitoringData = async () => {
@@ -154,30 +274,63 @@ const MonitoreoMap = () => {
       uniqueHospitals[municipality] = Array.from(uniqueHospitals[municipality])
     })
 
-    setStates(uniqueStates)
-    setMunicipalities(uniqueMunicipalities)
-    setHospitals(uniqueHospitals)
+    setStates((prevStates) => [...new Set([...prevStates, ...uniqueStates])])
+    setMunicipalities((prev) => {
+      const updated = { ...prev }
+      Object.keys(uniqueMunicipalities).forEach((state) => {
+        if (!updated[state]) {
+          updated[state] = []
+        }
+        updated[state] = [...new Set([...updated[state], ...uniqueMunicipalities[state]])]
+      })
+      return updated
+    })
+    setHospitalsByLocation((prev) => {
+      const updated = { ...prev }
+      Object.keys(uniqueHospitals).forEach((municipality) => {
+        if (!updated[municipality]) {
+          updated[municipality] = []
+        }
+        updated[municipality] = [...new Set([...updated[municipality], ...uniqueHospitals[municipality]])]
+      })
+      return updated
+    })
   }
 
   // Cargar datos al montar el componente
   useEffect(() => {
     fetchMonitoringData()
+    fetchHospitalsData()
 
-    // Configurar actualización automática cada 30 segundos
-    const interval = setInterval(fetchMonitoringData, 600000)
+    // Configurar actualización automática cada 10 minutos
+    const monitoringInterval = setInterval(fetchMonitoringData, 600000)
+    const hospitalsInterval = setInterval(fetchHospitalsData, 3600000) // Actualizar hospitales cada hora
 
-
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(monitoringInterval)
+      clearInterval(hospitalsInterval)
+    }
   }, [])
 
   // Filtrar empleados según los criterios seleccionados y búsqueda
   const filteredEmployees = employees.filter((emp) => {
-    if (selectedState && emp.state !== selectedState) return false
-    if (selectedMunicipality && emp.municipality !== selectedMunicipality) return false
-    if (selectedHospital && emp.hospital !== selectedHospital) return false
+    // Solo aplicar filtro de búsqueda por nombre, no filtros de ubicación
     if (searchTerm && !emp.name.toLowerCase().includes(searchTerm.toLowerCase())) return false
     return true
   })
+
+  // Filtrar hospitales según los criterios seleccionados
+  const hasFiltersApplied = selectedState || selectedMunicipality || selectedHospital || searchTerm
+  const filteredHospitals = hasFiltersApplied
+    ? hospitals.filter((hospital) => {
+        if (selectedState && hospital.estado !== selectedState) return false
+        // Filtro simplificado para municipio (basado en dirección)
+        if (selectedMunicipality && !hospital.direccion_hospital?.includes(selectedMunicipality)) return false
+        if (selectedHospital && hospital.nombre_hospital !== selectedHospital) return false
+        if (searchTerm && !hospital.nombre_hospital.toLowerCase().includes(searchTerm.toLowerCase())) return false
+        return true
+      })
+    : []
 
   // Calcular KPIs
   const connectedCount = employees.filter((emp) => emp.status === "connected").length
@@ -194,41 +347,75 @@ const MonitoreoMap = () => {
     }
   }, [selectedEmployee, employees])
 
-  // Simular geofences para hospitales (círculos en el mapa)
-  // En una implementación real, estos también vendrían de la API
-  const geofences = [
-    { id: 1, name: "Hospital Galenia", center: [21.1216, -86.8459], radius: 200 },
-    { id: 2, name: "Hospital Amerimed", center: [21.1419, -86.82], radius: 180 },
-    { id: 3, name: "Hospiten", center: [20.6274, -87.0799], radius: 150 },
-    { id: 4, name: "Hospital Costamed", center: [20.635, -87.068], radius: 170 },
-    { id: 5, name: "Hospital General de Chetumal", center: [18.5001, -88.2961], radius: 220 },
-    { id: 6, name: "Clínica Carranza", center: [18.508, -88.305], radius: 120 },
-  ]
+  // Centrar el mapa en el hospital seleccionado
+  useEffect(() => {
+    if (selectedHospitalDetail && mapRef.current) {
+      const hospital = hospitals.find((h) => h.id_hospital === selectedHospitalDetail)
+      if (hospital && hospital.latitud_hospital && hospital.longitud_hospital) {
+        mapRef.current.setView([hospital.latitud_hospital, hospital.longitud_hospital], 16)
+      }
+    }
+  }, [selectedHospitalDetail, hospitals])
+
+  // Función para parsear el polígono de geocerca
+  const parseGeofencePolygon = (radioGeoString) => {
+    try {
+      if (!radioGeoString) return null
+
+      // Limpiar la cadena para convertirla en JSON válido
+      const cleanedString = radioGeoString
+        .replace(/'/g, '"') // Reemplazar comillas simples por dobles
+        .replace(/(\w+):/g, '"$1":') // Añadir comillas a las claves
+
+      const geoJson = JSON.parse(cleanedString)
+
+      if (geoJson.type === "Polygon" && Array.isArray(geoJson.coordinates) && geoJson.coordinates.length > 0) {
+        // Invertir lat/lng para Leaflet (GeoJSON usa [lng, lat], Leaflet usa [lat, lng])
+        return geoJson.coordinates[0].map((coord) => [coord[1], coord[0]])
+      }
+      return null
+    } catch (error) {
+      console.error("Error al parsear polígono de geocerca:", error)
+      return null
+    }
+  }
 
   // Función para actualizar la vista del mapa
   const updateMapView = () => {
     if (!mapRef.current) return
 
-    if (filteredEmployees.length > 0) {
-      // Si hay empleados filtrados, ajustar la vista para mostrarlos a todos
-      const validLocations = filteredEmployees
-        .filter((emp) => emp.location && emp.location[0] && emp.location[1])
-        .map((emp) => emp.location)
+    // Recopilar todas las ubicaciones válidas (empleados y hospitales)
+    const validEmployeeLocations = filteredEmployees
+      .filter((emp) => emp.location && emp.location[0] && emp.location[1])
+      .map((emp) => emp.location)
 
-      if (validLocations.length > 0) {
-        const bounds = L.latLngBounds(validLocations)
-        mapRef.current.fitBounds(bounds, { padding: [50, 50] })
-      }
+    const validHospitalLocations = hasFiltersApplied
+      ? filteredHospitals
+          .filter((h) => h.latitud_hospital && h.longitud_hospital)
+          .map((h) => [h.latitud_hospital, h.longitud_hospital])
+      : []
+
+    const allLocations = [...validEmployeeLocations, ...validHospitalLocations]
+
+    if (allLocations.length > 0) {
+      // Si hay ubicaciones filtradas, ajustar la vista para mostrarlas todas
+      const bounds = L.latLngBounds(allLocations)
+      mapRef.current.fitBounds(bounds, { padding: [50, 50] })
+    } else if (hasFiltersApplied) {
+      // Si hay filtros aplicados pero no hay resultados, mantener la vista actual
+      console.log("No se encontraron ubicaciones para los filtros aplicados")
     } else {
-      // Si no hay empleados filtrados, mostrar todo México
+      // Si no hay filtros aplicados, mostrar todo México
       mapRef.current.setView([23.6345, -102.5528], 5)
     }
   }
 
-  // Actualizar la vista del mapa cuando cambian los empleados filtrados
+  // Actualizar la vista del mapa cuando cambian los filtros
   useEffect(() => {
-    updateMapView()
-  }, [filteredEmployees])
+    if (mapRef.current && (filteredEmployees.length > 0 || filteredHospitals.length > 0)) {
+      updateMapView()
+    }
+  }, [filteredEmployees, filteredHospitals])
 
   // Función para limpiar filtros
   const clearFilters = () => {
@@ -249,13 +436,14 @@ const MonitoreoMap = () => {
   // Función para refrescar datos manualmente
   const handleRefresh = () => {
     fetchMonitoringData()
+    fetchHospitalsData()
   }
 
-  if (loading && employees.length === 0) {
+  if (loading && loadingHospitals && employees.length === 0 && hospitals.length === 0) {
     return (
       <div className="flex flex-col h-[calc(100vh-64px)] bg-gray-50 items-center justify-center">
         <FaSpinner className="animate-spin text-4xl text-emerald-600 mb-4" />
-        <p className="text-gray-600">Cargando datos de monitoreo...</p>
+        <p className="text-gray-600">Cargando datos de monitoreo y hospitales...</p>
       </div>
     )
   }
@@ -296,24 +484,38 @@ const MonitoreoMap = () => {
 
         <div className="flex items-center p-4 bg-white rounded-xl shadow-sm border border-gray-100">
           <div className="p-3 bg-blue-50 rounded-full mr-4">
-            <FaSync className="text-blue-600 text-xl" />
+            <FaHospital className="text-blue-600 text-xl" />
           </div>
           <div>
-            <h3 className="text-sm font-medium text-gray-500">Última actualización</h3>
-            <p className="text-sm font-medium text-gray-800">
-              {lastUpdate ? format(lastUpdate, "HH:mm:ss", { locale: es }) : "---"}
+            <h3 className="text-sm font-medium text-gray-500">
+              {hasFiltersApplied ? "Hospitales filtrados" : "Hospitales (aplicar filtro)"}
+            </h3>
+            <p className="text-2xl font-bold text-gray-800">
+              {hasFiltersApplied ? filteredHospitals.length : hospitals.length}
             </p>
           </div>
         </div>
       </div>
 
-      {/* Error message */}
+      {/* Error messages */}
       {error && (
         <div className="mx-4 mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
           <div className="flex items-center">
             <FaExclamationTriangle className="text-red-600 mr-2" />
-            <span className="text-red-800">Error al cargar datos: {error}</span>
+            <span className="text-red-800">Error al cargar datos de empleados: {error}</span>
             <button onClick={handleRefresh} className="ml-auto text-red-600 hover:text-red-800 underline">
+              Reintentar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {hospitalError && (
+        <div className="mx-4 mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-center">
+            <FaExclamationTriangle className="text-red-600 mr-2" />
+            <span className="text-red-800">Error al cargar datos de hospitales: {hospitalError}</span>
+            <button onClick={fetchHospitalsData} className="ml-auto text-red-600 hover:text-red-800 underline">
               Reintentar
             </button>
           </div>
@@ -335,13 +537,18 @@ const MonitoreoMap = () => {
                   <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full">
                     {filteredEmployees.length} empleados
                   </span>
+                  {hasFiltersApplied && (
+                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                      {filteredHospitals.length} hospitales
+                    </span>
+                  )}
                   <button
                     onClick={handleRefresh}
-                    disabled={loading}
+                    disabled={loading || loadingHospitals}
                     className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
                     title="Actualizar datos"
                   >
-                    <FaSync className={loading ? "animate-spin" : ""} />
+                    <FaSync className={loading || loadingHospitals ? "animate-spin" : ""} />
                   </button>
                 </div>
               </div>
@@ -361,6 +568,35 @@ const MonitoreoMap = () => {
               </div>
 
               <div className="space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <FaLayerGroup className="mr-2 text-emerald-600" />
+                    Nivel de visualización
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      className={`px-3 py-2 text-sm rounded-lg flex items-center justify-center ${
+                        selectedLevel === "hospital"
+                          ? "bg-emerald-100 text-emerald-800 font-medium"
+                          : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+                      }`}
+                      onClick={() => setSelectedLevel("hospital")}
+                    >
+                      <FaHospital className="mr-1" /> Hospital
+                    </button>
+                    <button
+                      className={`px-3 py-2 text-sm rounded-lg flex items-center justify-center ${
+                        selectedLevel === "municipality"
+                          ? "bg-emerald-100 text-emerald-800 font-medium"
+                          : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+                      }`}
+                      onClick={() => setSelectedLevel("municipality")}
+                    >
+                      <FaBuilding className="mr-1" /> Municipio
+                    </button>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Estado</label>
                   <select
@@ -402,7 +638,7 @@ const MonitoreoMap = () => {
                   </div>
                 )}
 
-                {selectedMunicipality && hospitals[selectedMunicipality] && (
+                {selectedMunicipality && hospitalsByLocation[selectedMunicipality] && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Hospital</label>
                     <select
@@ -411,7 +647,7 @@ const MonitoreoMap = () => {
                       onChange={(e) => setSelectedHospital(e.target.value)}
                     >
                       <option value="">Todos los hospitales</option>
-                      {hospitals[selectedMunicipality].map((hospital) => (
+                      {hospitalsByLocation[selectedMunicipality].map((hospital) => (
                         <option key={hospital} value={hospital}>
                           {hospital}
                         </option>
@@ -425,8 +661,8 @@ const MonitoreoMap = () => {
                     <FaMapMarkedAlt className="mr-2 text-emerald-600" />
                     Capas del mapa
                   </label>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="flex items-center mb-2">
+                  <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+                    <div className="flex items-center">
                       <input
                         type="checkbox"
                         id="showGeofences"
@@ -437,6 +673,31 @@ const MonitoreoMap = () => {
                       <label htmlFor="showGeofences" className="ml-2 block text-sm text-gray-700">
                         Mostrar geocercas
                       </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="showHospitals"
+                        checked={showHospitals}
+                        onChange={(e) => setShowHospitals(e.target.checked)}
+                        className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="showHospitals" className="ml-2 block text-sm text-gray-700">
+                        Mostrar hospitales
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <div className="flex items-start">
+                    <FaInfoCircle className="text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm text-blue-800 font-medium">Visualización del mapa</p>
+                      <p className="text-xs text-blue-700 mt-1">
+                        Los empleados siempre se muestran en el mapa. Los hospitales aparecen solo cuando apliques un
+                        filtro de ubicación (estado, municipio o hospital específico).
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -487,22 +748,83 @@ const MonitoreoMap = () => {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
 
-              {/* Geocercas (círculos) */}
-              {showGeofences &&
-                geofences.map((geofence) => (
-                  <Circle
-                    key={geofence.id}
-                    center={geofence.center}
-                    radius={geofence.radius}
-                    pathOptions={{
-                      color: "#10b981",
-                      fillColor: "#10b981",
-                      fillOpacity: 0.1,
-                      weight: 2,
-                      dashArray: "5, 5",
-                    }}
-                  />
-                ))}
+              {/* Hospitales y geocercas */}
+              {showHospitals &&
+                filteredHospitals.map((hospital) => {
+                  const hospitalPosition = [hospital.latitud_hospital, hospital.longitud_hospital]
+                  const geofencePolygon = parseGeofencePolygon(hospital.radio_geo)
+
+                  return (
+                    <div key={hospital.id_hospital}>
+                      {/* Marcador del hospital */}
+                      {hospitalPosition[0] && hospitalPosition[1] && (
+                        <Marker
+                          position={hospitalPosition}
+                          icon={hospitalIcon}
+                          eventHandlers={{
+                            click: () => {
+                              setSelectedHospitalDetail(hospital.id_hospital)
+                            },
+                          }}
+                        >
+                          <Popup className="custom-popup">
+                            <div className="text-sm p-1">
+                              <h3 className="font-medium text-base text-blue-700">{hospital.nombre_hospital}</h3>
+                              <p className="text-gray-600 text-xs mt-1">{hospital.tipo_hospital || "Hospital"}</p>
+                              <p className="text-gray-700 mt-2 text-xs">{hospital.direccion_hospital}</p>
+                              <p className="text-gray-500 text-xs mt-1">{hospital.estado}</p>
+                              <div className="mt-2 pt-2 border-t border-gray-200">
+                                <p className="text-xs text-gray-500">
+                                  Coordenadas: {hospital.latitud_hospital?.toFixed(6)},{" "}
+                                  {hospital.longitud_hospital?.toFixed(6)}
+                                </p>
+                              </div>
+                              <button
+                                className="w-full mt-2 text-blue-600 text-xs flex items-center justify-center border border-blue-200 rounded-lg py-1 px-2 hover:bg-blue-50"
+                                onClick={() => setSelectedHospitalDetail(hospital.id_hospital)}
+                              >
+                                <FaInfoCircle className="mr-1" /> Ver detalles
+                              </button>
+                            </div>
+                          </Popup>
+                        </Marker>
+                      )}
+
+                      {/* Geocerca del hospital (si existe y está habilitada) */}
+                      {showGeofences && geofencePolygon && (
+                        <Polygon
+                          positions={geofencePolygon}
+                          pathOptions={{
+                            color: "#3b82f6",
+                            fillColor: "#3b82f6",
+                            fillOpacity: 0.1,
+                            weight: 2,
+                            dashArray: "5, 5",
+                          }}
+                        />
+                      )}
+
+                      {/* Círculo de radio si no hay polígono pero sí radio */}
+                      {showGeofences &&
+                        !geofencePolygon &&
+                        hospital.radio_geo &&
+                        hospitalPosition[0] &&
+                        hospitalPosition[1] && (
+                          <Circle
+                            center={hospitalPosition}
+                            radius={hospital.radio_geo ? 200 : 100} // Radio por defecto si no hay uno definido
+                            pathOptions={{
+                              color: "#3b82f6",
+                              fillColor: "#3b82f6",
+                              fillOpacity: 0.1,
+                              weight: 2,
+                              dashArray: "5, 5",
+                            }}
+                          />
+                        )}
+                    </div>
+                  )
+                })}
 
               {/* Marcadores de empleados */}
               {filteredEmployees
@@ -666,6 +988,90 @@ const MonitoreoMap = () => {
                       <div className="mt-6">
                         <button
                           onClick={() => setSelectedEmployee(null)}
+                          className="w-full border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          Cerrar detalles
+                        </button>
+                      </div>
+                    </>
+                  )
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* Panel de detalles del hospital seleccionado */}
+          {selectedHospitalDetail && (
+            <div className="w-80 bg-white border-l border-gray-100 overflow-y-auto">
+              <div className="p-5">
+                {(() => {
+                  const hospital = hospitals.find((h) => h.id_hospital === selectedHospitalDetail)
+                  if (!hospital) return null
+
+                  return (
+                    <>
+                      <div className="flex justify-between items-start mb-6">
+                        <h3 className="font-semibold text-lg text-gray-800">Detalles del Hospital</h3>
+                        <button
+                          className="text-gray-400 hover:text-gray-600 p-1"
+                          onClick={() => setSelectedHospitalDetail(null)}
+                        >
+                          ×
+                        </button>
+                      </div>
+
+                      <div className="flex items-center mb-6">
+                        <div className="w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center text-lg font-medium mr-3">
+                          <FaHospital />
+                        </div>
+                        <div>
+                          <h4 className="text-xl font-medium text-gray-800">{hospital.nombre_hospital}</h4>
+                          <p className="text-gray-600">{hospital.tipo_hospital || "Hospital"}</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-5">
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h5 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                            <FaMapMarkerAlt className="mr-2 text-blue-600" />
+                            Ubicación
+                          </h5>
+                          <p className="text-gray-800 font-medium">{hospital.estado}</p>
+                          <p className="text-gray-600 text-sm">{hospital.direccion_hospital}</p>
+                          <p className="text-gray-500 text-xs mt-1">
+                            Lat: {hospital.latitud_hospital?.toFixed(6)}, Lng: {hospital.longitud_hospital?.toFixed(6)}
+                          </p>
+                        </div>
+
+                        {hospital.radio_geo && (
+                          <div>
+                            <h5 className="text-sm font-medium text-gray-700 mb-2">Geocerca</h5>
+                            <div className="bg-blue-50 text-blue-800 p-3 rounded-lg">
+                              <p className="text-xs">
+                                Este hospital tiene una geocerca definida que se muestra en el mapa.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        <div>
+                          <h5 className="text-sm font-medium text-gray-700 mb-2">Información adicional</h5>
+                          <div className="bg-gray-50 p-3 rounded-lg">
+                            <p className="text-sm text-gray-700">
+                              <span className="font-medium">ID:</span> {hospital.id_hospital}
+                            </p>
+                            {hospital.coordenadas_hospital && (
+                              <p className="text-sm text-gray-700 mt-1">
+                                <span className="font-medium">Coordenadas:</span> {hospital.coordenadas_hospital}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-6">
+                        <button
+                          onClick={() => setSelectedHospitalDetail(null)}
                           className="w-full border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
                         >
                           Cerrar detalles
