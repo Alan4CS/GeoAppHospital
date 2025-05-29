@@ -1083,7 +1083,7 @@ const AdministradorList = ({
           </div>
         </div>
       )}
-      <style jsx>{`
+      <style>{`
         @keyframes shrink {
           from {
             width: 100%;
