@@ -43,7 +43,16 @@ router.get("/estados", async (req, res) => {
 });
 
 router.post("/create-admin", async (req, res) => {
-  const { nombre, ap_paterno, ap_materno, CURP, user, pass, role_name, estado } = req.body;
+  const {
+    nombre,
+    ap_paterno,
+    ap_materno,
+    CURP,
+    user,
+    pass,
+    role_name,
+    estado,
+  } = req.body;
 
   const client = await pool.connect();
 
@@ -93,17 +102,19 @@ router.post("/create-admin", async (req, res) => {
     );
 
     await client.query("COMMIT");
-    res.status(201).json({ message: "Administrador de estado creado con éxito" });
-
+    res
+      .status(201)
+      .json({ message: "Administrador de estado creado con éxito" });
   } catch (error) {
     await client.query("ROLLBACK");
     console.error("❌ Error al crear administrador de estado:", error);
-    res.status(500).json({ error: "Error al crear el administrador de estado" });
+    res
+      .status(500)
+      .json({ error: "Error al crear el administrador de estado" });
   } finally {
     client.release();
   }
 });
-
 
 // GET /api/superadmin/estadoadmins
 router.get("/estadoadmins", async (req, res) => {
@@ -128,10 +139,11 @@ router.get("/estadoadmins", async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error("❌ Error al obtener estadoadmins:", error);
-    res.status(500).json({ error: "Error al obtener administradores de estado" });
+    res
+      .status(500)
+      .json({ error: "Error al obtener administradores de estado" });
   }
 });
-
 
 // GET /api/superadmin/estadoadmins
 router.get("/totaladmins", async (req, res) => {
@@ -163,9 +175,18 @@ router.get("/totaladmins", async (req, res) => {
   }
 });
 
-
 router.put("/update-admins", async (req, res) => {
-  const { id_user, nombre, ap_paterno, ap_materno, curp_user, id_estado, id_municipio, id_hospital, id_group } = req.body;
+  const {
+    id_user,
+    nombre,
+    ap_paterno,
+    ap_materno,
+    curp_user,
+    id_estado,
+    id_municipio,
+    id_hospital,
+    id_group,
+  } = req.body;
 
   const client = await pool.connect();
 
@@ -183,16 +204,27 @@ router.put("/update-admins", async (req, res) => {
            id_hospital = $8,
            id_group = $9
        WHERE id_user = $1`,
-      [id_user, nombre, ap_paterno, ap_materno, curp_user, id_estado, id_municipio, id_hospital, id_group]
+      [
+        id_user,
+        nombre,
+        ap_paterno,
+        ap_materno,
+        curp_user,
+        id_estado,
+        id_municipio,
+        id_hospital,
+        id_group,
+      ]
     );
 
     await client.query("COMMIT");
     res.status(200).json({ message: "Admin actualizado con éxito" });
-
   } catch (error) {
     await client.query("ROLLBACK");
     console.error("❌ Error al actualizar el admin:", error);
-    res.status(500).json({ error: "Error al actualizar el admin para el hospital" });
+    res
+      .status(500)
+      .json({ error: "Error al actualizar el admin para el hospital" });
   } finally {
     client.release();
   }
@@ -207,26 +239,18 @@ router.post("/delete-admin/:id_user", async (req, res) => {
     await client.query("BEGIN");
 
     // Eliminar en user_credentials
-    await client.query(
-      `DELETE FROM user_credentials WHERE id_user = $1`,
-      [id_user]
-    );
+    await client.query(`DELETE FROM user_credentials WHERE id_user = $1`, [
+      id_user,
+    ]);
 
     // Eliminar en user_roles
-    await client.query(
-      `DELETE FROM user_roles WHERE id_user = $1`,
-      [id_user]
-    );
+    await client.query(`DELETE FROM user_roles WHERE id_user = $1`, [id_user]);
 
     //  Finalmente eliminar en user_data
-    await client.query(
-      `DELETE FROM user_data WHERE id_user = $1`,
-      [id_user]
-    );
+    await client.query(`DELETE FROM user_data WHERE id_user = $1`, [id_user]);
 
     await client.query("COMMIT");
     res.status(200).json({ message: "Admin eliminado con éxito" });
-
   } catch (error) {
     await client.query("ROLLBACK");
     console.error("❌ Error al admin el empleado:", error);
@@ -237,14 +261,30 @@ router.post("/delete-admin/:id_user", async (req, res) => {
 });
 
 router.post("/create-superadmin", async (req, res) => {
-  const { nombre, ap_paterno, ap_materno, CURP, user, pass, role_name } = req.body;
+  const {
+    nombre,
+    ap_paterno,
+    ap_materno,
+    CURP,
+    user,
+    pass,
+    role_name,
+    id_user_creador,
+  } = req.body;
+
+  // Validar que solo el superadmin principal pueda crear otros superadmins
+  if (id_user_creador !== 1) {
+    return res
+      .status(403)
+      .json({ error: "No autorizado para crear superadministradores" });
+  }
 
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
 
-    // 2. Insertar en user_data con id_estado proporcionado
+    // 1. Insertar en user_data sin id_estado
     const userDataResult = await client.query(
       `INSERT INTO user_data (nombre, ap_paterno, ap_materno, curp_user)
        VALUES ($1, $2, $3, $4)
@@ -253,14 +293,14 @@ router.post("/create-superadmin", async (req, res) => {
     );
     const newUserId = userDataResult.rows[0].id_user;
 
-    // 3. Insertar en user_credentials
+    // 2. Insertar en user_credentials
     await client.query(
       `INSERT INTO user_credentials (id_user, "user", pass)
        VALUES ($1, $2, $3)`,
       [newUserId, user, pass]
     );
 
-    // 4. Obtener id_role
+    // 3. Obtener id_role para superadmin
     const roleResult = await client.query(
       `SELECT id_role FROM roles WHERE role_name = $1`,
       [role_name]
@@ -269,7 +309,7 @@ router.post("/create-superadmin", async (req, res) => {
 
     const roleId = roleResult.rows[0].id_role;
 
-    // 5. Insertar en user_roles con id_hospital
+    // 4. Insertar en user_roles
     await client.query(
       `INSERT INTO user_roles (id_user, id_role)
        VALUES ($1, $2)`,
@@ -277,16 +317,14 @@ router.post("/create-superadmin", async (req, res) => {
     );
 
     await client.query("COMMIT");
-    res.status(201).json({ message: "Administrador superadmin creado con éxito" });
-
+    res.status(201).json({ message: "Super Administrador creado con éxito" });
   } catch (error) {
     await client.query("ROLLBACK");
-    console.error("❌ Error al crear superadmin:", error);
-    res.status(500).json({ error: "Error al crear el superadmin" });
+    console.error("❌ Error al crear super administrador:", error);
+    res.status(500).json({ error: "Error al crear el super administrador" });
   } finally {
     client.release();
   }
 });
-
 
 export default router;

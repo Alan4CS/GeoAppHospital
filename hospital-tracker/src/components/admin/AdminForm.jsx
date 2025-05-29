@@ -65,9 +65,7 @@ export default function AdminForm({
   useEffect(() => {
     const fetchEstados = async () => {
       try {
-        const res = await fetch(
-          "https://geoapphospital.onrender.com/api/superadmin/estados"
-        );
+        const res = await fetch("http://localhost:4000/api/superadmin/estados");
         const data = await res.json();
 
         setEstados(data);
@@ -93,7 +91,7 @@ export default function AdminForm({
           }
 
           const res = await fetch(
-            `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado/${estadoSeleccionado.id_estado}`
+            `http://localhost:4000/api/municipioadmin/municipios-by-estado/${estadoSeleccionado.id_estado}`
           );
 
           if (!res.ok) {
@@ -143,7 +141,7 @@ export default function AdminForm({
         }
 
         const res = await fetch(
-          `https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${adminForm.municipio}`
+          `http://localhost:4000/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${adminForm.municipio}`
         );
 
         if (!res.ok) {
@@ -169,7 +167,7 @@ export default function AdminForm({
         try {
           // En una implementación real, esta sería una llamada a la API
           // Simulamos la respuesta para este ejemplo
-          // const res = await fetch(`https://geoapphospital.onrender.com/api/superadmin/grupos/${adminForm.hospital}`);
+          // const res = await fetch(`http://localhost:4000/api/superadmin/grupos/${adminForm.hospital}`);
           // const data = await res.json();
 
           // Datos simulados de grupos
@@ -385,7 +383,10 @@ export default function AdminForm({
     setErrors(newErrors);
     setTouched(basicFields.reduce((acc, key) => ({ ...acc, [key]: true }), {}));
 
-    if (!isValid) return;
+    if (!isValid) {
+      setIsSubmitting(false);
+      return;
+    }
 
     const user =
       adminForm.nombres.trim().charAt(0).toLowerCase() +
@@ -417,39 +418,47 @@ export default function AdminForm({
     };
 
     try {
-      // Añadir los IDs según el tipo de administrador
-      if (
-        adminForm.tipoAdmin === "estadoadmin" ||
-        adminForm.tipoAdmin === "municipioadmin" ||
-        adminForm.tipoAdmin === "hospitaladmin"
-      ) {
-        // Obtener el ID del estado seleccionado
-        const estadoSeleccionado = estados.find(
-          (e) => e.nombre_estado === adminForm.estado
+      // Si es superadmin, incluir el id_user_creador
+      if (adminForm.tipoAdmin === "superadmin") {
+        adminData.id_user_creador = parseInt(
+          localStorage.getItem("userId"),
+          10
         );
-
-        if (!estadoSeleccionado) {
-          throw new Error("Estado no encontrado");
-        }
-
-        // Añadir id_estado para todos los tipos de administradores
-        if (adminForm.tipoAdmin === "estadoadmin") {
-          adminData.estado = estadoSeleccionado.nombre_estado;
-        } else {
-          adminData.id_estado = parseInt(estadoSeleccionado.id_estado);
-        }
-
-        // Añadir id_municipio para municipioadmin y hospitaladmin
+      } else {
+        // Añadir los IDs según el tipo de administrador
         if (
+          adminForm.tipoAdmin === "estadoadmin" ||
           adminForm.tipoAdmin === "municipioadmin" ||
           adminForm.tipoAdmin === "hospitaladmin"
         ) {
-          adminData.id_municipio = adminForm.municipio; // Ya es el ID numérico
-        }
+          // Obtener el ID del estado seleccionado
+          const estadoSeleccionado = estados.find(
+            (e) => e.nombre_estado === adminForm.estado
+          );
 
-        // Añadir id_hospital solo para hospitaladmin
-        if (adminForm.tipoAdmin === "hospitaladmin") {
-          adminData.id_hospital = adminForm.hospital; // Ya es el ID numérico
+          if (!estadoSeleccionado) {
+            throw new Error("Estado no encontrado");
+          }
+
+          // Añadir id_estado para todos los tipos de administradores
+          if (adminForm.tipoAdmin === "estadoadmin") {
+            adminData.estado = estadoSeleccionado.nombre_estado;
+          } else {
+            adminData.id_estado = parseInt(estadoSeleccionado.id_estado);
+          }
+
+          // Añadir id_municipio para municipioadmin y hospitaladmin
+          if (
+            adminForm.tipoAdmin === "municipioadmin" ||
+            adminForm.tipoAdmin === "hospitaladmin"
+          ) {
+            adminData.id_municipio = adminForm.municipio; // Ya es el ID numérico
+          }
+
+          // Añadir id_hospital solo para hospitaladmin
+          if (adminForm.tipoAdmin === "hospitaladmin") {
+            adminData.id_hospital = adminForm.hospital; // Ya es el ID numérico
+          }
         }
       }
 
@@ -461,7 +470,7 @@ export default function AdminForm({
       console.error("Error al crear administrador:", error);
       alert("Hubo un error al crear el administrador.");
     } finally {
-      setIsSubmitting(false); // 🔒 Libera el bloqueo
+      setIsSubmitting(false);
     }
   };
 
@@ -587,6 +596,9 @@ export default function AdminForm({
               required
             >
               <option value="">Selecciona un tipo</option>
+              {localStorage.getItem("userId") === "1" && (
+                <option value="superadmin">Super Administrador</option>
+              )}
               <option value="estadoadmin">Administrador de Estado</option>
               <option value="municipioadmin">Administrador de Municipio</option>
               <option value="hospitaladmin">Administrador de Hospital</option>
@@ -597,7 +609,7 @@ export default function AdminForm({
           </div>
 
           {/* Campos específicos según el tipo de administrador */}
-          {adminForm.tipoAdmin && (
+          {adminForm.tipoAdmin && adminForm.tipoAdmin !== "superadmin" && (
             <div className="md:col-span-2 mt-4">
               <h3 className="text-sm font-medium text-gray-700 flex items-center mb-0 pb-0 border-b">
                 {adminForm.tipoAdmin === "estadoadmin" ? (
@@ -609,15 +621,15 @@ export default function AdminForm({
                 )}
                 {adminForm.tipoAdmin === "estadoadmin"
                   ? "Información del Estado"
-                  : adminForm.tipoAdmin === "municipioadmino"
+                  : adminForm.tipoAdmin === "municipioadmin"
                   ? "Información del Municipio"
                   : "Información del Hospital"}
               </h3>
             </div>
           )}
 
-          {/* Select de estados (para todos los tipos) */}
-          {adminForm.tipoAdmin && (
+          {/* Select de estados (para todos los tipos excepto superadmin) */}
+          {adminForm.tipoAdmin && adminForm.tipoAdmin !== "superadmin" && (
             <div
               className={
                 adminForm.tipoAdmin === "municipioadmin" ? "" : "md:col-span-2"

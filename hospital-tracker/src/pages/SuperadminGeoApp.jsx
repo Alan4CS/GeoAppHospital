@@ -70,7 +70,7 @@ export default function SuperadminGeoApp() {
     const fetchHospitales = async () => {
       try {
         const response = await fetch(
-          "https://geoapphospital.onrender.com/api/superadmin/hospitals"
+          "http://localhost:4000/api/superadmin/hospitals"
         );
         const data = await response.json();
         const hospitalesFormateados = data.map((h) => ({
@@ -97,7 +97,7 @@ export default function SuperadminGeoApp() {
   const fetchAdministradores = async () => {
     try {
       const response = await fetch(
-        "https://geoapphospital.onrender.com/api/superadmin/totaladmins"
+        "http://localhost:4000/api/superadmin/totaladmins"
       );
       const data = await response.json();
       setAdministradores(data);
@@ -113,7 +113,7 @@ export default function SuperadminGeoApp() {
   const fetchGrupos = async () => {
     try {
       const response = await fetch(
-        "https://geoapphospital.onrender.com/api/groups/get-groups"
+        "http://localhost:4000/api/groups/get-groups"
       );
       if (!response.ok) {
         throw new Error("Error al obtener grupos");
@@ -136,7 +136,7 @@ export default function SuperadminGeoApp() {
       // Actualizar también la lista de empleados
       try {
         const empleadosResponse = await fetch(
-          "https://geoapphospital.onrender.com/api/employees/get-empleados"
+          "http://localhost:4000/api/employees/get-empleados"
         );
         if (empleadosResponse.ok) {
           const empleadosData = await empleadosResponse.json();
@@ -319,25 +319,11 @@ export default function SuperadminGeoApp() {
   // Manejador para guardar un administrador
   const handleGuardarAdmin = async (nuevoAdmin) => {
     try {
-      let endpoint = "";
+      let endpoint = "http://localhost:4000/api/superadmin/create-admin";
 
-      // Elegir endpoint según el rol
-      switch (nuevoAdmin.role_name) {
-        case "estadoadmin":
-          endpoint =
-            "https://geoapphospital.onrender.com/api/superadmin/create-admin";
-          break;
-        case "municipioadmin":
-          endpoint =
-            "https://geoapphospital.onrender.com/api/municipioadmin/create-municipioadmin";
-          break;
-        case "hospitaladmin":
-          endpoint =
-            "https://geoapphospital.onrender.com/api/hospitaladmin/create-hospitaladmin";
-          break;
-        default:
-          alert("❌ Tipo de administrador no reconocido.");
-          return;
+      // Si es superadmin, usar el endpoint específico
+      if (nuevoAdmin.role_name === "superadmin") {
+        endpoint = "http://localhost:4000/api/superadmin/create-superadmin";
       }
 
       const response = await fetch(endpoint, {
@@ -348,25 +334,34 @@ export default function SuperadminGeoApp() {
         body: JSON.stringify(nuevoAdmin),
       });
 
-      if (!response.ok) throw new Error("Fallo al crear el administrador");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Error al crear el administrador");
+      }
 
-      const data = await response.json();
+      // Actualizar la lista de administradores
+      await fetchAdministradores();
 
+      // Mostrar las credenciales generadas
       setCredencialesGeneradas({
-        titulo: "Administrador creado con éxito",
         usuario: nuevoAdmin.user,
-        password: nuevoAdmin.pass,
-        tipo: "administrador",
+        contraseña: nuevoAdmin.pass,
+        tipo:
+          nuevoAdmin.role_name === "superadmin"
+            ? "Super Administrador"
+            : nuevoAdmin.role_name === "estadoadmin"
+            ? "Administrador de Estado"
+            : nuevoAdmin.role_name === "municipioadmin"
+            ? "Administrador de Municipio"
+            : "Administrador de Hospital",
       });
       setMostrarCredenciales(true);
 
-      // Refrescar la lista
-      await fetchAdministradores();
-      resetearFormularios();
-      setActiveTab("administradores");
+      // Ocultar el formulario
+      setMostrarFormAdmin(false);
     } catch (error) {
-      console.error("❌ Error:", error);
-      alert("❌ Error al crear el administrador.");
+      console.error("Error al crear administrador:", error);
+      alert(error.message);
     }
   };
 
@@ -381,7 +376,7 @@ export default function SuperadminGeoApp() {
   const fetchEmpleados = async () => {
     try {
       const empleadosResponse = await fetch(
-        "https://geoapphospital.onrender.com/api/employees/get-empleados"
+        "http://localhost:4000/api/employees/get-empleados"
       );
       if (empleadosResponse.ok) {
         const empleadosData = await empleadosResponse.json();
@@ -417,7 +412,7 @@ export default function SuperadminGeoApp() {
   const handleGuardarEmpleado = async (nuevoEmpleado) => {
     try {
       const response = await fetch(
-        "https://geoapphospital.onrender.com/api/employees/create-empleado",
+        "http://localhost:4000/api/employees/create-empleado",
         {
           method: "POST",
           headers: {
@@ -784,7 +779,7 @@ export default function SuperadminGeoApp() {
                   </label>
                   <button
                     onClick={() =>
-                      copiarAlPortapapeles(credencialesGeneradas.password)
+                      copiarAlPortapapeles(credencialesGeneradas.contraseña)
                     }
                     className="text-blue-600 hover:text-blue-800 text-sm"
                   >
@@ -792,7 +787,7 @@ export default function SuperadminGeoApp() {
                   </button>
                 </div>
                 <p className="text-lg font-mono bg-white p-2 rounded border border-gray-200">
-                  {credencialesGeneradas.password}
+                  {credencialesGeneradas.contraseña}
                 </p>
               </div>
 
