@@ -16,15 +16,16 @@ import {
 } from "lucide-react";
 
 const EmpleadoList = ({
-  empleados,
+  empleados: empleadosIniciales,
   busquedaEmpleado,
   setBusquedaEmpleado,
   estadoEmpleadoFiltro,
   setEstadoEmpleadoFiltro,
   rolEmpleadoFiltro,
   setRolEmpleadoFiltro,
-  onActualizarEmpleados,
+  onEmpleadosUpdate,
 }) => {
+  const [empleadosLocales, setEmpleadosLocales] = useState(empleadosIniciales);
   const [mostrarTodosEmpleados, setMostrarTodosEmpleados] = useState({});
   const [empleadoEditando, setEmpleadoEditando] = useState(null);
   const [empleadoEliminar, setEmpleadoEliminar] = useState(null);
@@ -44,13 +45,32 @@ const EmpleadoList = ({
   });
   const [grupos, setGrupos] = useState([]);
 
+  // Sincronizar con empleadosIniciales cuando cambien
+  useEffect(() => {
+    setEmpleadosLocales(empleadosIniciales);
+  }, [empleadosIniciales]);
+
+  // Función para obtener empleados actualizados del servidor
+  const obtenerEmpleadosActualizados = async () => {
+    try {
+      // Llamar a la función de actualización del padre
+      if (onEmpleadosUpdate) {
+        await onEmpleadosUpdate();
+      }
+      return true;
+    } catch (error) {
+      console.error("Error al obtener empleados:", error);
+      return false;
+    }
+  };
+
   // Función para mostrar notificaciones
   const mostrarNotificacion = (tipo, titulo, mensaje, duracion = 4000) => {
     setNotificacion({ tipo, titulo, mensaje, duracion });
     setTimeout(() => setNotificacion(null), duracion);
   };
 
-  const empleadosFiltrados = empleados.filter((empleado) => {
+  const empleadosFiltrados = empleadosLocales.filter((empleado) => {
     const coincideBusqueda =
       !busquedaEmpleado ||
       empleado.nombre?.toLowerCase().includes(busquedaEmpleado.toLowerCase()) ||
@@ -91,13 +111,6 @@ const EmpleadoList = ({
   // Función para obtener IDs basándose en los nombres
   const obtenerIDs = async (empleado) => {
     try {
-      console.log("🔍 Obteniendo IDs para:", {
-        estado: empleado.estado,
-        municipio: empleado.municipio,
-        hospital: empleado.hospital,
-        grupo: empleado.nombre_grupo,
-      });
-
       // Obtener ID del estado
       let id_estado = null;
       try {
@@ -105,14 +118,12 @@ const EmpleadoList = ({
           "http://localhost:4000/api/superadmin/estados"
         );
         const estados = await estadosResponse.json();
-        console.log("📍 Estados disponibles:", estados);
 
         const estadoEncontrado = estados.find(
           (e) =>
             e.nombre_estado?.toLowerCase() === empleado.estado?.toLowerCase()
         );
         id_estado = estadoEncontrado?.id_estado;
-        console.log("📍 Estado encontrado:", estadoEncontrado);
       } catch (error) {
         console.error("❌ Error al obtener estados:", error);
       }
@@ -125,7 +136,6 @@ const EmpleadoList = ({
             `http://localhost:4000/api/municipioadmin/municipios-by-estado/${id_estado}`
           );
           const municipios = await municipiosResponse.json();
-          console.log("🏘️ Municipios disponibles:", municipios);
 
           const municipioEncontrado = municipios.find(
             (m) =>
@@ -133,7 +143,6 @@ const EmpleadoList = ({
               empleado.municipio?.toLowerCase()
           );
           id_municipio = municipioEncontrado?.id_municipio;
-          console.log("🏘️ Municipio encontrado:", municipioEncontrado);
         } catch (error) {
           console.error("❌ Error al obtener municipios:", error);
         }
@@ -146,7 +155,6 @@ const EmpleadoList = ({
           "http://localhost:4000/api/superadmin/hospitals"
         );
         const hospitales = await hospitalesResponse.json();
-        console.log("🏥 Hospitales disponibles:", hospitales);
 
         const hospitalEncontrado = hospitales.find(
           (h) =>
@@ -154,7 +162,6 @@ const EmpleadoList = ({
             empleado.hospital?.toLowerCase()
         );
         id_hospital = hospitalEncontrado?.id_hospital;
-        console.log("🏥 Hospital encontrado:", hospitalEncontrado);
       } catch (error) {
         console.error("❌ Error al obtener hospitales:", error);
       }
@@ -166,7 +173,6 @@ const EmpleadoList = ({
           "http://localhost:4000/api/groups/get-groups"
         );
         const grupos = await gruposResponse.json();
-        console.log("👥 Grupos disponibles:", grupos);
 
         const grupoEncontrado = grupos.find(
           (g) =>
@@ -174,7 +180,6 @@ const EmpleadoList = ({
             empleado.nombre_grupo?.toLowerCase().trim()
         );
         id_group = grupoEncontrado?.id_group;
-        console.log("👥 Grupo encontrado:", grupoEncontrado);
       } catch (error) {
         console.error("❌ Error al obtener grupos:", error);
       }
@@ -186,10 +191,9 @@ const EmpleadoList = ({
         id_group,
       };
 
-      console.log("✅ IDs obtenidos:", resultado);
       return resultado;
     } catch (error) {
-      console.error("💥 Error general al obtener IDs:", error);
+      console.error("❌ Error general al obtener IDs:", error);
       return {
         id_estado: null,
         id_municipio: null,
@@ -200,7 +204,6 @@ const EmpleadoList = ({
   };
 
   const handleEditar = async (empleado) => {
-    console.log("🎯 Empleado seleccionado para editar:", empleado);
     setEmpleadoEditando(empleado);
     setFormData({
       nombre: empleado.nombre || "",
@@ -212,10 +215,9 @@ const EmpleadoList = ({
 
     // Cargar grupos disponibles
     try {
-      const ids = await obtenerIDs(empleado);
-      if (ids.id_hospital) {
+      if (empleado.id_hospital) {
         const gruposResponse = await fetch(
-          `http://localhost:4000/api/employees/grupos-by-hospital?id_hospital=${ids.id_hospital}`
+          `http://localhost:4000/api/employees/grupos-by-hospital?id_hospital=${empleado.id_hospital}`
         );
         if (gruposResponse.ok) {
           const gruposData = await gruposResponse.json();
@@ -281,38 +283,10 @@ const EmpleadoList = ({
     setLoading(true);
 
     try {
-      console.log("🔍 Iniciando actualización de empleado...");
-      console.log("📝 Datos del formulario:", formData);
-      console.log("👤 Empleado original:", empleadoEditando);
-
-      // Obtener los IDs necesarios
-      console.log("🔄 Obteniendo IDs...");
-      const ids = await obtenerIDs(empleadoEditando);
-
-      // Encontrar el ID del grupo seleccionado
       const grupoSeleccionado = grupos.find(
         (g) => g.nombre_grupo === formData.grupo
       );
-      const id_group = grupoSeleccionado?.id_group || null;
-
-      // Verificar que todos los IDs requeridos estén presentes
-      if (!ids.id_estado || !ids.id_hospital) {
-        console.error("❌ IDs faltantes:");
-        console.error("  - id_estado:", ids.id_estado);
-        console.error("  - id_municipio:", ids.id_municipio);
-        console.error("  - id_hospital:", ids.id_hospital);
-        console.error("  - id_group:", id_group);
-
-        const faltantes = [];
-        if (!ids.id_estado) faltantes.push("estado");
-        if (!ids.id_hospital) faltantes.push("hospital");
-
-        throw new Error(
-          `No se pudieron obtener los IDs de: ${faltantes.join(
-            ", "
-          )}. Verifica que existan en el sistema.`
-        );
-      }
+      const id_group = grupoSeleccionado?.id_group || empleadoEditando.id_group;
 
       const body = {
         id_user: empleadoEditando.id_user,
@@ -321,13 +295,11 @@ const EmpleadoList = ({
         ap_materno: formData.ap_materno.trim(),
         curp_user: empleadoEditando.curp_user,
         telefono: formData.telefono.trim(),
-        id_estado: ids.id_estado,
-        id_municipio: ids.id_municipio,
-        id_hospital: ids.id_hospital,
+        id_estado: empleadoEditando.id_estado,
+        id_municipio: empleadoEditando.id_municipio,
+        id_hospital: empleadoEditando.id_hospital,
         id_group: id_group,
       };
-
-      console.log("📤 Datos que se enviarán al servidor:", body);
 
       const response = await fetch(
         `http://localhost:4000/api/employees/update-employee`,
@@ -340,18 +312,14 @@ const EmpleadoList = ({
         }
       );
 
-      console.log("📡 Status de respuesta:", response.status);
-
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ Error del servidor:", errorText);
-        throw new Error(
-          `Error ${response.status}: ${response.statusText} - ${errorText}`
-        );
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json();
-      console.log("✅ Respuesta exitosa del servidor:", data);
+      await response.json();
+
+      // Obtener datos actualizados del servidor
+      await obtenerEmpleadosActualizados();
 
       mostrarNotificacion(
         "exito",
@@ -360,13 +328,8 @@ const EmpleadoList = ({
       );
 
       handleCerrarModalEditar();
-
-      if (onActualizarEmpleados) {
-        console.log("🔄 Actualizando lista de empleados...");
-        onActualizarEmpleados();
-      }
     } catch (error) {
-      console.error("💥 Error completo al actualizar empleado:", error);
+      console.error("Error al actualizar empleado:", error);
       mostrarNotificacion(
         "error",
         "Error al actualizar empleado",
@@ -396,8 +359,10 @@ const EmpleadoList = ({
         throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json();
-      console.log("Respuesta del servidor:", data);
+      await response.json();
+
+      // Obtener datos actualizados del servidor
+      await obtenerEmpleadosActualizados();
 
       mostrarNotificacion(
         "exito",
@@ -406,10 +371,6 @@ const EmpleadoList = ({
       );
 
       handleCerrarModalEliminar();
-
-      if (onActualizarEmpleados) {
-        onActualizarEmpleados();
-      }
     } catch (error) {
       console.error("Error al eliminar empleado:", error);
       mostrarNotificacion(
@@ -552,14 +513,13 @@ const EmpleadoList = ({
                   className="px-4 py-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
                 >
                   <option value="">Todos</option>
-                  {[...new Set(empleados.map((e) => e.estado))]
-                    .filter(Boolean)
-                    .sort()
-                    .map((estado) => (
-                      <option key={estado} value={estado}>
+                  {[...new Set(empleadosLocales.map((e) => e.estado))].map(
+                    (estado) => (
+                      <option key={`estado-${estado}`} value={estado}>
                         {estado}
                       </option>
-                    ))}
+                    )
+                  )}
                 </select>
               </div>
 
@@ -571,14 +531,13 @@ const EmpleadoList = ({
                   className="px-4 py-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
                 >
                   <option value="">Todos</option>
-                  {[...new Set(empleados.map((e) => e.role_name))]
-                    .filter(Boolean)
-                    .sort()
-                    .map((rol) => (
-                      <option key={rol} value={rol}>
-                        {rol}
+                  {[...new Set(empleadosLocales.map((e) => e.role_name))].map(
+                    (role) => (
+                      <option key={`rol-${role}`} value={role}>
+                        {role}
                       </option>
-                    ))}
+                    )
+                  )}
                 </select>
               </div>
             </div>
@@ -586,10 +545,10 @@ const EmpleadoList = ({
         </div>
 
         {Object.entries(empleadosPorEstado).map(([estado, municipios]) => (
-          <div key={estado} className="p-6 space-y-6">
+          <div key={`estado-${estado}`} className="p-6 space-y-6">
             {Object.entries(municipios).map(([municipio, hospitales]) => (
               <div
-                key={municipio}
+                key={`${estado}-${municipio}`}
                 className="bg-slate-50 p-4 rounded-lg border border-slate-200"
               >
                 <h4 className="text-lg font-semibold text-slate-700 mb-4 flex items-center">
@@ -597,7 +556,7 @@ const EmpleadoList = ({
                   Estado: {estado} / Municipio: {municipio}
                 </h4>
                 {Object.entries(hospitales).map(([hospital, grupos]) => (
-                  <div key={hospital}>
+                  <div key={`${estado}-${municipio}-${hospital}`}>
                     <h5 className="text-md font-medium text-slate-700 mb-2 flex items-center">
                       <Hospital className="h-4 w-4 mr-2 text-amber-600" />
                       Hospital: {hospital}
@@ -646,7 +605,7 @@ const EmpleadoList = ({
                             <tbody className="bg-white divide-y divide-gray-100">
                               {visibles.map((empleado) => (
                                 <tr
-                                  key={empleado.id_user}
+                                  key={`${empleado.id_user}-${empleado.curp_user}`}
                                   className="hover:bg-gray-50"
                                 >
                                   <td className="px-4 py-2 text-sm">
