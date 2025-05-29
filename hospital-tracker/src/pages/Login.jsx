@@ -35,11 +35,14 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const res = await fetch("http://localhost:4000/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user: form.username, pass: form.password }),
-      });
+      const res = await fetch(
+        "https://geoapphospital.onrender.com/api/auth/login",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user: form.username, pass: form.password }),
+        }
+      );
 
       const data = await res.json();
 
@@ -65,7 +68,6 @@ export default function Login() {
       } else {
         setError("Rol no reconocido");
       }
-
     } catch (err) {
       console.error("Error en login:", err);
       setError("Error en el servidor");

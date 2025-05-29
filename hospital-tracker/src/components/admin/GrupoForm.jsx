@@ -30,7 +30,9 @@ export default function GrupoForm({
   useEffect(() => {
     const fetchEstados = async () => {
       try {
-        const res = await fetch("http://localhost:4000/api/superadmin/estados");
+        const res = await fetch(
+          "https://geoapphospital.onrender.com/api/superadmin/estados"
+        );
         const data = await res.json();
         setEstados(data);
       } catch (error) {
@@ -50,7 +52,7 @@ export default function GrupoForm({
 
       try {
         const res = await fetch(
-          `http://localhost:4000/api/municipioadmin/municipios-by-estado/${estadoId}`
+          `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado/${estadoId}`
         );
         const data = await res.json();
         setMunicipios(data);
@@ -72,7 +74,7 @@ export default function GrupoForm({
 
       try {
         const res = await fetch(
-          `http://localhost:4000/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoId}&id_municipio=${municipioId}`
+          `https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoId}&id_municipio=${municipioId}`
         );
         const data = await res.json();
         const normalizados = data.map((h) => ({
@@ -149,11 +151,14 @@ export default function GrupoForm({
 
     try {
       setCargando(true);
-      const res = await fetch("http://localhost:4000/api/groups/create-groups", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch(
+        "https://geoapphospital.onrender.com/api/groups/create-groups",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
 
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Error al guardar grupo");
@@ -288,9 +293,7 @@ export default function GrupoForm({
             onChange={handleChange}
             rows={3}
             className={`w-full border rounded px-4 py-2 ${
-              errors.descripcion && touched.descripcion
-                ? "border-red-500"
-                : ""
+              errors.descripcion && touched.descripcion ? "border-red-500" : ""
             }`}
           ></textarea>
           {errors.descripcion && touched.descripcion && (
@@ -325,7 +328,11 @@ export default function GrupoForm({
             disabled={cargando}
             className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700"
           >
-            {cargando ? "Guardando..." : editando ? "Actualizar grupo" : "Crear grupo"}
+            {cargando
+              ? "Guardando..."
+              : editando
+              ? "Actualizar grupo"
+              : "Crear grupo"}
           </button>
         </div>
       </form>

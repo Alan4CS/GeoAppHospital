@@ -35,7 +35,9 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
   useEffect(() => {
     const fetchEstados = async () => {
       try {
-        const res = await fetch("http://localhost:4000/api/superadmin/estados");
+        const res = await fetch(
+          "https://geoapphospital.onrender.com/api/superadmin/estados"
+        );
         if (!res.ok) {
           throw new Error("Error al obtener estados");
         }
@@ -63,7 +65,7 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
           }
 
           const res = await fetch(
-            `http://localhost:4000/api/municipioadmin/municipios-by-estado/${estadoSeleccionado.id_estado}`
+            `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado/${estadoSeleccionado.id_estado}`
           );
 
           if (!res.ok) {
@@ -77,14 +79,14 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
           setMunicipios([]);
         }
       };
-      
+
       fetchMunicipios();
       // Resetear municipio, hospital y grupo cuando cambia el estado
-      setForm(prev => ({
+      setForm((prev) => ({
         ...prev,
         municipio: "",
         hospital: "",
-        grupo: ""
+        grupo: "",
       }));
     } else {
       setMunicipios([]);
@@ -110,7 +112,7 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
         }
 
         const res = await fetch(
-          `http://localhost:4000/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${form.municipio}`
+          `https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${form.municipio}`
         );
 
         if (!res.ok) {
@@ -126,13 +128,13 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
     };
 
     fetchHospitales();
-    
+
     // Resetear hospital y grupo cuando cambia el municipio
     if (form.municipio !== "") {
-      setForm(prev => ({
+      setForm((prev) => ({
         ...prev,
         hospital: "",
-        grupo: ""
+        grupo: "",
       }));
     }
   }, [form.estado, form.municipio, estados]);
@@ -143,7 +145,7 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
       const fetchGrupos = async () => {
         try {
           const res = await fetch(
-            `http://localhost:4000/api/employees/grupos-by-hospital?id_hospital=${form.hospital}`
+            `https://geoapphospital.onrender.com/api/employees/grupos-by-hospital?id_hospital=${form.hospital}`
           );
 
           if (!res.ok) {
@@ -157,12 +159,12 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
           setGrupos([]);
         }
       };
-      
+
       fetchGrupos();
       // Resetear grupo cuando cambia el hospital
-      setForm(prev => ({
+      setForm((prev) => ({
         ...prev,
-        grupo: ""
+        grupo: "",
       }));
     } else {
       setGrupos([]);
@@ -214,7 +216,11 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
     let formattedValue;
     if (name === "CURP") {
       formattedValue = value.toUpperCase();
-    } else if (name === "municipio" || name === "hospital" || name === "grupo") {
+    } else if (
+      name === "municipio" ||
+      name === "hospital" ||
+      name === "grupo"
+    ) {
       // Convertir a número entero para IDs
       formattedValue = value ? parseInt(value, 10) : "";
     } else {
@@ -258,7 +264,7 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
       "estado",
       "municipio",
       "hospital",
-      "grupo"
+      "grupo",
     ];
 
     requiredFields.forEach((field) => {
@@ -320,7 +326,7 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
         id_estado: parseInt(estadoSeleccionado.id_estado),
         id_municipio: parseInt(form.municipio),
         id_hospital: parseInt(form.hospital),
-        id_grupo: parseInt(form.grupo)
+        id_grupo: parseInt(form.grupo),
       };
       console.log("Datos del empleado:", empleadoData);
 
@@ -595,8 +601,8 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
             type="submit"
             disabled={isSubmitting}
             className={`flex items-center px-4 py-2 rounded-md shadow-sm text-sm font-medium text-white ${
-              isSubmitting 
-                ? "bg-blue-400 cursor-not-allowed" 
+              isSubmitting
+                ? "bg-blue-400 cursor-not-allowed"
                 : "bg-blue-600 hover:bg-blue-700"
             }`}
           >

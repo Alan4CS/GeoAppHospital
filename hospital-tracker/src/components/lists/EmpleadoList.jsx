@@ -115,7 +115,7 @@ const EmpleadoList = ({
       let id_estado = null;
       try {
         const estadosResponse = await fetch(
-          "http://localhost:4000/api/superadmin/estados"
+          "https://geoapphospital.onrender.com/api/superadmin/estados"
         );
         const estados = await estadosResponse.json();
 
@@ -133,7 +133,7 @@ const EmpleadoList = ({
       if (id_estado) {
         try {
           const municipiosResponse = await fetch(
-            `http://localhost:4000/api/municipioadmin/municipios-by-estado/${id_estado}`
+            `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado/${id_estado}`
           );
           const municipios = await municipiosResponse.json();
 
@@ -152,7 +152,7 @@ const EmpleadoList = ({
       let id_hospital = null;
       try {
         const hospitalesResponse = await fetch(
-          "http://localhost:4000/api/superadmin/hospitals"
+          "https://geoapphospital.onrender.com/api/superadmin/hospitals"
         );
         const hospitales = await hospitalesResponse.json();
 
@@ -170,7 +170,7 @@ const EmpleadoList = ({
       let id_group = null;
       try {
         const gruposResponse = await fetch(
-          "http://localhost:4000/api/groups/get-groups"
+          "https://geoapphospital.onrender.com/api/groups/get-groups"
         );
         const grupos = await gruposResponse.json();
 
@@ -217,7 +217,7 @@ const EmpleadoList = ({
     try {
       if (empleado.id_hospital) {
         const gruposResponse = await fetch(
-          `http://localhost:4000/api/employees/grupos-by-hospital?id_hospital=${empleado.id_hospital}`
+          `https://geoapphospital.onrender.com/api/employees/grupos-by-hospital?id_hospital=${empleado.id_hospital}`
         );
         if (gruposResponse.ok) {
           const gruposData = await gruposResponse.json();
@@ -302,7 +302,7 @@ const EmpleadoList = ({
       };
 
       const response = await fetch(
-        `http://localhost:4000/api/employees/update-employee`,
+        `https://geoapphospital.onrender.com/api/employees/update-employee`,
         {
           method: "PUT",
           headers: {
@@ -346,7 +346,7 @@ const EmpleadoList = ({
 
     try {
       const response = await fetch(
-        `http://localhost:4000/api/employees/delete-employee/${empleadoEliminar.id_user}`,
+        `https://geoapphospital.onrender.com/api/employees/delete-employee/${empleadoEliminar.id_user}`,
         {
           method: "POST",
           headers: {

@@ -59,7 +59,7 @@ const AdministradorList = ({
     const fetchEstados = async () => {
       try {
         const resEstados = await fetch(
-          "http://localhost:4000/api/superadmin/estados"
+          "https://geoapphospital.onrender.com/api/superadmin/estados"
         );
         const dataEstados = await resEstados.json();
         setEstados(dataEstados);
@@ -114,7 +114,7 @@ const AdministradorList = ({
     setCargandoMunicipios(true);
     try {
       const resMunicipios = await fetch(
-        `http://localhost:4000/api/municipioadmin/municipios-by-estado/${idEstado}`
+        `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado/${idEstado}`
       );
       const dataMunicipios = await resMunicipios.json();
       setMunicipios(dataMunicipios);
@@ -137,7 +137,7 @@ const AdministradorList = ({
     setCargandoHospitales(true);
     try {
       const resHospitales = await fetch(
-        `http://localhost:4000/api/hospitaladmin/hospitals-by-municipio?id_estado=${idEstado}&id_municipio=${idMunicipio}`
+        `https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${idEstado}&id_municipio=${idMunicipio}`
       );
       const dataHospitales = await resHospitales.json();
       setHospitales(dataHospitales);
@@ -236,7 +236,7 @@ const AdministradorList = ({
       };
 
       const response = await fetch(
-        "http://localhost:4000/api/superadmin/update-admins",
+        "https://geoapphospital.onrender.com/api/superadmin/update-admins",
         {
           method: "PUT",
           headers: {
@@ -297,7 +297,7 @@ const AdministradorList = ({
 
     try {
       const response = await fetch(
-        `http://localhost:4000/api/superadmin/delete-admin/${adminEliminar.id_user}`,
+        `https://geoapphospital.onrender.com/api/superadmin/delete-admin/${adminEliminar.id_user}`,
         {
           method: "POST",
           headers: {

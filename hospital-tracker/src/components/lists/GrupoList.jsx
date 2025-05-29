@@ -110,7 +110,7 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
       if (!id_hospital) {
         try {
           const hospitalResponse = await fetch(
-            "http://localhost:4000/api/superadmin/hospitals"
+            "https://geoapphospital.onrender.com/api/superadmin/hospitals"
           );
           const hospitalData = await hospitalResponse.json();
           const hospitalEncontrado = hospitalData.find(
@@ -140,7 +140,7 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
       console.log("Enviando datos:", body);
 
       const response = await fetch(
-        `http://localhost:4000/api/groups/update-groups`,
+        `https://geoapphospital.onrender.com/api/groups/update-groups`,
         {
           method: "PUT",
           headers: {
@@ -190,7 +190,7 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
 
     try {
       const response = await fetch(
-        `http://localhost:4000/api/groups/delete-groups/${grupoEliminar.id}`,
+        `https://geoapphospital.onrender.com/api/groups/delete-groups/${grupoEliminar.id}`,
         {
           method: "POST",
           headers: {

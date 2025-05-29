@@ -65,7 +65,9 @@ export default function AdminForm({
   useEffect(() => {
     const fetchEstados = async () => {
       try {
-        const res = await fetch("http://localhost:4000/api/superadmin/estados");
+        const res = await fetch(
+          "https://geoapphospital.onrender.com/api/superadmin/estados"
+        );
         const data = await res.json();
 
         setEstados(data);
@@ -91,7 +93,7 @@ export default function AdminForm({
           }
 
           const res = await fetch(
-            `http://localhost:4000/api/municipioadmin/municipios-by-estado/${estadoSeleccionado.id_estado}`
+            `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado/${estadoSeleccionado.id_estado}`
           );
 
           if (!res.ok) {
@@ -141,7 +143,7 @@ export default function AdminForm({
         }
 
         const res = await fetch(
-          `http://localhost:4000/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${adminForm.municipio}`
+          `https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${adminForm.municipio}`
         );
 
         if (!res.ok) {
@@ -167,7 +169,7 @@ export default function AdminForm({
         try {
           // En una implementación real, esta sería una llamada a la API
           // Simulamos la respuesta para este ejemplo
-          // const res = await fetch(`http://localhost:4000/api/superadmin/grupos/${adminForm.hospital}`);
+          // const res = await fetch(`https://geoapphospital.onrender.com/api/superadmin/grupos/${adminForm.hospital}`);
           // const data = await res.json();
 
           // Datos simulados de grupos
@@ -322,11 +324,11 @@ export default function AdminForm({
     e.preventDefault();
 
     if (isSubmitting) return;
-  setIsSubmitting(true);
+    setIsSubmitting(true);
 
     const newErrors = {};
     let isValid = true;
-  
+
     // Validar campos básicos
     const basicFields = [
       "nombres",
@@ -343,7 +345,7 @@ export default function AdminForm({
         isValid = false;
       }
     });
-  
+
     // Validar campos específicos según el tipo de administrador
     if (adminForm.tipoAdmin === "estadoadmin") {
       const error = validateField("estado", adminForm.estado);
@@ -379,16 +381,16 @@ export default function AdminForm({
         isValid = false;
       }
     }
-  
+
     setErrors(newErrors);
     setTouched(basicFields.reduce((acc, key) => ({ ...acc, [key]: true }), {}));
-  
+
     if (!isValid) return;
-  
+
     const user =
       adminForm.nombres.trim().charAt(0).toLowerCase() +
       adminForm.ap_paterno.trim().toLowerCase().replace(/\s+/g, "");
-  
+
     const generarPassword = () => {
       const chars =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -398,9 +400,9 @@ export default function AdminForm({
       }
       return password;
     };
-  
+
     const pass = generarPassword();
-  
+
     // Preparar los datos básicos del administrador
     const adminData = {
       nombre: adminForm.nombres,
@@ -413,40 +415,44 @@ export default function AdminForm({
       role_name: adminForm.tipoAdmin,
       grupos: adminForm.grupos,
     };
-  
+
     try {
       // Añadir los IDs según el tipo de administrador
-      if (adminForm.tipoAdmin === "estadoadmin" || 
-          adminForm.tipoAdmin === "municipioadmin" || 
-          adminForm.tipoAdmin === "hospitaladmin") {
-        
+      if (
+        adminForm.tipoAdmin === "estadoadmin" ||
+        adminForm.tipoAdmin === "municipioadmin" ||
+        adminForm.tipoAdmin === "hospitaladmin"
+      ) {
         // Obtener el ID del estado seleccionado
         const estadoSeleccionado = estados.find(
           (e) => e.nombre_estado === adminForm.estado
         );
-        
+
         if (!estadoSeleccionado) {
           throw new Error("Estado no encontrado");
         }
-  
+
         // Añadir id_estado para todos los tipos de administradores
         if (adminForm.tipoAdmin === "estadoadmin") {
           adminData.estado = estadoSeleccionado.nombre_estado;
         } else {
           adminData.id_estado = parseInt(estadoSeleccionado.id_estado);
         }
-        
+
         // Añadir id_municipio para municipioadmin y hospitaladmin
-        if (adminForm.tipoAdmin === "municipioadmin" || adminForm.tipoAdmin === "hospitaladmin") {
+        if (
+          adminForm.tipoAdmin === "municipioadmin" ||
+          adminForm.tipoAdmin === "hospitaladmin"
+        ) {
           adminData.id_municipio = adminForm.municipio; // Ya es el ID numérico
         }
-        
+
         // Añadir id_hospital solo para hospitaladmin
         if (adminForm.tipoAdmin === "hospitaladmin") {
           adminData.id_hospital = adminForm.hospital; // Ya es el ID numérico
         }
       }
-  
+
       // Llamar a onGuardar con los datos formateados correctamente
       if (onGuardar) {
         await onGuardar(adminData);
@@ -458,7 +464,7 @@ export default function AdminForm({
       setIsSubmitting(false); // 🔒 Libera el bloqueo
     }
   };
-  
+
   const getTipoAdminLabel = () => {
     switch (adminForm.tipoAdmin) {
       case "estadoadmin":
@@ -748,13 +754,14 @@ export default function AdminForm({
             Cancelar
           </button>
           <button
-  type="submit"
-  disabled={isSubmitting}
-  className={`flex items-center px-4 py-2 rounded-md shadow-sm text-sm font-medium text-white ${
-    isSubmitting ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
-  }`}
->
-
+            type="submit"
+            disabled={isSubmitting}
+            className={`flex items-center px-4 py-2 rounded-md shadow-sm text-sm font-medium text-white ${
+              isSubmitting
+                ? "bg-blue-400 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700"
+            }`}
+          >
             <Save className="h-4 w-4 mr-2" />
             Guardar Administrador
           </button>

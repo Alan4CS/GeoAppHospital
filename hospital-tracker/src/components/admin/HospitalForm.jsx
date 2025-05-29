@@ -39,7 +39,9 @@ export default function HospitalForm({
 
       if (hospitalEditando.geocerca?.radio) {
         try {
-          const parsedGeo = JSON.parse(hospitalEditando.geocerca.radio.replace(/'/g, '"'));
+          const parsedGeo = JSON.parse(
+            hospitalEditando.geocerca.radio.replace(/'/g, '"')
+          );
           console.log("📦 Parsed geocerca from .geocerca.radio:", parsedGeo);
           setGeocercaState(parsedGeo);
         } catch (err) {
@@ -54,7 +56,9 @@ export default function HospitalForm({
   useEffect(() => {
     const fetchEstados = async () => {
       try {
-        const response = await fetch("http://localhost:4000/api/superadmin/estados");
+        const response = await fetch(
+          "https://geoapphospital.onrender.com/api/superadmin/estados"
+        );
         const data = await response.json();
         setEstados(data);
       } catch (error) {
@@ -67,7 +71,7 @@ export default function HospitalForm({
   const fetchMunicipios = async (idEstado) => {
     try {
       const response = await fetch(
-        `http://localhost:4000/api/municipioadmin/municipios-by-estado/${idEstado}`
+        `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado/${idEstado}`
       );
       const data = await response.json();
       setMunicipios(data);
@@ -177,7 +181,10 @@ export default function HospitalForm({
             >
               <option value="">Selecciona un municipio</option>
               {municipios.map((municipio) => (
-                <option key={municipio.id_municipio} value={municipio.nombre_municipio}>
+                <option
+                  key={municipio.id_municipio}
+                  value={municipio.nombre_municipio}
+                >
                   {municipio.nombre_municipio}
                 </option>
               ))}

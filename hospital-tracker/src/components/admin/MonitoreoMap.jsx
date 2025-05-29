@@ -1,9 +1,16 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useRef } from "react"
-import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon } from "react-leaflet"
-import L from "leaflet"
-import "leaflet/dist/leaflet.css"
+import { useState, useEffect, useRef } from "react";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  Circle,
+  Polygon,
+} from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import {
   FaUserCheck,
   FaUserTimes,
@@ -21,17 +28,20 @@ import {
   FaHospital,
   FaLayerGroup,
   FaBuilding,
-} from "react-icons/fa"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
+} from "react-icons/fa";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 // Corregir el problema de los íconos de Leaflet
-delete L.Icon.Default.prototype._getIconUrl
+delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
-  iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-})
+  iconRetinaUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
+  iconUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+});
 
 // Iconos personalizados
 const createCustomIcon = (color, borderColor = "white") => {
@@ -40,8 +50,8 @@ const createCustomIcon = (color, borderColor = "white") => {
     html: `<div style="background-color: ${color}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid ${borderColor}; box-shadow: 0 2px 5px rgba(0,0,0,0.2);"></div>`,
     iconSize: [18, 18],
     iconAnchor: [9, 9],
-  })
-}
+  });
+};
 
 // Icono personalizado para hospitales
 const hospitalIcon = L.divIcon({
@@ -53,75 +63,79 @@ const hospitalIcon = L.divIcon({
         </div>`,
   iconSize: [24, 24],
   iconAnchor: [12, 12],
-})
+});
 
-const connectedIcon = createCustomIcon("#4CAF50") // Verde
-const outsideGeofenceIcon = createCustomIcon("#FF5722", "#FFF") // Naranja con borde blanco
+const connectedIcon = createCustomIcon("#4CAF50"); // Verde
+const outsideGeofenceIcon = createCustomIcon("#FF5722", "#FFF"); // Naranja con borde blanco
 
 const MonitoreoMap = () => {
-  const [showFilters, setShowFilters] = useState(true)
-  const [selectedLevel, setSelectedLevel] = useState("hospital")
-  const [selectedState, setSelectedState] = useState("")
-  const [selectedMunicipality, setSelectedMunicipality] = useState("")
-  const [selectedHospital, setSelectedHospital] = useState("")
-  const [selectedEmployee, setSelectedEmployee] = useState(null)
-  const [selectedHospitalDetail, setSelectedHospitalDetail] = useState(null)
-  const [mapCenter, setMapCenter] = useState([23.6345, -102.5528]) // Centro de México
-  const [mapZoom, setMapZoom] = useState(5)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [showGeofences, setShowGeofences] = useState(true)
-  const [showHospitals, setShowHospitals] = useState(true)
-  const [employees, setEmployees] = useState([])
-  const [hospitals, setHospitals] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [loadingHospitals, setLoadingHospitals] = useState(true)
-  const [error, setError] = useState(null)
-  const [hospitalError, setHospitalError] = useState(null)
-  const [lastUpdate, setLastUpdate] = useState(null)
-  const mapRef = useRef(null)
+  const [showFilters, setShowFilters] = useState(true);
+  const [selectedLevel, setSelectedLevel] = useState("hospital");
+  const [selectedState, setSelectedState] = useState("");
+  const [selectedMunicipality, setSelectedMunicipality] = useState("");
+  const [selectedHospital, setSelectedHospital] = useState("");
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [selectedHospitalDetail, setSelectedHospitalDetail] = useState(null);
+  const [mapCenter, setMapCenter] = useState([23.6345, -102.5528]); // Centro de México
+  const [mapZoom, setMapZoom] = useState(5);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showGeofences, setShowGeofences] = useState(true);
+  const [showHospitals, setShowHospitals] = useState(true);
+  const [employees, setEmployees] = useState([]);
+  const [hospitals, setHospitals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingHospitals, setLoadingHospitals] = useState(true);
+  const [error, setError] = useState(null);
+  const [hospitalError, setHospitalError] = useState(null);
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const mapRef = useRef(null);
 
   // Estados y municipios dinámicos basados en los datos reales
-  const [states, setStates] = useState([])
-  const [municipalities, setMunicipalities] = useState({})
-  const [hospitalsByLocation, setHospitalsByLocation] = useState({})
+  const [states, setStates] = useState([]);
+  const [municipalities, setMunicipalities] = useState({});
+  const [hospitalsByLocation, setHospitalsByLocation] = useState({});
 
   // Función para obtener datos de hospitales desde la API
   const fetchHospitalsData = async () => {
     try {
-      setLoadingHospitals(true)
-      setHospitalError(null)
+      setLoadingHospitals(true);
+      setHospitalError(null);
 
-      const response = await fetch("http://localhost:4000/api/superadmin/hospitals")
+      const response = await fetch(
+        "https://geoapphospital.onrender.com/api/superadmin/hospitals"
+      );
 
       if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`)
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json()
-      console.log("Hospitales cargados:", data.length)
-      setHospitals(data)
+      const data = await response.json();
+      console.log("Hospitales cargados:", data.length);
+      setHospitals(data);
 
       // Actualizar filtros con los hospitales
-      updateHospitalFilters(data)
+      updateHospitalFilters(data);
     } catch (err) {
-      console.error("Error al obtener datos de hospitales:", err)
-      setHospitalError(err.message)
+      console.error("Error al obtener datos de hospitales:", err);
+      setHospitalError(err.message);
     } finally {
-      setLoadingHospitals(false)
+      setLoadingHospitals(false);
     }
-  }
+  };
 
   // Función para actualizar filtros basados en hospitales
   const updateHospitalFilters = (hospitalData) => {
-    const uniqueStates = [...new Set(hospitalData.map((h) => h.estado))].filter(Boolean)
-    const uniqueMunicipalities = {}
-    const uniqueHospitals = {}
+    const uniqueStates = [...new Set(hospitalData.map((h) => h.estado))].filter(
+      Boolean
+    );
+    const uniqueMunicipalities = {};
+    const uniqueHospitals = {};
 
     hospitalData.forEach((hospital) => {
-      const state = hospital.estado || "Sin estado"
+      const state = hospital.estado || "Sin estado";
       // Extraer municipio de la dirección (simplificado)
-      const addressParts = hospital.direccion_hospital?.split(",") || []
-      let municipality = "Sin municipio"
+      const addressParts = hospital.direccion_hospital?.split(",") || [];
+      let municipality = "Sin municipio";
 
       if (addressParts.length > 1) {
         // Intentar extraer municipio de la dirección
@@ -129,78 +143,89 @@ const MonitoreoMap = () => {
           (part) =>
             part.trim().toUpperCase() !== hospital.estado?.toUpperCase() &&
             !part.trim().includes("C.P.") &&
-            !part.trim().includes("COL."),
-        )
+            !part.trim().includes("COL.")
+        );
         if (possibleMunicipality) {
-          municipality = possibleMunicipality.trim()
+          municipality = possibleMunicipality.trim();
         }
       }
 
       if (state) {
         if (!uniqueMunicipalities[state]) {
-          uniqueMunicipalities[state] = new Set()
+          uniqueMunicipalities[state] = new Set();
         }
-        uniqueMunicipalities[state].add(municipality)
+        uniqueMunicipalities[state].add(municipality);
       }
 
       if (municipality) {
         if (!uniqueHospitals[municipality]) {
-          uniqueHospitals[municipality] = new Set()
+          uniqueHospitals[municipality] = new Set();
         }
-        uniqueHospitals[municipality].add(hospital.nombre_hospital)
+        uniqueHospitals[municipality].add(hospital.nombre_hospital);
       }
-    })
+    });
 
     // Convertir Sets a arrays
     Object.keys(uniqueMunicipalities).forEach((state) => {
-      uniqueMunicipalities[state] = Array.from(uniqueMunicipalities[state])
-    })
+      uniqueMunicipalities[state] = Array.from(uniqueMunicipalities[state]);
+    });
 
     Object.keys(uniqueHospitals).forEach((municipality) => {
-      uniqueHospitals[municipality] = Array.from(uniqueHospitals[municipality])
-    })
+      uniqueHospitals[municipality] = Array.from(uniqueHospitals[municipality]);
+    });
 
-    setStates((prevStates) => [...new Set([...prevStates, ...uniqueStates])])
+    setStates((prevStates) => [...new Set([...prevStates, ...uniqueStates])]);
     setMunicipalities((prev) => {
-      const updated = { ...prev }
+      const updated = { ...prev };
       Object.keys(uniqueMunicipalities).forEach((state) => {
         if (!updated[state]) {
-          updated[state] = []
+          updated[state] = [];
         }
-        updated[state] = [...new Set([...updated[state], ...uniqueMunicipalities[state]])]
-      })
-      return updated
-    })
+        updated[state] = [
+          ...new Set([...updated[state], ...uniqueMunicipalities[state]]),
+        ];
+      });
+      return updated;
+    });
     setHospitalsByLocation((prev) => {
-      const updated = { ...prev }
+      const updated = { ...prev };
       Object.keys(uniqueHospitals).forEach((municipality) => {
         if (!updated[municipality]) {
-          updated[municipality] = []
+          updated[municipality] = [];
         }
-        updated[municipality] = [...new Set([...updated[municipality], ...uniqueHospitals[municipality]])]
-      })
-      return updated
-    })
-  }
+        updated[municipality] = [
+          ...new Set([
+            ...updated[municipality],
+            ...uniqueHospitals[municipality],
+          ]),
+        ];
+      });
+      return updated;
+    });
+  };
 
   // Función para obtener datos de monitoreo desde la API
   const fetchMonitoringData = async () => {
     try {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
 
-      const response = await fetch("http://localhost:4000/api/employees/monitoreo")
+      const response = await fetch(
+        "https://geoapphospital.onrender.com/api/employees/monitoreo"
+      );
 
       if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`)
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json()
+      const data = await response.json();
 
       // Transformar los datos de la API al formato esperado por el componente
       const transformedEmployees = data.map((emp) => {
         // Crear avatar con iniciales
-        const avatar = `${emp.nombre?.charAt(0) || ""}${emp.ap_paterno?.charAt(0) || ""}`
+        const avatar = `${emp.nombre?.charAt(0) || ""}${
+          emp.ap_paterno?.charAt(0) || ""
+        }`;
 
         return {
           id: emp.id_user,
@@ -219,233 +244,290 @@ const MonitoreoMap = () => {
           // Datos adicionales calculados
           hoursWorked: calculateHoursWorked(new Date(emp.fecha_hora)),
           geofenceExits: emp.dentro_geocerca ? 0 : 1,
-        }
-      })
+        };
+      });
 
-      setEmployees(transformedEmployees)
-      setLastUpdate(new Date())
+      setEmployees(transformedEmployees);
+      setLastUpdate(new Date());
 
       // Extraer estados, municipios y hospitales únicos de los datos
-      updateLocationFilters(transformedEmployees)
+      updateLocationFilters(transformedEmployees);
     } catch (err) {
-      console.error("Error al obtener datos de monitoreo:", err)
-      setError(err.message)
+      console.error("Error al obtener datos de monitoreo:", err);
+      setError(err.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   // Función para calcular horas trabajadas (simplificada)
   const calculateHoursWorked = (lastConnection) => {
-    const now = new Date()
-    const diffMs = now - lastConnection
-    const diffHours = diffMs / (1000 * 60 * 60)
-    return Math.max(0, Math.min(24, diffHours)) // Máximo 24 horas
-  }
+    const now = new Date();
+    const diffMs = now - lastConnection;
+    const diffHours = diffMs / (1000 * 60 * 60);
+    return Math.max(0, Math.min(24, diffHours)); // Máximo 24 horas
+  };
 
   // Función para actualizar filtros de ubicación basados en datos reales
   const updateLocationFilters = (employeeData) => {
-    const uniqueStates = [...new Set(employeeData.map((emp) => emp.state))].filter(Boolean)
-    const uniqueMunicipalities = {}
-    const uniqueHospitals = {}
+    const uniqueStates = [
+      ...new Set(employeeData.map((emp) => emp.state)),
+    ].filter(Boolean);
+    const uniqueMunicipalities = {};
+    const uniqueHospitals = {};
 
     employeeData.forEach((emp) => {
       if (emp.state && emp.municipality) {
         if (!uniqueMunicipalities[emp.state]) {
-          uniqueMunicipalities[emp.state] = new Set()
+          uniqueMunicipalities[emp.state] = new Set();
         }
-        uniqueMunicipalities[emp.state].add(emp.municipality)
+        uniqueMunicipalities[emp.state].add(emp.municipality);
       }
 
       if (emp.municipality && emp.hospital) {
         if (!uniqueHospitals[emp.municipality]) {
-          uniqueHospitals[emp.municipality] = new Set()
+          uniqueHospitals[emp.municipality] = new Set();
         }
-        uniqueHospitals[emp.municipality].add(emp.hospital)
+        uniqueHospitals[emp.municipality].add(emp.hospital);
       }
-    })
+    });
 
     // Convertir Sets a arrays
     Object.keys(uniqueMunicipalities).forEach((state) => {
-      uniqueMunicipalities[state] = Array.from(uniqueMunicipalities[state])
-    })
+      uniqueMunicipalities[state] = Array.from(uniqueMunicipalities[state]);
+    });
 
     Object.keys(uniqueHospitals).forEach((municipality) => {
-      uniqueHospitals[municipality] = Array.from(uniqueHospitals[municipality])
-    })
+      uniqueHospitals[municipality] = Array.from(uniqueHospitals[municipality]);
+    });
 
-    setStates((prevStates) => [...new Set([...prevStates, ...uniqueStates])])
+    setStates((prevStates) => [...new Set([...prevStates, ...uniqueStates])]);
     setMunicipalities((prev) => {
-      const updated = { ...prev }
+      const updated = { ...prev };
       Object.keys(uniqueMunicipalities).forEach((state) => {
         if (!updated[state]) {
-          updated[state] = []
+          updated[state] = [];
         }
-        updated[state] = [...new Set([...updated[state], ...uniqueMunicipalities[state]])]
-      })
-      return updated
-    })
+        updated[state] = [
+          ...new Set([...updated[state], ...uniqueMunicipalities[state]]),
+        ];
+      });
+      return updated;
+    });
     setHospitalsByLocation((prev) => {
-      const updated = { ...prev }
+      const updated = { ...prev };
       Object.keys(uniqueHospitals).forEach((municipality) => {
         if (!updated[municipality]) {
-          updated[municipality] = []
+          updated[municipality] = [];
         }
-        updated[municipality] = [...new Set([...updated[municipality], ...uniqueHospitals[municipality]])]
-      })
-      return updated
-    })
-  }
+        updated[municipality] = [
+          ...new Set([
+            ...updated[municipality],
+            ...uniqueHospitals[municipality],
+          ]),
+        ];
+      });
+      return updated;
+    });
+  };
 
   // Cargar datos al montar el componente
   useEffect(() => {
-    fetchMonitoringData()
-    fetchHospitalsData()
+    fetchMonitoringData();
+    fetchHospitalsData();
 
     // Configurar actualización automática cada 10 minutos
-    const monitoringInterval = setInterval(fetchMonitoringData, 600000)
-    const hospitalsInterval = setInterval(fetchHospitalsData, 3600000) // Actualizar hospitales cada hora
+    const monitoringInterval = setInterval(fetchMonitoringData, 600000);
+    const hospitalsInterval = setInterval(fetchHospitalsData, 3600000); // Actualizar hospitales cada hora
 
     return () => {
-      clearInterval(monitoringInterval)
-      clearInterval(hospitalsInterval)
-    }
-  }, [])
+      clearInterval(monitoringInterval);
+      clearInterval(hospitalsInterval);
+    };
+  }, []);
 
   // Filtrar empleados según los criterios seleccionados y búsqueda
   const filteredEmployees = employees.filter((emp) => {
     // Solo aplicar filtro de búsqueda por nombre, no filtros de ubicación
-    if (searchTerm && !emp.name.toLowerCase().includes(searchTerm.toLowerCase())) return false
-    return true
-  })
+    if (
+      searchTerm &&
+      !emp.name.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+      return false;
+    return true;
+  });
 
   // Filtrar hospitales según los criterios seleccionados
-  const hasFiltersApplied = selectedState || selectedMunicipality || selectedHospital || searchTerm
+  const hasFiltersApplied =
+    selectedState || selectedMunicipality || selectedHospital || searchTerm;
   const filteredHospitals = hasFiltersApplied
     ? hospitals.filter((hospital) => {
-        if (selectedState && hospital.estado !== selectedState) return false
+        if (selectedState && hospital.estado !== selectedState) return false;
         // Filtro simplificado para municipio (basado en dirección)
-        if (selectedMunicipality && !hospital.direccion_hospital?.includes(selectedMunicipality)) return false
-        if (selectedHospital && hospital.nombre_hospital !== selectedHospital) return false
-        if (searchTerm && !hospital.nombre_hospital.toLowerCase().includes(searchTerm.toLowerCase())) return false
-        return true
+        if (
+          selectedMunicipality &&
+          !hospital.direccion_hospital?.includes(selectedMunicipality)
+        )
+          return false;
+        if (selectedHospital && hospital.nombre_hospital !== selectedHospital)
+          return false;
+        if (
+          searchTerm &&
+          !hospital.nombre_hospital
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase())
+        )
+          return false;
+        return true;
       })
-    : []
+    : [];
 
   // Calcular KPIs
-  const connectedCount = employees.filter((emp) => emp.status === "connected").length
-  const disconnectedCount = employees.filter((emp) => emp.status === "disconnected").length
-  const outsideGeofenceCount = employees.filter((emp) => emp.outsideGeofence).length
+  const connectedCount = employees.filter(
+    (emp) => emp.status === "connected"
+  ).length;
+  const disconnectedCount = employees.filter(
+    (emp) => emp.status === "disconnected"
+  ).length;
+  const outsideGeofenceCount = employees.filter(
+    (emp) => emp.outsideGeofence
+  ).length;
 
   // Centrar el mapa en el empleado seleccionado
   useEffect(() => {
     if (selectedEmployee && mapRef.current) {
-      const employee = employees.find((emp) => emp.id === selectedEmployee)
+      const employee = employees.find((emp) => emp.id === selectedEmployee);
       if (employee && employee.location) {
-        mapRef.current.setView(employee.location, 15)
+        mapRef.current.setView(employee.location, 15);
       }
     }
-  }, [selectedEmployee, employees])
+  }, [selectedEmployee, employees]);
 
   // Centrar el mapa en el hospital seleccionado
   useEffect(() => {
     if (selectedHospitalDetail && mapRef.current) {
-      const hospital = hospitals.find((h) => h.id_hospital === selectedHospitalDetail)
+      const hospital = hospitals.find(
+        (h) => h.id_hospital === selectedHospitalDetail
+      );
       if (hospital && hospital.latitud_hospital && hospital.longitud_hospital) {
-        mapRef.current.setView([hospital.latitud_hospital, hospital.longitud_hospital], 16)
+        mapRef.current.setView(
+          [hospital.latitud_hospital, hospital.longitud_hospital],
+          16
+        );
       }
     }
-  }, [selectedHospitalDetail, hospitals])
+  }, [selectedHospitalDetail, hospitals]);
 
   // Función para parsear el polígono de geocerca
   const parseGeofencePolygon = (radioGeoString) => {
     try {
-      if (!radioGeoString) return null
+      if (!radioGeoString) return null;
 
       // Limpiar la cadena para convertirla en JSON válido
       const cleanedString = radioGeoString
         .replace(/'/g, '"') // Reemplazar comillas simples por dobles
-        .replace(/(\w+):/g, '"$1":') // Añadir comillas a las claves
+        .replace(/(\w+):/g, '"$1":'); // Añadir comillas a las claves
 
-      const geoJson = JSON.parse(cleanedString)
+      const geoJson = JSON.parse(cleanedString);
 
-      if (geoJson.type === "Polygon" && Array.isArray(geoJson.coordinates) && geoJson.coordinates.length > 0) {
+      if (
+        geoJson.type === "Polygon" &&
+        Array.isArray(geoJson.coordinates) &&
+        geoJson.coordinates.length > 0
+      ) {
         // Invertir lat/lng para Leaflet (GeoJSON usa [lng, lat], Leaflet usa [lat, lng])
-        return geoJson.coordinates[0].map((coord) => [coord[1], coord[0]])
+        return geoJson.coordinates[0].map((coord) => [coord[1], coord[0]]);
       }
-      return null
+      return null;
     } catch (error) {
-      console.error("Error al parsear polígono de geocerca:", error)
-      return null
+      console.error("Error al parsear polígono de geocerca:", error);
+      return null;
     }
-  }
+  };
 
   // Función para actualizar la vista del mapa
   const updateMapView = () => {
-    if (!mapRef.current) return
+    if (!mapRef.current) return;
 
     // Recopilar todas las ubicaciones válidas (empleados y hospitales)
     const validEmployeeLocations = filteredEmployees
       .filter((emp) => emp.location && emp.location[0] && emp.location[1])
-      .map((emp) => emp.location)
+      .map((emp) => emp.location);
 
     const validHospitalLocations = hasFiltersApplied
       ? filteredHospitals
           .filter((h) => h.latitud_hospital && h.longitud_hospital)
           .map((h) => [h.latitud_hospital, h.longitud_hospital])
-      : []
+      : [];
 
-    const allLocations = [...validEmployeeLocations, ...validHospitalLocations]
+    const allLocations = [...validEmployeeLocations, ...validHospitalLocations];
 
     if (allLocations.length > 0) {
       // Si hay ubicaciones filtradas, ajustar la vista para mostrarlas todas
-      const bounds = L.latLngBounds(allLocations)
-      mapRef.current.fitBounds(bounds, { padding: [50, 50] })
+      const bounds = L.latLngBounds(allLocations);
+      mapRef.current.fitBounds(bounds, { padding: [50, 50] });
     } else if (hasFiltersApplied) {
       // Si hay filtros aplicados pero no hay resultados, mantener la vista actual
-      console.log("No se encontraron ubicaciones para los filtros aplicados")
+      console.log("No se encontraron ubicaciones para los filtros aplicados");
     } else {
       // Si no hay filtros aplicados, mostrar todo México
-      mapRef.current.setView([23.6345, -102.5528], 5)
+      mapRef.current.setView([23.6345, -102.5528], 5);
     }
-  }
+  };
 
   // Actualizar la vista del mapa cuando cambian los filtros
   useEffect(() => {
-    if (mapRef.current && (filteredEmployees.length > 0 || filteredHospitals.length > 0)) {
-      updateMapView()
+    if (
+      mapRef.current &&
+      (filteredEmployees.length > 0 || filteredHospitals.length > 0)
+    ) {
+      updateMapView();
     }
-  }, [filteredEmployees, filteredHospitals])
+  }, [filteredEmployees, filteredHospitals]);
 
   // Función para limpiar filtros
   const clearFilters = () => {
-    setSelectedState("")
-    setSelectedMunicipality("")
-    setSelectedHospital("")
-    setSearchTerm("")
-    setTimeout(updateMapView, 100)
-  }
+    setSelectedState("");
+    setSelectedMunicipality("");
+    setSelectedHospital("");
+    setSearchTerm("");
+    setTimeout(updateMapView, 100);
+  };
 
   // Generar color de avatar basado en el nombre
   const getAvatarColor = (name) => {
-    const colors = ["bg-blue-500", "bg-emerald-500", "bg-amber-500", "bg-rose-500", "bg-violet-500", "bg-cyan-500"]
-    const index = name.charCodeAt(0) % colors.length
-    return colors[index]
-  }
+    const colors = [
+      "bg-blue-500",
+      "bg-emerald-500",
+      "bg-amber-500",
+      "bg-rose-500",
+      "bg-violet-500",
+      "bg-cyan-500",
+    ];
+    const index = name.charCodeAt(0) % colors.length;
+    return colors[index];
+  };
 
   // Función para refrescar datos manualmente
   const handleRefresh = () => {
-    fetchMonitoringData()
-    fetchHospitalsData()
-  }
+    fetchMonitoringData();
+    fetchHospitalsData();
+  };
 
-  if (loading && loadingHospitals && employees.length === 0 && hospitals.length === 0) {
+  if (
+    loading &&
+    loadingHospitals &&
+    employees.length === 0 &&
+    hospitals.length === 0
+  ) {
     return (
       <div className="flex flex-col h-[calc(100vh-64px)] bg-gray-50 items-center justify-center">
         <FaSpinner className="animate-spin text-4xl text-emerald-600 mb-4" />
-        <p className="text-gray-600">Cargando datos de monitoreo y hospitales...</p>
+        <p className="text-gray-600">
+          Cargando datos de monitoreo y hospitales...
+        </p>
       </div>
-    )
+    );
   }
 
   return (
@@ -468,7 +550,9 @@ const MonitoreoMap = () => {
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500">Desconectados</h3>
-            <p className="text-2xl font-bold text-gray-800">{disconnectedCount}</p>
+            <p className="text-2xl font-bold text-gray-800">
+              {disconnectedCount}
+            </p>
           </div>
         </div>
 
@@ -477,8 +561,12 @@ const MonitoreoMap = () => {
             <FaExclamationTriangle className="text-orange-600 text-xl" />
           </div>
           <div>
-            <h3 className="text-sm font-medium text-gray-500">Fuera de Geocerca</h3>
-            <p className="text-2xl font-bold text-gray-800">{outsideGeofenceCount}</p>
+            <h3 className="text-sm font-medium text-gray-500">
+              Fuera de Geocerca
+            </h3>
+            <p className="text-2xl font-bold text-gray-800">
+              {outsideGeofenceCount}
+            </p>
           </div>
         </div>
 
@@ -488,7 +576,9 @@ const MonitoreoMap = () => {
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500">
-              {hasFiltersApplied ? "Hospitales filtrados" : "Hospitales (aplicar filtro)"}
+              {hasFiltersApplied
+                ? "Hospitales filtrados"
+                : "Hospitales (aplicar filtro)"}
             </h3>
             <p className="text-2xl font-bold text-gray-800">
               {hasFiltersApplied ? filteredHospitals.length : hospitals.length}
@@ -502,8 +592,13 @@ const MonitoreoMap = () => {
         <div className="mx-4 mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
           <div className="flex items-center">
             <FaExclamationTriangle className="text-red-600 mr-2" />
-            <span className="text-red-800">Error al cargar datos de empleados: {error}</span>
-            <button onClick={handleRefresh} className="ml-auto text-red-600 hover:text-red-800 underline">
+            <span className="text-red-800">
+              Error al cargar datos de empleados: {error}
+            </span>
+            <button
+              onClick={handleRefresh}
+              className="ml-auto text-red-600 hover:text-red-800 underline"
+            >
               Reintentar
             </button>
           </div>
@@ -514,8 +609,13 @@ const MonitoreoMap = () => {
         <div className="mx-4 mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
           <div className="flex items-center">
             <FaExclamationTriangle className="text-red-600 mr-2" />
-            <span className="text-red-800">Error al cargar datos de hospitales: {hospitalError}</span>
-            <button onClick={fetchHospitalsData} className="ml-auto text-red-600 hover:text-red-800 underline">
+            <span className="text-red-800">
+              Error al cargar datos de hospitales: {hospitalError}
+            </span>
+            <button
+              onClick={fetchHospitalsData}
+              className="ml-auto text-red-600 hover:text-red-800 underline"
+            >
               Reintentar
             </button>
           </div>
@@ -548,7 +648,11 @@ const MonitoreoMap = () => {
                     className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
                     title="Actualizar datos"
                   >
-                    <FaSync className={loading || loadingHospitals ? "animate-spin" : ""} />
+                    <FaSync
+                      className={
+                        loading || loadingHospitals ? "animate-spin" : ""
+                      }
+                    />
                   </button>
                 </div>
               </div>
@@ -598,14 +702,16 @@ const MonitoreoMap = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Estado</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Estado
+                  </label>
                   <select
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                     value={selectedState}
                     onChange={(e) => {
-                      setSelectedState(e.target.value)
-                      setSelectedMunicipality("")
-                      setSelectedHospital("")
+                      setSelectedState(e.target.value);
+                      setSelectedMunicipality("");
+                      setSelectedHospital("");
                     }}
                   >
                     <option value="">Todos los estados</option>
@@ -619,13 +725,15 @@ const MonitoreoMap = () => {
 
                 {selectedState && municipalities[selectedState] && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Municipio</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Municipio
+                    </label>
                     <select
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                       value={selectedMunicipality}
                       onChange={(e) => {
-                        setSelectedMunicipality(e.target.value)
-                        setSelectedHospital("")
+                        setSelectedMunicipality(e.target.value);
+                        setSelectedHospital("");
                       }}
                     >
                       <option value="">Todos los municipios</option>
@@ -638,23 +746,28 @@ const MonitoreoMap = () => {
                   </div>
                 )}
 
-                {selectedMunicipality && hospitalsByLocation[selectedMunicipality] && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Hospital</label>
-                    <select
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                      value={selectedHospital}
-                      onChange={(e) => setSelectedHospital(e.target.value)}
-                    >
-                      <option value="">Todos los hospitales</option>
-                      {hospitalsByLocation[selectedMunicipality].map((hospital) => (
-                        <option key={hospital} value={hospital}>
-                          {hospital}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                {selectedMunicipality &&
+                  hospitalsByLocation[selectedMunicipality] && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Hospital
+                      </label>
+                      <select
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        value={selectedHospital}
+                        onChange={(e) => setSelectedHospital(e.target.value)}
+                      >
+                        <option value="">Todos los hospitales</option>
+                        {hospitalsByLocation[selectedMunicipality].map(
+                          (hospital) => (
+                            <option key={hospital} value={hospital}>
+                              {hospital}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </div>
+                  )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
@@ -670,7 +783,10 @@ const MonitoreoMap = () => {
                         onChange={(e) => setShowGeofences(e.target.checked)}
                         className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
                       />
-                      <label htmlFor="showGeofences" className="ml-2 block text-sm text-gray-700">
+                      <label
+                        htmlFor="showGeofences"
+                        className="ml-2 block text-sm text-gray-700"
+                      >
                         Mostrar geocercas
                       </label>
                     </div>
@@ -682,7 +798,10 @@ const MonitoreoMap = () => {
                         onChange={(e) => setShowHospitals(e.target.checked)}
                         className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
                       />
-                      <label htmlFor="showHospitals" className="ml-2 block text-sm text-gray-700">
+                      <label
+                        htmlFor="showHospitals"
+                        className="ml-2 block text-sm text-gray-700"
+                      >
                         Mostrar hospitales
                       </label>
                     </div>
@@ -693,10 +812,13 @@ const MonitoreoMap = () => {
                   <div className="flex items-start">
                     <FaInfoCircle className="text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="text-sm text-blue-800 font-medium">Visualización del mapa</p>
+                      <p className="text-sm text-blue-800 font-medium">
+                        Visualización del mapa
+                      </p>
                       <p className="text-xs text-blue-700 mt-1">
-                        Los empleados siempre se muestran en el mapa. Los hospitales aparecen solo cuando apliques un
-                        filtro de ubicación (estado, municipio o hospital específico).
+                        Los empleados siempre se muestran en el mapa. Los
+                        hospitales aparecen solo cuando apliques un filtro de
+                        ubicación (estado, municipio o hospital específico).
                       </p>
                     </div>
                   </div>
@@ -739,7 +861,7 @@ const MonitoreoMap = () => {
               style={{ height: "100%", width: "100%" }}
               ref={mapRef}
               whenCreated={(map) => {
-                mapRef.current = map
+                mapRef.current = map;
               }}
               zoomControl={false}
             >
@@ -751,8 +873,13 @@ const MonitoreoMap = () => {
               {/* Hospitales y geocercas */}
               {showHospitals &&
                 filteredHospitals.map((hospital) => {
-                  const hospitalPosition = [hospital.latitud_hospital, hospital.longitud_hospital]
-                  const geofencePolygon = parseGeofencePolygon(hospital.radio_geo)
+                  const hospitalPosition = [
+                    hospital.latitud_hospital,
+                    hospital.longitud_hospital,
+                  ];
+                  const geofencePolygon = parseGeofencePolygon(
+                    hospital.radio_geo
+                  );
 
                   return (
                     <div key={hospital.id_hospital}>
@@ -763,25 +890,38 @@ const MonitoreoMap = () => {
                           icon={hospitalIcon}
                           eventHandlers={{
                             click: () => {
-                              setSelectedHospitalDetail(hospital.id_hospital)
+                              setSelectedHospitalDetail(hospital.id_hospital);
                             },
                           }}
                         >
                           <Popup className="custom-popup">
                             <div className="text-sm p-1">
-                              <h3 className="font-medium text-base text-blue-700">{hospital.nombre_hospital}</h3>
-                              <p className="text-gray-600 text-xs mt-1">{hospital.tipo_hospital || "Hospital"}</p>
-                              <p className="text-gray-700 mt-2 text-xs">{hospital.direccion_hospital}</p>
-                              <p className="text-gray-500 text-xs mt-1">{hospital.estado}</p>
+                              <h3 className="font-medium text-base text-blue-700">
+                                {hospital.nombre_hospital}
+                              </h3>
+                              <p className="text-gray-600 text-xs mt-1">
+                                {hospital.tipo_hospital || "Hospital"}
+                              </p>
+                              <p className="text-gray-700 mt-2 text-xs">
+                                {hospital.direccion_hospital}
+                              </p>
+                              <p className="text-gray-500 text-xs mt-1">
+                                {hospital.estado}
+                              </p>
                               <div className="mt-2 pt-2 border-t border-gray-200">
                                 <p className="text-xs text-gray-500">
-                                  Coordenadas: {hospital.latitud_hospital?.toFixed(6)},{" "}
+                                  Coordenadas:{" "}
+                                  {hospital.latitud_hospital?.toFixed(6)},{" "}
                                   {hospital.longitud_hospital?.toFixed(6)}
                                 </p>
                               </div>
                               <button
                                 className="w-full mt-2 text-blue-600 text-xs flex items-center justify-center border border-blue-200 rounded-lg py-1 px-2 hover:bg-blue-50"
-                                onClick={() => setSelectedHospitalDetail(hospital.id_hospital)}
+                                onClick={() =>
+                                  setSelectedHospitalDetail(
+                                    hospital.id_hospital
+                                  )
+                                }
                               >
                                 <FaInfoCircle className="mr-1" /> Ver detalles
                               </button>
@@ -823,20 +963,29 @@ const MonitoreoMap = () => {
                           />
                         )}
                     </div>
-                  )
+                  );
                 })}
 
               {/* Marcadores de empleados */}
               {filteredEmployees
-                .filter((employee) => employee.location && employee.location[0] && employee.location[1])
+                .filter(
+                  (employee) =>
+                    employee.location &&
+                    employee.location[0] &&
+                    employee.location[1]
+                )
                 .map((employee) => (
                   <Marker
                     key={employee.id}
                     position={employee.location}
-                    icon={employee.outsideGeofence ? outsideGeofenceIcon : connectedIcon}
+                    icon={
+                      employee.outsideGeofence
+                        ? outsideGeofenceIcon
+                        : connectedIcon
+                    }
                     eventHandlers={{
                       click: () => {
-                        setSelectedEmployee(employee.id)
+                        setSelectedEmployee(employee.id);
                       },
                     }}
                   >
@@ -845,17 +994,23 @@ const MonitoreoMap = () => {
                         <div className="flex items-center mb-2">
                           <div
                             className={`w-8 h-8 rounded-full ${getAvatarColor(
-                              employee.name,
+                              employee.name
                             )} text-white flex items-center justify-center font-medium mr-2 text-xs`}
                           >
                             {employee.avatar}
                           </div>
                           <div>
-                            <h3 className="font-medium text-base">{employee.name}</h3>
-                            <p className="text-gray-600 text-xs">{employee.position}</p>
+                            <h3 className="font-medium text-base">
+                              {employee.name}
+                            </h3>
+                            <p className="text-gray-600 text-xs">
+                              {employee.position}
+                            </p>
                           </div>
                         </div>
-                        <p className="text-gray-700 mb-2">{employee.hospital}</p>
+                        <p className="text-gray-700 mb-2">
+                          {employee.hospital}
+                        </p>
                         <div className="flex justify-between items-center mb-2">
                           <div className="flex items-center text-gray-600">
                             <FaClock className="mr-1" />
@@ -891,13 +1046,17 @@ const MonitoreoMap = () => {
             <div className="w-80 bg-white border-l border-gray-100 overflow-y-auto">
               <div className="p-5">
                 {(() => {
-                  const employee = employees.find((emp) => emp.id === selectedEmployee)
-                  if (!employee) return null
+                  const employee = employees.find(
+                    (emp) => emp.id === selectedEmployee
+                  );
+                  if (!employee) return null;
 
                   return (
                     <>
                       <div className="flex justify-between items-start mb-6">
-                        <h3 className="font-semibold text-lg text-gray-800">Detalles del Empleado</h3>
+                        <h3 className="font-semibold text-lg text-gray-800">
+                          Detalles del Empleado
+                        </h3>
                         <button
                           className="text-gray-400 hover:text-gray-600 p-1"
                           onClick={() => setSelectedEmployee(null)}
@@ -909,13 +1068,15 @@ const MonitoreoMap = () => {
                       <div className="flex items-center mb-6">
                         <div
                           className={`w-12 h-12 rounded-full ${getAvatarColor(
-                            employee.name,
+                            employee.name
                           )} text-white flex items-center justify-center text-lg font-medium mr-3`}
                         >
                           {employee.avatar}
                         </div>
                         <div>
-                          <h4 className="text-xl font-medium text-gray-800">{employee.name}</h4>
+                          <h4 className="text-xl font-medium text-gray-800">
+                            {employee.name}
+                          </h4>
                           <p className="text-gray-600">{employee.position}</p>
                         </div>
                       </div>
@@ -926,20 +1087,27 @@ const MonitoreoMap = () => {
                             <FaMapMarkerAlt className="mr-2 text-emerald-600" />
                             Ubicación
                           </h5>
-                          <p className="text-gray-800 font-medium">{employee.hospital}</p>
+                          <p className="text-gray-800 font-medium">
+                            {employee.hospital}
+                          </p>
                           <p className="text-gray-600 text-sm">
                             {employee.municipality}, {employee.state}
                           </p>
                           <p className="text-gray-500 text-xs mt-1">
-                            Lat: {employee.location[0]?.toFixed(6)}, Lng: {employee.location[1]?.toFixed(6)}
+                            Lat: {employee.location[0]?.toFixed(6)}, Lng:{" "}
+                            {employee.location[1]?.toFixed(6)}
                           </p>
                         </div>
 
                         <div>
-                          <h5 className="text-sm font-medium text-gray-700 mb-2">Estado</h5>
+                          <h5 className="text-sm font-medium text-gray-700 mb-2">
+                            Estado
+                          </h5>
                           <div
                             className={`flex items-center ${
-                              employee.status === "connected" ? "text-emerald-600" : "text-gray-600"
+                              employee.status === "connected"
+                                ? "text-emerald-600"
+                                : "text-gray-600"
                             }`}
                           >
                             {employee.status === "connected" ? (
@@ -950,24 +1118,36 @@ const MonitoreoMap = () => {
                             ) : (
                               <>
                                 <FaUserTimes className="mr-2" />
-                                <span className="font-medium">Desconectado</span>
+                                <span className="font-medium">
+                                  Desconectado
+                                </span>
                               </>
                             )}
                           </div>
                           <p className="text-sm text-gray-500 mt-1">
-                            Última conexión: {format(employee.lastConnection, "d 'de' MMMM, HH:mm", { locale: es })}
+                            Última conexión:{" "}
+                            {format(
+                              employee.lastConnection,
+                              "d 'de' MMMM, HH:mm",
+                              { locale: es }
+                            )}
                           </p>
                         </div>
 
                         <div>
-                          <h5 className="text-sm font-medium text-gray-700 mb-2">Geocerca</h5>
+                          <h5 className="text-sm font-medium text-gray-700 mb-2">
+                            Geocerca
+                          </h5>
                           {employee.outsideGeofence ? (
                             <div className="bg-orange-50 text-orange-800 p-3 rounded-lg flex items-center">
                               <FaExclamationTriangle className="mr-2" />
                               <div>
-                                <span className="font-medium">Fuera de geocerca</span>
+                                <span className="font-medium">
+                                  Fuera de geocerca
+                                </span>
                                 <p className="text-xs text-orange-700 mt-1">
-                                  El empleado se encuentra fuera del área designada.
+                                  El empleado se encuentra fuera del área
+                                  designada.
                                 </p>
                               </div>
                             </div>
@@ -975,7 +1155,9 @@ const MonitoreoMap = () => {
                             <div className="bg-emerald-50 text-emerald-800 p-3 rounded-lg flex items-center">
                               <FaMapMarkerAlt className="mr-2" />
                               <div>
-                                <span className="font-medium">Dentro de geocerca</span>
+                                <span className="font-medium">
+                                  Dentro de geocerca
+                                </span>
                                 <p className="text-xs text-emerald-700 mt-1">
                                   El empleado se encuentra en el área designada.
                                 </p>
@@ -994,7 +1176,7 @@ const MonitoreoMap = () => {
                         </button>
                       </div>
                     </>
-                  )
+                  );
                 })()}
               </div>
             </div>
@@ -1005,13 +1187,17 @@ const MonitoreoMap = () => {
             <div className="w-80 bg-white border-l border-gray-100 overflow-y-auto">
               <div className="p-5">
                 {(() => {
-                  const hospital = hospitals.find((h) => h.id_hospital === selectedHospitalDetail)
-                  if (!hospital) return null
+                  const hospital = hospitals.find(
+                    (h) => h.id_hospital === selectedHospitalDetail
+                  );
+                  if (!hospital) return null;
 
                   return (
                     <>
                       <div className="flex justify-between items-start mb-6">
-                        <h3 className="font-semibold text-lg text-gray-800">Detalles del Hospital</h3>
+                        <h3 className="font-semibold text-lg text-gray-800">
+                          Detalles del Hospital
+                        </h3>
                         <button
                           className="text-gray-400 hover:text-gray-600 p-1"
                           onClick={() => setSelectedHospitalDetail(null)}
@@ -1025,8 +1211,12 @@ const MonitoreoMap = () => {
                           <FaHospital />
                         </div>
                         <div>
-                          <h4 className="text-xl font-medium text-gray-800">{hospital.nombre_hospital}</h4>
-                          <p className="text-gray-600">{hospital.tipo_hospital || "Hospital"}</p>
+                          <h4 className="text-xl font-medium text-gray-800">
+                            {hospital.nombre_hospital}
+                          </h4>
+                          <p className="text-gray-600">
+                            {hospital.tipo_hospital || "Hospital"}
+                          </p>
                         </div>
                       </div>
 
@@ -1036,33 +1226,47 @@ const MonitoreoMap = () => {
                             <FaMapMarkerAlt className="mr-2 text-blue-600" />
                             Ubicación
                           </h5>
-                          <p className="text-gray-800 font-medium">{hospital.estado}</p>
-                          <p className="text-gray-600 text-sm">{hospital.direccion_hospital}</p>
+                          <p className="text-gray-800 font-medium">
+                            {hospital.estado}
+                          </p>
+                          <p className="text-gray-600 text-sm">
+                            {hospital.direccion_hospital}
+                          </p>
                           <p className="text-gray-500 text-xs mt-1">
-                            Lat: {hospital.latitud_hospital?.toFixed(6)}, Lng: {hospital.longitud_hospital?.toFixed(6)}
+                            Lat: {hospital.latitud_hospital?.toFixed(6)}, Lng:{" "}
+                            {hospital.longitud_hospital?.toFixed(6)}
                           </p>
                         </div>
 
                         {hospital.radio_geo && (
                           <div>
-                            <h5 className="text-sm font-medium text-gray-700 mb-2">Geocerca</h5>
+                            <h5 className="text-sm font-medium text-gray-700 mb-2">
+                              Geocerca
+                            </h5>
                             <div className="bg-blue-50 text-blue-800 p-3 rounded-lg">
                               <p className="text-xs">
-                                Este hospital tiene una geocerca definida que se muestra en el mapa.
+                                Este hospital tiene una geocerca definida que se
+                                muestra en el mapa.
                               </p>
                             </div>
                           </div>
                         )}
 
                         <div>
-                          <h5 className="text-sm font-medium text-gray-700 mb-2">Información adicional</h5>
+                          <h5 className="text-sm font-medium text-gray-700 mb-2">
+                            Información adicional
+                          </h5>
                           <div className="bg-gray-50 p-3 rounded-lg">
                             <p className="text-sm text-gray-700">
-                              <span className="font-medium">ID:</span> {hospital.id_hospital}
+                              <span className="font-medium">ID:</span>{" "}
+                              {hospital.id_hospital}
                             </p>
                             {hospital.coordenadas_hospital && (
                               <p className="text-sm text-gray-700 mt-1">
-                                <span className="font-medium">Coordenadas:</span> {hospital.coordenadas_hospital}
+                                <span className="font-medium">
+                                  Coordenadas:
+                                </span>{" "}
+                                {hospital.coordenadas_hospital}
                               </p>
                             )}
                           </div>
@@ -1078,7 +1282,7 @@ const MonitoreoMap = () => {
                         </button>
                       </div>
                     </>
-                  )
+                  );
                 })()}
               </div>
             </div>
@@ -1086,7 +1290,7 @@ const MonitoreoMap = () => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default MonitoreoMap
+export default MonitoreoMap;
