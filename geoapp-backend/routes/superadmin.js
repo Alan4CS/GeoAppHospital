@@ -236,4 +236,57 @@ router.post("/delete-admin/:id_user", async (req, res) => {
   }
 });
 
+router.post("/create-superadmin", async (req, res) => {
+  const { nombre, ap_paterno, ap_materno, CURP, user, pass, role_name } = req.body;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // 2. Insertar en user_data con id_estado proporcionado
+    const userDataResult = await client.query(
+      `INSERT INTO user_data (nombre, ap_paterno, ap_materno, curp_user)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id_user`,
+      [nombre, ap_paterno, ap_materno, CURP]
+    );
+    const newUserId = userDataResult.rows[0].id_user;
+
+    // 3. Insertar en user_credentials
+    await client.query(
+      `INSERT INTO user_credentials (id_user, "user", pass)
+       VALUES ($1, $2, $3)`,
+      [newUserId, user, pass]
+    );
+
+    // 4. Obtener id_role
+    const roleResult = await client.query(
+      `SELECT id_role FROM roles WHERE role_name = $1`,
+      [role_name]
+    );
+    if (roleResult.rowCount === 0) throw new Error("Rol no encontrado");
+
+    const roleId = roleResult.rows[0].id_role;
+
+    // 5. Insertar en user_roles con id_hospital
+    await client.query(
+      `INSERT INTO user_roles (id_user, id_role)
+       VALUES ($1, $2)`,
+      [newUserId, roleId]
+    );
+
+    await client.query("COMMIT");
+    res.status(201).json({ message: "Administrador superadmin creado con éxito" });
+
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("❌ Error al crear superadmin:", error);
+    res.status(500).json({ error: "Error al crear el superadmin" });
+  } finally {
+    client.release();
+  }
+});
+
+
 export default router;
