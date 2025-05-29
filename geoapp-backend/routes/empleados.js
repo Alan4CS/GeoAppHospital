@@ -90,8 +90,11 @@ router.get("/get-empleados", async (req, res) => {
         u.ap_paterno,
         u.ap_materno,
         u.curp_user,
+        e.id_estado,
         e.nombre_estado AS estado,
+        m.id_municipio,
         m.nombre_municipio AS municipio,
+        h.id_hospital,
         h.nombre_hospital AS hospital,
         g.nombre_grupo,
         r.role_name
