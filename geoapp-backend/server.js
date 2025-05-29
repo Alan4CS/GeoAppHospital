@@ -3,12 +3,12 @@ import cors from "cors";
 import dotenv from "dotenv";
 
 import superadminRoutes from "./routes/superadmin.js";
-import loginRoutes from "./routes/login.js"
-import estadoadminRoutes from "./routes/estadoadmin.js"
-import municipioladminRoutes from "./routes/municipioadmin.js"
-import hospitaladmin from "./routes/hospitaladmin.js"
-import groups from "./routes/groups.js"
-import empleados from "./routes/empleados.js"
+import loginRoutes from "./routes/login.js";
+import estadoadminRoutes from "./routes/estadoadmin.js";
+import municipioladminRoutes from "./routes/municipioadmin.js";
+import hospitaladmin from "./routes/hospitaladmin.js";
+import groups from "./routes/groups.js";
+import empleados from "./routes/empleados.js";
 import mobileRoutes from "./routes/mobile.js";
 
 dotenv.config();
@@ -26,7 +26,8 @@ app.use("/api/groups", groups);
 app.use("/api/employees", empleados);
 app.use("/api/mobile", mobileRoutes);
 
+// Usa el puerto asignado por Render
 const PORT = process.env.PORT || 4000;
-app.listen(4000, '0.0.0.0', () => {
-  console.log("Servidor corriendo en http://0.0.0.0:4000");
+app.listen(PORT, () => {
+  console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
