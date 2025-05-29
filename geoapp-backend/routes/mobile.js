@@ -1,9 +1,23 @@
 import express from "express";
 import { pool } from "../db/index.js";
+import jwt from 'jsonwebtoken';
 
 const router = express.Router();
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
+
+// Middleware de autenticación
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ error: "Token no proporcionado" });
+    
+    jwt.verify(token, process.env.JWT_SECRET || 'tu_clave_secreta', (err, user) => {
+        if (err) return res.status(403).json({ error: "Token inválido" });
+        req.user = user;
+        next();
+    });
+};
 
 /**
  * POST /api/empleados/login
@@ -45,8 +59,14 @@ router.post("/empleados/login", async (req, res) => {
             return res.status(403).json({ error: "Acceso restringido solo a empleados." });
         }
 
+        const token = jwt.sign(
+            { id_user, role: role_name },
+            process.env.JWT_SECRET || 'tu_clave_secreta',
+            { expiresIn: '7d' }
+        );
+
         console.log(`✅ Usuario ${id_user} (${role_name}) logueado correctamente`);
-        res.status(200).json({ id_user, role: role_name });
+        res.status(200).json({ id_user, role: role_name, token });
 
     } catch (error) {
         console.error("❌ Error en login de empleados:", error);
@@ -60,11 +80,11 @@ router.post("/empleados/login", async (req, res) => {
 /**
  * POST /api/ubicaciones
  */
-router.post("/ubicaciones", async (req, res) => {
-    const { id_user, latitud, longitud, dentro_geocerca, tipo_registro } = req.body;
+router.post("/ubicaciones", authenticateToken, async (req, res) => {
+    const { latitud, longitud, dentro_geocerca, tipo_registro } = req.body;
+    const id_user = req.user.id_user;
 
     if (
-        id_user == null ||
         latitud == null ||
         longitud == null ||
         dentro_geocerca == null ||
