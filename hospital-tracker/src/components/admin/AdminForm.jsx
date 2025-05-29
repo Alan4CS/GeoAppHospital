@@ -66,7 +66,7 @@ export default function AdminForm({
     const fetchEstados = async () => {
       try {
         const res = await fetch(
-          "https://geoapphospital.onrender.com//api/superadmin/estados"
+          "https://geoapphospital.onrender.com/api/superadmin/estados"
         );
         const data = await res.json();
 
@@ -93,7 +93,7 @@ export default function AdminForm({
           }
 
           const res = await fetch(
-            `https://geoapphospital.onrender.com//api/municipioadmin/municipios-by-estado/${estadoSeleccionado.id_estado}`
+            `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado/${estadoSeleccionado.id_estado}`
           );
 
           if (!res.ok) {
@@ -143,7 +143,7 @@ export default function AdminForm({
         }
 
         const res = await fetch(
-          `https://geoapphospital.onrender.com//api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${adminForm.municipio}`
+          `https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${adminForm.municipio}`
         );
 
         if (!res.ok) {
@@ -169,7 +169,7 @@ export default function AdminForm({
         try {
           // En una implementación real, esta sería una llamada a la API
           // Simulamos la respuesta para este ejemplo
-          // const res = await fetch(`https://geoapphospital.onrender.com//api/superadmin/grupos/${adminForm.hospital}`);
+          // const res = await fetch(`https://geoapphospital.onrender.com/api/superadmin/grupos/${adminForm.hospital}`);
           // const data = await res.json();
 
           // Datos simulados de grupos
