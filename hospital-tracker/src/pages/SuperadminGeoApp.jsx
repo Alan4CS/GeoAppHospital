@@ -70,7 +70,7 @@ export default function SuperadminGeoApp() {
     const fetchHospitales = async () => {
       try {
         const response = await fetch(
-          "http://localhost:4000/api/superadmin/hospitals"
+          "https://geoapphospital.onrender.com//api/superadmin/hospitals"
         );
         const data = await response.json();
         const hospitalesFormateados = data.map((h) => ({
@@ -97,7 +97,7 @@ export default function SuperadminGeoApp() {
   const fetchAdministradores = async () => {
     try {
       const response = await fetch(
-        "http://localhost:4000/api/superadmin/totaladmins"
+        "https://geoapphospital.onrender.com//api/superadmin/totaladmins"
       );
       const data = await response.json();
       setAdministradores(data);
@@ -113,7 +113,7 @@ export default function SuperadminGeoApp() {
   const fetchGrupos = async () => {
     try {
       const response = await fetch(
-        "http://localhost:4000/api/groups/get-groups"
+        "https://geoapphospital.onrender.com//api/groups/get-groups"
       );
       if (!response.ok) {
         throw new Error("Error al obtener grupos");
@@ -136,7 +136,7 @@ export default function SuperadminGeoApp() {
       // Actualizar también la lista de empleados
       try {
         const empleadosResponse = await fetch(
-          "http://localhost:4000/api/employees/get-empleados"
+          "https://geoapphospital.onrender.com//api/employees/get-empleados"
         );
         if (empleadosResponse.ok) {
           const empleadosData = await empleadosResponse.json();
@@ -319,11 +319,13 @@ export default function SuperadminGeoApp() {
   // Manejador para guardar un administrador
   const handleGuardarAdmin = async (nuevoAdmin) => {
     try {
-      let endpoint = "http://localhost:4000/api/superadmin/create-admin";
+      let endpoint =
+        "https://geoapphospital.onrender.com//api/superadmin/create-admin";
 
       // Si es superadmin, usar el endpoint específico
       if (nuevoAdmin.role_name === "superadmin") {
-        endpoint = "http://localhost:4000/api/superadmin/create-superadmin";
+        endpoint =
+          "https://geoapphospital.onrender.com//api/superadmin/create-superadmin";
       }
 
       const response = await fetch(endpoint, {
@@ -376,7 +378,7 @@ export default function SuperadminGeoApp() {
   const fetchEmpleados = async () => {
     try {
       const empleadosResponse = await fetch(
-        "http://localhost:4000/api/employees/get-empleados"
+        "https://geoapphospital.onrender.com//api/employees/get-empleados"
       );
       if (empleadosResponse.ok) {
         const empleadosData = await empleadosResponse.json();
@@ -412,7 +414,7 @@ export default function SuperadminGeoApp() {
   const handleGuardarEmpleado = async (nuevoEmpleado) => {
     try {
       const response = await fetch(
-        "http://localhost:4000/api/employees/create-empleado",
+        "https://geoapphospital.onrender.com//api/employees/create-empleado",
         {
           method: "POST",
           headers: {
