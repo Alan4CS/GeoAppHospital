@@ -25,6 +25,28 @@ router.get("/municipios-by-estado/:id_estado", async (req, res) => {
   }
 });
 
+router.get("/municipios-by-estado-hospital/:id_estado", async (req, res) => {
+  const { id_estado } = req.params;
+
+  try {
+    // 1. Buscar Municipios
+    const municipios = await pool.query(
+      `SELECT DISTINCT
+         m.id_municipio,
+         m.nombre_municipio
+       FROM municipios m
+       JOIN hospitals h ON m.id_municipio = h.id_municipio
+       WHERE m.id_estado = $1`,
+      [id_estado]
+    );
+
+    res.json(municipios.rows);
+  } catch (error) {
+    console.error("❌ Error al obtener los municipios por estado:", error);
+    res.status(500).json({ error: "Error al obtener municipios" });
+  }
+});
+
 router.post("/create-municipioadmin", async (req, res) => {
   const {
     nombre,
