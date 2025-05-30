@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, memo } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -29,9 +29,11 @@ import {
   FaHospital,
   FaLayerGroup,
   FaBuilding,
+  FaChevronUp,
 } from "react-icons/fa";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { debounce } from "lodash";
 
 // Corregir el problema de los íconos de Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -100,7 +102,6 @@ const MonitoreoMap = () => {
   const [selectedState, setSelectedState] = useState("");
   const [selectedMunicipality, setSelectedMunicipality] = useState("");
   const [selectedHospital, setSelectedHospital] = useState("");
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [selectedHospitalDetail, setSelectedHospitalDetail] = useState(null);
   const [mapCenter, setMapCenter] = useState([23.6345, -102.5528]); // Centro de México
   const [mapZoom, setMapZoom] = useState(5);
@@ -119,6 +120,37 @@ const MonitoreoMap = () => {
   // Estados y hospitales por estado
   const [states, setStates] = useState([]);
   const [hospitalsByState, setHospitalsByState] = useState({});
+
+  // Dimensiones fijas para elementos clave para reducir CLS
+  const mapContainerStyle = {
+    height: "calc(100vh - 64px - 8rem)", // Altura fija considerando header y KPIs
+    width: "100%",
+    position: "relative"
+  };
+
+  const kpiCardStyle = {
+    minHeight: "104px", // Altura fija para cards de KPI
+    display: "flex",
+    alignItems: "center"
+  };
+
+  // Optimizar actualizaciones de estado
+  const debouncedSetSearchTerm = useMemo(
+    () => debounce((value) => setSearchTerm(value), 300),
+    []
+  );
+
+  // Manejar cambios de búsqueda de forma optimizada
+  const handleSearchChange = (e) => {
+    debouncedSetSearchTerm(e.target.value);
+  };
+
+  // Precalcular dimensiones del contenedor de filtros
+  const filterContainerStyle = useMemo(() => ({
+    transform: showFilters ? 'translateX(0)' : 'translateX(-100%)',
+    opacity: showFilters ? 1 : 0,
+    transition: 'transform 200ms ease-in-out, opacity 200ms ease-in-out'
+  }), [showFilters]);
 
   // Función para obtener estados desde la API
   const fetchStates = async () => {
@@ -359,10 +391,9 @@ const MonitoreoMap = () => {
 
   // Función para manejar el clic en un empleado
   const handleEmployeeClick = (employeeId) => {
-    setSelectedEmployee(employeeId);
     const employee = employees.find((emp) => emp.id === employeeId);
     if (employee && employee.location && mapRef.current) {
-      mapRef.current.setView(employee.location, 15);
+      mapRef.current.setView(employee.location, 18);
     }
   };
 
@@ -392,16 +423,6 @@ const MonitoreoMap = () => {
       return null;
     }
   };
-
-  // Actualizar la vista del mapa cuando cambian los filtros
-  // useEffect(() => {
-  //   if (
-  //     mapRef.current &&
-  //     (filteredEmployees.length > 0 || filteredHospitals.length > 0)
-  //   ) {
-  //     updateMapView();
-  //   }
-  // }, [filteredEmployees, filteredHospitals]);
 
   // Función para limpiar filtros
   const clearFilters = () => {
@@ -438,19 +459,13 @@ const MonitoreoMap = () => {
     // No hacer nada con el mapa, mantener la vista actual
   };
 
-  const handleCloseEmployeeDetails = () => {
-    setSelectedEmployee(null);
-    // No hacer nada con el mapa, mantener la vista actual
-  };
-
   // Función para manejar el clic en un hospital
   const handleHospitalClick = (hospitalId) => {
-    setSelectedHospitalDetail(hospitalId);
     const hospital = hospitals.find((h) => h.id_hospital === hospitalId);
     if (hospital && hospital.latitud_hospital && hospital.longitud_hospital) {
       mapRef.current.setView(
         [hospital.latitud_hospital, hospital.longitud_hospital],
-        16
+        18
       );
     }
   };
@@ -490,6 +505,182 @@ const MonitoreoMap = () => {
     };
   }, [selectedState, hospitals]);
 
+  // Memoizar los datos filtrados para evitar recálculos innecesarios
+  const filteredEmployeesData = useMemo(() => {
+    return employees.filter((emp) => {
+      if (searchTerm && !emp.name.toLowerCase().includes(searchTerm.toLowerCase()))
+        return false;
+      return true;
+    }).filter(
+      (employee) =>
+        employee.location &&
+        employee.location[0] &&
+        employee.location[1]
+    );
+  }, [employees, searchTerm]);
+
+  // Memoizar los hospitales filtrados y sus geocercas
+  const hospitalAndGeofenceData = useMemo(() => {
+    if (!showHospitals || !getHospitalsStatus.hospitals) return [];
+    
+    return getHospitalsStatus.hospitals.map(hospital => ({
+      hospital,
+      geofencePolygon: parseGeofencePolygon(hospital.radio_geo),
+      position: [hospital.latitud_hospital, hospital.longitud_hospital]
+    }));
+  }, [showHospitals, getHospitalsStatus.hospitals]);
+
+  // Componente separado para los marcadores de empleados
+  const EmployeeMarkers = memo(({ employees }) => {
+    return employees.map((employee) => (
+      <Marker
+        key={employee.id}
+        position={employee.location}
+        icon={employee.outsideGeofence ? outsideGeofenceIcon : connectedIcon}
+        eventHandlers={{
+          click: () => handleEmployeeClick(employee.id)
+        }}
+      >
+        <Popup className="custom-popup">
+          <div className="text-sm p-1">
+            <div className="flex items-center mb-2">
+              <div className={`w-8 h-8 rounded-full ${getAvatarColor(employee.name)} text-white flex items-center justify-center font-medium mr-2 text-xs`}>
+                {employee.avatar}
+              </div>
+              <div>
+                <h3 className="font-medium text-base">{employee.name}</h3>
+                <p className="text-gray-600 text-xs">{employee.position}</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-gray-700">{employee.hospital}</p>
+              <div className="flex justify-between items-center">
+                <div className="flex items-center text-gray-600 text-xs">
+                  <FaClock className="mr-1" />
+                  <span>Última conexión: {format(employee.lastConnection, "d 'de' MMMM, HH:mm", { locale: es })}</span>
+                </div>
+              </div>
+              {employee.outsideGeofence ? (
+                <div className="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-lg flex items-center">
+                  <FaExclamationTriangle className="mr-1" />
+                  <span>Fuera de geocerca</span>
+                </div>
+              ) : (
+                <div className="px-2 py-1 bg-emerald-100 text-emerald-800 text-xs rounded-lg flex items-center">
+                  <FaMapMarkerAlt className="mr-1" />
+                  <span>Dentro de geocerca</span>
+                </div>
+              )}
+              <div className="text-xs text-gray-500">
+                <p>Coordenadas:</p>
+                <p>Lat: {employee.location[0]?.toFixed(6)}</p>
+                <p>Lng: {employee.location[1]?.toFixed(6)}</p>
+              </div>
+            </div>
+          </div>
+        </Popup>
+      </Marker>
+    ));
+  });
+  EmployeeMarkers.displayName = 'EmployeeMarkers';
+
+  // Componente separado para los marcadores de hospitales
+  const HospitalMarkers = memo(({ hospitals }) => {
+    return (
+      <MarkerClusterGroup
+        chunkedLoading
+        maxClusterRadius={60}
+        spiderfyOnMaxZoom={true}
+        showCoverageOnHover={false}
+        iconCreateFunction={createClusterCustomIcon}
+      >
+        {hospitals.map((hospital) => (
+          <Marker
+            key={hospital.id_hospital}
+            position={[hospital.latitud_hospital, hospital.longitud_hospital]}
+            icon={hospitalIcon}
+            eventHandlers={{
+              click: () => handleHospitalClick(hospital.id_hospital)
+            }}
+          >
+            <Popup className="custom-popup">
+              <div className="text-sm p-1">
+                <div className="flex items-center mb-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center mr-2">
+                    <FaHospital className="text-lg" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-base text-blue-700">
+                      {hospital.nombre_hospital}
+                    </h3>
+                    <p className="text-gray-600 text-xs">
+                      {hospital.tipo_hospital || "Hospital"}
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="text-gray-700 text-sm">
+                    <p className="font-medium">{hospital.estado}</p>
+                    <p className="text-xs mt-1">{hospital.direccion_hospital}</p>
+                  </div>
+                  {hospital.radio_geo && (
+                    <div className="bg-blue-50 text-blue-800 px-2 py-1 rounded-lg text-xs flex items-center">
+                      <FaLayerGroup className="mr-1" />
+                      <span>Geocerca activa</span>
+                    </div>
+                  )}
+                  <div className="text-xs text-gray-500">
+                    <p>Coordenadas:</p>
+                    <p>Lat: {hospital.latitud_hospital?.toFixed(6)}</p>
+                    <p>Lng: {hospital.longitud_hospital?.toFixed(6)}</p>
+                  </div>
+                </div>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+      </MarkerClusterGroup>
+    );
+  });
+  HospitalMarkers.displayName = 'HospitalMarkers';
+
+  // Componente separado para las geocercas
+  const GeofenceOverlays = memo(({ data, showGeofences }) => {
+    if (!showGeofences) return null;
+
+    return data.map(({ hospital, geofencePolygon, position }) => (
+      <div key={`geofence-${hospital.id_hospital}`}>
+        {geofencePolygon ? (
+          <Polygon
+            positions={geofencePolygon}
+            pathOptions={{
+              color: "#3b82f6",
+              fillColor: "#3b82f6",
+              fillOpacity: 0.1,
+              weight: 2,
+              dashArray: "5, 5",
+            }}
+          />
+        ) : (
+          hospital.radio_geo && position[0] && position[1] && (
+            <Circle
+              center={position}
+              radius={hospital.radio_geo ? 200 : 100}
+              pathOptions={{
+                color: "#3b82f6",
+                fillColor: "#3b82f6",
+                fillOpacity: 0.1,
+                weight: 2,
+                dashArray: "5, 5",
+              }}
+            />
+          )
+        )}
+      </div>
+    ));
+  });
+  GeofenceOverlays.displayName = 'GeofenceOverlays';
+
   if (
     loading &&
     loadingHospitals &&
@@ -507,10 +698,10 @@ const MonitoreoMap = () => {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] bg-gray-50">
-      {/* KPIs */}
+    <div className="flex flex-col h-[calc(100vh-64px)] bg-gray-50 overflow-hidden">
+      {/* KPIs con dimensiones fijas */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4">
-        <div className="flex items-center p-4 bg-white rounded-xl shadow-sm border border-gray-100">
+        <div className="flex items-center p-4 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
           <div className="p-3 bg-emerald-50 rounded-full mr-4">
             <FaUserCheck className="text-emerald-600 text-xl" />
           </div>
@@ -520,43 +711,38 @@ const MonitoreoMap = () => {
           </div>
         </div>
 
-        <div className="flex items-center p-4 bg-white rounded-xl shadow-sm border border-gray-100">
+        <div className="flex items-center p-4 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
           <div className="p-3 bg-gray-50 rounded-full mr-4">
             <FaUserTimes className="text-gray-600 text-xl" />
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500">Desconectados</h3>
-            <p className="text-2xl font-bold text-gray-800">
-              {disconnectedCount}
-            </p>
+            <p className="text-2xl font-bold text-gray-800">{disconnectedCount}</p>
           </div>
         </div>
 
-        <div className="flex items-center p-4 bg-white rounded-xl shadow-sm border border-gray-100">
+        <div className="flex items-center p-4 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
           <div className="p-3 bg-orange-50 rounded-full mr-4">
             <FaExclamationTriangle className="text-orange-600 text-xl" />
           </div>
           <div>
-            <h3 className="text-sm font-medium text-gray-500">
-              Fuera de Geocerca
-            </h3>
-            <p className="text-2xl font-bold text-gray-800">
-              {outsideGeofenceCount}
-            </p>
+            <h3 className="text-sm font-medium text-gray-500">Fuera de Geocerca</h3>
+            <p className="text-2xl font-bold text-gray-800">{outsideGeofenceCount}</p>
           </div>
         </div>
 
-        <div className="flex items-center p-4 bg-white rounded-xl shadow-sm border border-gray-100">
+        <div className="flex items-center p-4 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
           <div className="p-3 bg-blue-50 rounded-full mr-4">
             <FaHospital className="text-blue-600 text-xl" />
           </div>
           <div>
-            <h3 className="text-sm font-medium text-gray-500">
-              {filteredHospitals.length > 0 ? "Hospitales filtrados" : "Hospitales (aplicar filtro)"}
-            </h3>
-            <p className="text-2xl font-bold text-gray-800">
-              {filteredHospitals.length}
-            </p>
+            <h3 className="text-sm font-medium text-gray-500">Hospitales</h3>
+            <p className="text-2xl font-bold text-gray-800">{hospitals.length}</p>
+            {selectedState && (
+              <p className="text-xs text-blue-600 mt-1">
+                {filteredHospitals.length} filtrados en {selectedState}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -596,640 +782,162 @@ const MonitoreoMap = () => {
         </div>
       )}
 
-      <div className="flex flex-1 overflow-hidden p-4 pt-0">
-        <div className="flex flex-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          {/* Filtros colapsables */}
+      {/* Contenedor principal con dimensiones fijas */}
+      <div className="flex-1 p-4 pt-0 overflow-hidden">
+        <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative" style={mapContainerStyle}>
+          {/* Barra de herramientas flotante con posición fija */}
           <div
-            className={`bg-white border-r border-gray-100 transition-all duration-300 ${
-              showFilters ? "w-72" : "w-0"
-            } overflow-hidden`}
+            className="absolute top-3 left-14 z-[999] bg-white rounded-lg shadow-lg border border-gray-200 transform-gpu"
+            style={filterContainerStyle}
           >
-            <div className="p-5 h-full flex flex-col">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="font-semibold text-lg text-gray-800">Filtros</h3>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full">
-                    {filteredEmployees.length} empleados
-                  </span>
-                  {filteredHospitals.length > 0 && (
-                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                      {filteredHospitals.length} hospitales
-                    </span>
-                  )}
-                  <button
-                    onClick={handleRefresh}
-                    disabled={loading || loadingHospitals}
-                    className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
-                    title="Actualizar datos"
-                  >
-                    <FaSync
-                      className={
-                        loading || loadingHospitals ? "animate-spin" : ""
-                      }
-                    />
-                  </button>
+            <div className="px-3 py-2">
+              <div className="flex items-center gap-3">
+                {/* Buscador optimizado */}
+                <div className="relative w-48">
+                  <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                    <FaSearch className="text-gray-400 text-sm" />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Buscar empleado..."
+                    onChange={handleSearchChange}
+                    className="w-full pl-7 pr-3 py-1.5 border border-gray-200 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                  />
                 </div>
-              </div>
 
-              {/* Buscador */}
-              <div className="mb-6 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FaSearch className="text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Buscar empleado..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
-                />
-              </div>
+                {/* Estado */}
+                <select
+                  className="w-48 border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  value={selectedState}
+                  onChange={(e) => handleStateChange(e.target.value)}
+                >
+                  <option value="">Todos los estados</option>
+                  {states.map((state) => (
+                    <option key={state.id_estado} value={state.nombre_estado}>
+                      {state.nombre_estado}
+                    </option>
+                  ))}
+                </select>
 
-              <div className="space-y-5">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Estado
-                  </label>
+                {/* Hospital */}
+                {selectedState && hospitalsByState[selectedState] && (
                   <select
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                    value={selectedState}
-                    onChange={(e) => handleStateChange(e.target.value)}
+                    className="w-48 border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    value={selectedHospital}
+                    onChange={(e) => handleHospitalChange(e.target.value)}
                   >
-                    <option value="">Todos los estados</option>
-                    {states.map((state) => (
-                      <option key={state.id_estado} value={state.nombre_estado}>
-                        {state.nombre_estado}
+                    <option value="">Todos los hospitales</option>
+                    {hospitalsByState[selectedState].map((hospital) => (
+                      <option key={hospital.id} value={hospital.id}>
+                        {hospital.nombre}
                       </option>
                     ))}
                   </select>
-                </div>
-
-                {selectedState && hospitalsByState[selectedState] && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Hospital
-                    </label>
-                    <select
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                      value={selectedHospital}
-                      onChange={(e) => handleHospitalChange(e.target.value)}
-                    >
-                      <option value="">Todos los hospitales</option>
-                      {hospitalsByState[selectedState].map((hospital) => (
-                        <option key={hospital.id} value={hospital.id}>
-                          {hospital.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
                 )}
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-                    <FaMapMarkedAlt className="mr-2 text-emerald-600" />
-                    Capas del mapa
+                {/* Capas */}
+                <div className="flex items-center gap-3 bg-gray-50 px-3 py-1.5 rounded-md">
+                  <label className="flex items-center gap-1.5 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={showGeofences}
+                      onChange={(e) => setShowGeofences(e.target.checked)}
+                      className="h-3.5 w-3.5 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                    />
+                    Geocercas
                   </label>
-                  <div className="bg-gray-50 p-3 rounded-lg space-y-2">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="showGeofences"
-                        checked={showGeofences}
-                        onChange={(e) => setShowGeofences(e.target.checked)}
-                        className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
-                      />
-                      <label
-                        htmlFor="showGeofences"
-                        className="ml-2 block text-sm text-gray-700"
-                      >
-                        Mostrar geocercas
-                      </label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="showHospitals"
-                        checked={showHospitals}
-                        onChange={(e) => setShowHospitals(e.target.checked)}
-                        className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
-                      />
-                      <label
-                        htmlFor="showHospitals"
-                        className="ml-2 block text-sm text-gray-700"
-                      >
-                        Mostrar hospitales
-                      </label>
-                    </div>
-                  </div>
+                  <label className="flex items-center gap-1.5 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={showHospitals}
+                      onChange={(e) => setShowHospitals(e.target.checked)}
+                      className="h-3.5 w-3.5 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                    />
+                    Hospitales
+                  </label>
                 </div>
 
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <div className="flex items-start">
-                    <FaInfoCircle className="text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm text-blue-800 font-medium">
-                        Visualización del mapa
-                      </p>
-                      <p className="text-xs text-blue-700 mt-1">
-                        Los empleados siempre se muestran en el mapa. Los
-                        hospitales aparecen solo cuando apliques un filtro de
-                        ubicación (estado, municipio o hospital específico).
-                      </p>
-                    </div>
-                  </div>
+                <div className="h-5 border-l border-gray-200 mx-1"></div>
+
+                {/* Contadores */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-md">
+                    {filteredEmployees.length} emp.
+                  </span>
                 </div>
-              </div>
 
-              <div className="mt-auto pt-6 space-y-3">
-                <button
-                  onClick={updateMapView}
-                  className="w-full bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors flex items-center justify-center"
-                >
-                  <FaFilter className="mr-2" />
-                  Aplicar filtros
-                </button>
-
-                <button
-                  onClick={clearFilters}
-                  className="w-full border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Limpiar filtros
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Contenedor principal del mapa */}
-          <div className="flex-1 relative">
-            {/* Botón para mostrar/ocultar filtros */}
-            <button
-              className="absolute top-4 left-4 z-[1000] bg-white text-emerald-600 p-3 rounded-full shadow-md hover:bg-emerald-50 transition-colors border border-gray-200"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              {showFilters ? <FaChevronLeft /> : <FaChevronRight />}
-            </button>
-
-            {selectedState && getHospitalsStatus.status !== 'ok' ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
-                <div className="text-center p-8 max-w-md">
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <FaExclamationTriangle className="text-4xl text-orange-500 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      No se pueden mostrar los hospitales
-                    </h3>
-                    <p className="text-gray-600">
-                      {getHospitalsStatus.message}
-                    </p>
-                    <button
-                      onClick={clearFilters}
-                      className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-                    >
-                      Volver a la vista general
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <MapContainer
-                center={mapCenter}
-                zoom={mapZoom}
-                style={{ height: "100%", width: "100%" }}
-                ref={mapRef}
-                whenCreated={(map) => {
-                  mapRef.current = map;
-                }}
-                zoomControl={false}
-              >
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-
-                {/* Hospitales y geocercas */}
-                {showHospitals && (
-                  <MarkerClusterGroup
-                    chunkedLoading
-                    maxClusterRadius={60}
-                    spiderfyOnMaxZoom={true}
-                    showCoverageOnHover={false}
-                    iconCreateFunction={createClusterCustomIcon}
+                {/* Botones */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={updateMapView}
+                    className="bg-emerald-600 text-white px-3 py-1.5 rounded-md hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1.5 text-sm"
                   >
-                    {getHospitalsStatus.hospitals.map((hospital) => (
-                      <Marker
-                        key={hospital.id_hospital}
-                        position={[hospital.latitud_hospital, hospital.longitud_hospital]}
-                        icon={hospitalIcon}
-                        eventHandlers={{
-                          click: () => handleHospitalClick(hospital.id_hospital)
-                        }}
-                      >
-                        <Popup className="custom-popup">
-                          <div className="text-sm p-1">
-                            <h3 className="font-medium text-base text-blue-700">
-                              {hospital.nombre_hospital}
-                            </h3>
-                            <p className="text-gray-600 text-xs mt-1">
-                              {hospital.tipo_hospital || "Hospital"}
-                            </p>
-                            <p className="text-gray-700 mt-2 text-xs">
-                              {hospital.direccion_hospital}
-                            </p>
-                            <p className="text-gray-500 text-xs mt-1">
-                              {hospital.estado}
-                            </p>
-                            <div className="mt-2 pt-2 border-t border-gray-200">
-                              <p className="text-xs text-gray-500">
-                                Coordenadas: {hospital.latitud_hospital?.toFixed(6)}, {hospital.longitud_hospital?.toFixed(6)}
-                              </p>
-                            </div>
-                            <button
-                              className="w-full mt-2 text-blue-600 text-xs flex items-center justify-center border border-blue-200 rounded-lg py-1 px-2 hover:bg-blue-50"
-                              onClick={() => handleHospitalClick(hospital.id_hospital)}
-                            >
-                              <FaInfoCircle className="mr-1" /> Ver detalles
-                            </button>
-                          </div>
-                        </Popup>
-                      </Marker>
-                    ))}
-                  </MarkerClusterGroup>
-                )}
-
-                {/* Mostrar empleados solo si no hay estado seleccionado o si hay hospitales válidos */}
-                {(!selectedState || getHospitalsStatus.status === 'ok') && (
-                  <>
-                    {/* Geocercas de hospitales */}
-                    {showHospitals && showGeofences && getHospitalsStatus.hospitals?.map((hospital) => {
-                      const hospitalPosition = [
-                        hospital.latitud_hospital,
-                        hospital.longitud_hospital,
-                      ];
-                      const geofencePolygon = parseGeofencePolygon(hospital.radio_geo);
-
-                      return (
-                        <div key={`geofence-${hospital.id_hospital}`}>
-                          {/* Geocerca del hospital (si existe y está habilitada) */}
-                          {geofencePolygon && (
-                            <Polygon
-                              positions={geofencePolygon}
-                              pathOptions={{
-                                color: "#3b82f6",
-                                fillColor: "#3b82f6",
-                                fillOpacity: 0.1,
-                                weight: 2,
-                                dashArray: "5, 5",
-                              }}
-                            />
-                          )}
-
-                          {/* Círculo de radio si no hay polígono pero sí radio */}
-                          {!geofencePolygon &&
-                            hospital.radio_geo &&
-                            hospitalPosition[0] &&
-                            hospitalPosition[1] && (
-                              <Circle
-                                center={hospitalPosition}
-                                radius={hospital.radio_geo ? 200 : 100}
-                                pathOptions={{
-                                  color: "#3b82f6",
-                                  fillColor: "#3b82f6",
-                                  fillOpacity: 0.1,
-                                  weight: 2,
-                                  dashArray: "5, 5",
-                                }}
-                              />
-                            )}
-                        </div>
-                      );
-                    })}
-
-                    {/* Marcadores de empleados */}
-                    {filteredEmployees
-                      .filter(
-                        (employee) =>
-                          employee.location &&
-                          employee.location[0] &&
-                          employee.location[1]
-                      )
-                      .map((employee) => (
-                        <Marker
-                          key={employee.id}
-                          position={employee.location}
-                          icon={
-                            employee.outsideGeofence
-                              ? outsideGeofenceIcon
-                              : connectedIcon
-                          }
-                          eventHandlers={{
-                            click: () => handleEmployeeClick(employee.id)
-                          }}
-                        >
-                          <Popup className="custom-popup">
-                            <div className="text-sm p-1">
-                              <div className="flex items-center mb-2">
-                                <div
-                                  className={`w-8 h-8 rounded-full ${getAvatarColor(
-                                    employee.name
-                                  )} text-white flex items-center justify-center font-medium mr-2 text-xs`}
-                                >
-                                  {employee.avatar}
-                                </div>
-                                <div>
-                                  <h3 className="font-medium text-base">
-                                    {employee.name}
-                                  </h3>
-                                  <p className="text-gray-600 text-xs">
-                                    {employee.position}
-                                  </p>
-                                </div>
-                              </div>
-                              <p className="text-gray-700 mb-2">
-                                {employee.hospital}
-                              </p>
-                              <div className="flex justify-between items-center mb-2">
-                                <div className="flex items-center text-gray-600">
-                                  <FaClock className="mr-1" />
-                                  <span>{employee.hoursWorked.toFixed(1)} hrs</span>
-                                </div>
-                                {employee.outsideGeofence ? (
-                                  <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full flex items-center">
-                                    <FaExclamationTriangle className="mr-1" />
-                                    Fuera de geocerca
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-1 bg-emerald-100 text-emerald-800 text-xs rounded-full flex items-center">
-                                    <FaMapMarkerAlt className="mr-1" />
-                                    En geocerca
-                                  </span>
-                                )}
-                              </div>
-                              <button
-                                className="w-full mt-2 text-emerald-600 text-xs flex items-center justify-center border border-emerald-200 rounded-lg py-1 px-2 hover:bg-emerald-50"
-                                onClick={() => handleEmployeeClick(employee.id)}
-                              >
-                                <FaInfoCircle className="mr-1" /> Ver detalles
-                              </button>
-                            </div>
-                          </Popup>
-                        </Marker>
-                      ))}
-                  </>
-                )}
-              </MapContainer>
-            )}
+                    <FaFilter className="text-xs" />
+                    <span>Aplicar</span>
+                  </button>
+                  <button
+                    onClick={clearFilters}
+                    className="border border-gray-200 bg-white text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-colors text-sm"
+                  >
+                    Limpiar
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Panel de detalles del empleado seleccionado */}
-          {selectedEmployee && (
-            <div className="w-80 bg-white border-l border-gray-100 overflow-y-auto">
-              <div className="p-5">
-                {(() => {
-                  const employee = employees.find(
-                    (emp) => emp.id === selectedEmployee
-                  );
-                  if (!employee) return null;
+          {/* Botón para mostrar/ocultar filtros */}
+          <button
+            className="absolute top-4 left-4 z-[1000] bg-white text-emerald-600 p-3 rounded-full shadow-md hover:bg-emerald-50 transition-transform duration-200 transform-gpu"
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <FaFilter 
+              className={`transform transition-transform duration-200 ${
+                showFilters ? 'rotate-180' : 'rotate-0'
+              }`}
+            />
+          </button>
 
-                  return (
-                    <>
-                      <div className="flex justify-between items-start mb-6">
-                        <h3 className="font-semibold text-lg text-gray-800">
-                          Detalles del Empleado
-                        </h3>
-                        <button
-                          className="text-gray-400 hover:text-gray-600 p-1"
-                          onClick={handleCloseEmployeeDetails}
-                        >
-                          ×
-                        </button>
-                      </div>
+          {/* MapContainer con dimensiones fijas */}
+          <MapContainer
+            center={mapCenter}
+            zoom={mapZoom}
+            style={{ height: "100%", width: "100%" }}
+            ref={mapRef}
+            whenCreated={(map) => {
+              mapRef.current = map;
+            }}
+            zoomControl={false}
+            maxZoom={18}
+            preferCanvas={true}
+            renderer={L.canvas()}
+            updateWhenZooming={false}
+            updateWhenIdle={true}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
 
-                      <div className="flex items-center mb-6">
-                        <div
-                          className={`w-12 h-12 rounded-full ${getAvatarColor(
-                            employee.name
-                          )} text-white flex items-center justify-center text-lg font-medium mr-3`}
-                        >
-                          {employee.avatar}
-                        </div>
-                        <div>
-                          <h4 className="text-xl font-medium text-gray-800">
-                            {employee.name}
-                          </h4>
-                          <p className="text-gray-600">{employee.position}</p>
-                        </div>
-                      </div>
+            {/* Hospitales y geocercas */}
+            {showHospitals && <HospitalMarkers hospitals={getHospitalsStatus.hospitals} />}
 
-                      <div className="space-y-5">
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                          <h5 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
-                            <FaMapMarkerAlt className="mr-2 text-emerald-600" />
-                            Ubicación
-                          </h5>
-                          <p className="text-gray-800 font-medium">
-                            {employee.hospital}
-                          </p>
-                          <p className="text-gray-600 text-sm">
-                            {employee.municipality}, {employee.state}
-                          </p>
-                          <p className="text-gray-500 text-xs mt-1">
-                            Lat: {employee.location[0]?.toFixed(6)}, Lng:{" "}
-                            {employee.location[1]?.toFixed(6)}
-                          </p>
-                        </div>
-
-                        <div>
-                          <h5 className="text-sm font-medium text-gray-700 mb-2">
-                            Estado
-                          </h5>
-                          <div
-                            className={`flex items-center ${
-                              employee.status === "connected"
-                                ? "text-emerald-600"
-                                : "text-gray-600"
-                            }`}
-                          >
-                            {employee.status === "connected" ? (
-                              <>
-                                <FaUserCheck className="mr-2" />
-                                <span className="font-medium">Conectado</span>
-                              </>
-                            ) : (
-                              <>
-                                <FaUserTimes className="mr-2" />
-                                <span className="font-medium">
-                                  Desconectado
-                                </span>
-                              </>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-500 mt-1">
-                            Última conexión:{" "}
-                            {format(
-                              employee.lastConnection,
-                              "d 'de' MMMM, HH:mm",
-                              { locale: es }
-                            )}
-                          </p>
-                        </div>
-
-                        <div>
-                          <h5 className="text-sm font-medium text-gray-700 mb-2">
-                            Geocerca
-                          </h5>
-                          {employee.outsideGeofence ? (
-                            <div className="bg-orange-50 text-orange-800 p-3 rounded-lg flex items-center">
-                              <FaExclamationTriangle className="mr-2" />
-                              <div>
-                                <span className="font-medium">
-                                  Fuera de geocerca
-                                </span>
-                                <p className="text-xs text-orange-700 mt-1">
-                                  El empleado se encuentra fuera del área
-                                  designada.
-                                </p>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="bg-emerald-50 text-emerald-800 p-3 rounded-lg flex items-center">
-                              <FaMapMarkerAlt className="mr-2" />
-                              <div>
-                                <span className="font-medium">
-                                  Dentro de geocerca
-                                </span>
-                                <p className="text-xs text-emerald-700 mt-1">
-                                  El empleado se encuentra en el área designada.
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="mt-6">
-                        <button
-                          onClick={handleCloseEmployeeDetails}
-                          className="w-full border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                          Cerrar detalles
-                        </button>
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-          )}
-
-          {/* Panel de detalles del hospital seleccionado */}
-          {selectedHospitalDetail && (
-            <div className="w-80 bg-white border-l border-gray-100 overflow-y-auto">
-              <div className="p-5">
-                {(() => {
-                  const hospital = hospitals.find(
-                    (h) => h.id_hospital === selectedHospitalDetail
-                  );
-                  if (!hospital) return null;
-
-                  return (
-                    <>
-                      <div className="flex justify-between items-start mb-6">
-                        <h3 className="font-semibold text-lg text-gray-800">
-                          Detalles del Hospital
-                        </h3>
-                        <button
-                          className="text-gray-400 hover:text-gray-600 p-1"
-                          onClick={handleCloseHospitalDetails}
-                        >
-                          ×
-                        </button>
-                      </div>
-
-                      <div className="flex items-center mb-6">
-                        <div className="w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center text-lg font-medium mr-3">
-                          <FaHospital />
-                        </div>
-                        <div>
-                          <h4 className="text-xl font-medium text-gray-800">
-                            {hospital.nombre_hospital}
-                          </h4>
-                          <p className="text-gray-600">
-                            {hospital.tipo_hospital || "Hospital"}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-5">
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                          <h5 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
-                            <FaMapMarkerAlt className="mr-2 text-blue-600" />
-                            Ubicación
-                          </h5>
-                          <p className="text-gray-800 font-medium">
-                            {hospital.estado}
-                          </p>
-                          <p className="text-gray-600 text-sm">
-                            {hospital.direccion_hospital}
-                          </p>
-                          <p className="text-gray-500 text-xs mt-1">
-                            Lat: {hospital.latitud_hospital?.toFixed(6)}, Lng:{" "}
-                            {hospital.longitud_hospital?.toFixed(6)}
-                          </p>
-                        </div>
-
-                        {hospital.radio_geo && (
-                          <div>
-                            <h5 className="text-sm font-medium text-gray-700 mb-2">
-                              Geocerca
-                            </h5>
-                            <div className="bg-blue-50 text-blue-800 p-3 rounded-lg">
-                              <p className="text-xs">
-                                Este hospital tiene una geocerca definida que se
-                                muestra en el mapa.
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        <div>
-                          <h5 className="text-sm font-medium text-gray-700 mb-2">
-                            Información adicional
-                          </h5>
-                          <div className="bg-gray-50 p-3 rounded-lg">
-                            <p className="text-sm text-gray-700">
-                              <span className="font-medium">ID:</span>{" "}
-                              {hospital.id_hospital}
-                            </p>
-                            {hospital.coordenadas_hospital && (
-                              <p className="text-sm text-gray-700 mt-1">
-                                <span className="font-medium">
-                                  Coordenadas:
-                                </span>{" "}
-                                {hospital.coordenadas_hospital}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-6">
-                        <button
-                          onClick={handleCloseHospitalDetails}
-                          className="w-full border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                          Cerrar detalles
-                        </button>
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-          )}
+            {/* Mostrar empleados solo si no hay estado seleccionado o si hay hospitales válidos */}
+            {(!selectedState || getHospitalsStatus.status === 'ok') && (
+              <>
+                <GeofenceOverlays 
+                  data={hospitalAndGeofenceData} 
+                  showGeofences={showGeofences && showHospitals} 
+                />
+                <EmployeeMarkers employees={filteredEmployeesData} />
+              </>
+            )}
+          </MapContainer>
         </div>
       </div>
     </div>
   );
 };
 
-export default MonitoreoMap;
+export default memo(MonitoreoMap);
 
