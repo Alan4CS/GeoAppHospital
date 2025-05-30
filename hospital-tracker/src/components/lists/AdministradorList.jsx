@@ -33,13 +33,6 @@ const AdministradorList = ({
   const [modalEliminarAbierto, setModalEliminarAbierto] = useState(false);
   const [adminEditando, setAdminEditando] = useState(null);
   const [adminEliminar, setAdminEliminar] = useState(null);
-  const [estados, setEstados] = useState([]);
-  const [municipios, setMunicipios] = useState([]);
-  const [hospitales, setHospitales] = useState([]);
-  const [cargandoMunicipios, setCargandoMunicipios] = useState(false);
-  const [cargandoHospitales, setCargandoHospitales] = useState(false);
-  const [cacheMunicipios, setCacheMunicipios] = useState({});
-  const [cacheHospitales, setCacheHospitales] = useState({});
   const [tiempoRestante, setTiempoRestante] = useState(5);
   const [botonEliminarHabilitado, setBotonEliminarHabilitado] = useState(false);
   const [loadingEliminar, setLoadingEliminar] = useState(false);
@@ -49,190 +42,29 @@ const AdministradorList = ({
     ap_paterno: "",
     ap_materno: "",
     curp_user: "",
-    estado: "",
-    municipio: "",
-    hospital: "",
   });
 
-  // Cargar estados al montar el componente
-  useEffect(() => {
-    const fetchEstados = async () => {
-      try {
-        const resEstados = await fetch(
-          "https://geoapphospital.onrender.com/api/superadmin/estados"
-        );
-        const dataEstados = await resEstados.json();
-        setEstados(dataEstados);
-      } catch (error) {
-        console.error("Error al cargar estados:", error);
-      }
-    };
-    fetchEstados();
-  }, []);
-
-  const abrirModal = async (admin) => {
+  const abrirModal = (admin) => {
     setAdminEditando(admin);
     setFormData({
       nombre: admin.nombre || "",
       ap_paterno: admin.ap_paterno || "",
       ap_materno: admin.ap_materno || "",
       curp_user: admin.curp_user || "",
-      estado: admin.estado || "",
-      municipio: admin.municipio || "",
-      hospital: admin.hospital || "",
     });
-
-    // Si hay estado y municipio, cargar sus datos correspondientes
-    if (admin.estado) {
-      const estadoObj = estados.find((e) => e.nombre_estado === admin.estado);
-      if (estadoObj) {
-        await cargarMunicipios(estadoObj.id_estado);
-
-        if (admin.municipio) {
-          const municipioObj = municipios.find(
-            (m) => m.nombre_municipio === admin.municipio
-          );
-          if (municipioObj) {
-            await cargarHospitales(
-              estadoObj.id_estado,
-              municipioObj.id_municipio
-            );
-          }
-        }
-      }
-    }
-
     setModalAbierto(true);
   };
-
-  const cargarMunicipios = async (idEstado) => {
-    if (cacheMunicipios[idEstado]) {
-      setMunicipios(cacheMunicipios[idEstado]);
-      return;
-    }
-
-    setCargandoMunicipios(true);
-    try {
-      const resMunicipios = await fetch(
-        `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado/${idEstado}`
-      );
-      const dataMunicipios = await resMunicipios.json();
-      setMunicipios(dataMunicipios);
-      setCacheMunicipios((prev) => ({ ...prev, [idEstado]: dataMunicipios }));
-    } catch (error) {
-      console.error("Error al cargar municipios:", error);
-      setMunicipios([]);
-    } finally {
-      setCargandoMunicipios(false);
-    }
-  };
-
-  const cargarHospitales = async (idEstado, idMunicipio) => {
-    const cacheKey = `${idEstado}-${idMunicipio}`;
-    if (cacheHospitales[cacheKey]) {
-      setHospitales(cacheHospitales[cacheKey]);
-      return;
-    }
-
-    setCargandoHospitales(true);
-    try {
-      const resHospitales = await fetch(
-        `https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${idEstado}&id_municipio=${idMunicipio}`
-      );
-      const dataHospitales = await resHospitales.json();
-      setHospitales(dataHospitales);
-      setCacheHospitales((prev) => ({ ...prev, [cacheKey]: dataHospitales }));
-    } catch (error) {
-      console.error("Error al cargar hospitales:", error);
-      setHospitales([]);
-    } finally {
-      setCargandoHospitales(false);
-    }
-  };
-
-  const handleEstadoChange = async (e) => {
-    const estadoNombre = e.target.value;
-    setFormData((prev) => ({
-      ...prev,
-      estado: estadoNombre,
-      municipio: "",
-      hospital: "",
-    }));
-    setHospitales([]);
-
-    const estadoObj = estados.find((e) => e.nombre_estado === estadoNombre);
-    if (estadoObj) {
-      await cargarMunicipios(estadoObj.id_estado);
-    }
-  };
-
-  const handleMunicipioChange = async (e) => {
-    const municipioNombre = e.target.value;
-    setFormData((prev) => ({
-      ...prev,
-      municipio: municipioNombre,
-      hospital: "",
-    }));
-
-    const estadoObj = estados.find((e) => e.nombre_estado === formData.estado);
-    const municipioObj = municipios.find(
-      (m) => m.nombre_municipio === municipioNombre
-    );
-
-    if (estadoObj && municipioObj) {
-      await cargarHospitales(estadoObj.id_estado, municipioObj.id_municipio);
-    }
-  };
-
-  // Filtrado de administradores
-  const administradoresFiltrados = administradores
-    .filter((a) => (tipoAdminFiltro ? a.role_name === tipoAdminFiltro : true))
-    .filter((a) =>
-      estadoAdminFiltro
-        ? (a.estado || "Sin estado") === estadoAdminFiltro
-        : true
-    )
-    .filter((a) => {
-      if (!busquedaAdmin) return true;
-      const searchTerm = busquedaAdmin.toLowerCase();
-      return (
-        a.nombre?.toLowerCase().includes(searchTerm) ||
-        a.ap_paterno?.toLowerCase().includes(searchTerm) ||
-        a.ap_materno?.toLowerCase().includes(searchTerm) ||
-        a.curp_user?.toLowerCase().includes(searchTerm)
-      );
-    });
-
-  // Obtener estados únicos
-  const estadosAdministradores = [
-    ...new Set(administradores.map((a) => a.estado || "Sin estado")),
-  ].sort();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
-      // Obtener IDs necesarios
-      const estadoObj = estados.find(
-        (e) => e.nombre_estado === formData.estado
-      );
-      const municipioObj = municipios.find(
-        (m) => m.nombre_municipio === formData.municipio
-      );
-      const hospitalObj = hospitales.find(
-        (h) => h.nombre_hospital === formData.hospital
-      );
-
       const dataToSend = {
         id_user: adminEditando.id_user,
         nombre: formData.nombre,
         ap_paterno: formData.ap_paterno,
         ap_materno: formData.ap_materno,
         curp_user: formData.curp_user,
-        id_estado: estadoObj?.id_estado || null,
-        id_municipio: municipioObj?.id_municipio || null,
-        id_hospital: hospitalObj?.id_hospital || null,
-        id_group: adminEditando.id_group || null,
       };
 
       const response = await fetch(
@@ -250,7 +82,6 @@ const AdministradorList = ({
         throw new Error("Error al actualizar administrador");
       }
 
-      // Cerrar modal y actualizar lista
       setModalAbierto(false);
       if (onEditar) {
         onEditar(adminEditando);
@@ -510,11 +341,14 @@ const AdministradorList = ({
                 className="px-4 py-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">Todos</option>
-                {estadosAdministradores.map((estado) => (
-                  <option key={estado} value={estado}>
-                    {estado}
-                  </option>
-                ))}
+                {[...new Set(administradores.map((a) => a.estado))]
+                  .filter(Boolean)
+                  .sort()
+                  .map((estado) => (
+                    <option key={estado} value={estado}>
+                      {estado}
+                    </option>
+                  ))}
               </select>
             </div>
 
@@ -536,11 +370,11 @@ const AdministradorList = ({
         </div>
       </div>
 
-      {administradoresFiltrados.length > 0 ? (
+      {administradores.length > 0 ? (
         <div className="p-6 space-y-8">
           {/* Sección Super Admins */}
           {(() => {
-            const superAdmins = administradoresFiltrados.filter(
+            const superAdmins = administradores.filter(
               (a) => a.role_name === "superadmin"
             );
             if (superAdmins.length > 0) {
@@ -625,7 +459,7 @@ const AdministradorList = ({
           {(() => {
             const estados = [
               ...new Set(
-                administradoresFiltrados
+                administradores
                   .filter((a) => a.role_name !== "superadmin")
                   .map((a) => a.estado || "Sin estado")
               ),
@@ -633,9 +467,8 @@ const AdministradorList = ({
 
             if (
               estados.length === 0 &&
-              administradoresFiltrados.filter(
-                (a) => a.role_name !== "superadmin"
-              ).length > 0
+              administradores.filter((a) => a.role_name !== "superadmin")
+                .length > 0
             ) {
               return (
                 <div className="text-center text-gray-500 my-8">
@@ -646,7 +479,7 @@ const AdministradorList = ({
             }
 
             return estados.map((estadoNombre) => {
-              const adminsDelEstado = administradoresFiltrados.filter(
+              const adminsDelEstado = administradores.filter(
                 (a) =>
                   a.role_name !== "superadmin" &&
                   (a.estado || "Sin estado") === estadoNombre
@@ -783,99 +616,6 @@ const AdministradorList = ({
                       className="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-gray-300"
                       required
                     />
-                  </div>
-                </div>
-              </div>
-
-              {/* Ubicación e Institución */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-700 flex items-center mb-4 pb-2 border-b">
-                  <Building2 className="h-4 w-4 mr-2 text-blue-600" />
-                  Ubicación e Institución
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Estado
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={formData.estado}
-                        onChange={handleEstadoChange}
-                        className="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-gray-300"
-                      >
-                        <option value="">Selecciona un estado</option>
-                        {estados.map((estado) => (
-                          <option
-                            key={estado.id_estado}
-                            value={estado.nombre_estado}
-                          >
-                            {estado.nombre_estado}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Municipio
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={formData.municipio}
-                        onChange={handleMunicipioChange}
-                        className="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-gray-300"
-                        disabled={!formData.estado || cargandoMunicipios}
-                      >
-                        <option value="">Selecciona un municipio</option>
-                        {municipios.map((municipio) => (
-                          <option
-                            key={municipio.id_municipio}
-                            value={municipio.nombre_municipio}
-                          >
-                            {municipio.nombre_municipio}
-                          </option>
-                        ))}
-                      </select>
-                      {cargandoMunicipios && (
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                          <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Hospital
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={formData.hospital}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            hospital: e.target.value,
-                          }))
-                        }
-                        className="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-gray-300"
-                        disabled={!formData.municipio || cargandoHospitales}
-                      >
-                        <option value="">Selecciona un hospital</option>
-                        {hospitales.map((hospital) => (
-                          <option
-                            key={hospital.id_hospital}
-                            value={hospital.nombre_hospital}
-                          >
-                            {hospital.nombre_hospital}
-                          </option>
-                        ))}
-                      </select>
-                      {cargandoHospitales && (
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                          <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-                        </div>
-                      )}
-                    </div>
                   </div>
                 </div>
               </div>

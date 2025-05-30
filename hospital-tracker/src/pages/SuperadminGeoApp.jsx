@@ -346,6 +346,15 @@ export default function SuperadminGeoApp() {
 
       // Mostrar las credenciales generadas
       setCredencialesGeneradas({
+        titulo: `${
+          nuevoAdmin.role_name === "superadmin"
+            ? "Super Administrador"
+            : nuevoAdmin.role_name === "estadoadmin"
+            ? "Administrador de Estado"
+            : nuevoAdmin.role_name === "municipioadmin"
+            ? "Administrador de Municipio"
+            : "Administrador de Hospital"
+        } creado con éxito`,
         usuario: nuevoAdmin.user,
         contraseña: nuevoAdmin.pass,
         tipo:
@@ -431,7 +440,7 @@ export default function SuperadminGeoApp() {
       setCredencialesGeneradas({
         titulo: "Empleado creado con éxito",
         usuario: nuevoEmpleado.user,
-        password: nuevoEmpleado.pass,
+        contraseña: nuevoEmpleado.pass,
         tipo: "empleado",
       });
       setMostrarCredenciales(true);
