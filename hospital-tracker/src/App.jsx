@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext"; // IMPORTA el AuthProvider
+import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
 import SuperadminGeoApp from "./pages/SuperadminGeoApp";
@@ -7,6 +7,17 @@ import Dashboard from "./pages/Dashboard";
 import EstadoadminGeoApp from "./pages/EstadoadminGeoApp";
 import HospitalAdminGeoApp from "./pages/HospitalAdminGeoApp";
 import GroupadminGeoApp from "./pages/GroupadminGeoApp";
+import ActivityLog from "./components/ActivityLog";
+
+// Componente envoltorio para rutas protegidas que incluye ActivityLog
+const ProtectedRouteWithActivityLog = ({ children }) => (
+  <ProtectedRoute>
+    <>
+      {children}
+      <ActivityLog />
+    </>
+  </ProtectedRoute>
+);
 
 function App() {
   return (
@@ -17,33 +28,33 @@ function App() {
           <Route
             path="/superadmin-geoapp"
             element={
-              <ProtectedRoute>
+              <ProtectedRouteWithActivityLog>
                 <SuperadminGeoApp />
-              </ProtectedRoute>
+              </ProtectedRouteWithActivityLog>
             }
           />
           <Route
             path="/estadoadmin-geoapp"
             element={
-              <ProtectedRoute>
+              <ProtectedRouteWithActivityLog>
                 <EstadoadminGeoApp />
-              </ProtectedRoute>
+              </ProtectedRouteWithActivityLog>
             }
           />
           <Route
             path="/hospitaladmin-geoapp"
             element={
-              <ProtectedRoute>
+              <ProtectedRouteWithActivityLog>
                 <HospitalAdminGeoApp />
-              </ProtectedRoute>
+              </ProtectedRouteWithActivityLog>
             }
           />
           <Route
             path="/grupoadmin-geoapp"
             element={
-              <ProtectedRoute>
+              <ProtectedRouteWithActivityLog>
                 <GroupadminGeoApp />
-              </ProtectedRoute>
+              </ProtectedRouteWithActivityLog>
             }
           />
           <Route path="/dashboard" element={<Dashboard />} />

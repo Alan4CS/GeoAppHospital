@@ -13,7 +13,7 @@ import {
   UserPlus,
   Users,
   UsersRound,
-  BarChart3
+  BarChart3,
 } from "lucide-react";
 
 export default function SuperadminSidebar({
@@ -43,19 +43,62 @@ export default function SuperadminSidebar({
 
   // Lista de opciones generales
   const mainOptions = [
-    { label: "Hospitales", icon: <span className="w-6 flex justify-center"><Hospital className={iconSize} /></span>, tab: "hospitales" },
-    { label: "Administradores", icon: <Users className={iconSize} />, tab: "administradores" },
-    { label: "Grupos", icon: <UsersRound className={iconSize} />, tab: "grupos" },
-    { label: "Empleados", icon: <UserPlus className={iconSize} />, tab: "empleados" },
-    { label: "Monitoreo", icon: <Map className={iconSize} />, tab: "monitoreo" },
-    { label: "Dashboard", icon: <BarChart3 className={iconSize} />, tab: "dashboard" },
+    {
+      label: "Hospitales",
+      icon: (
+        <span className="w-6 flex justify-center">
+          <Hospital className={iconSize} />
+        </span>
+      ),
+      tab: "hospitales",
+    },
+    {
+      label: "Administradores",
+      icon: <Users className={iconSize} />,
+      tab: "administradores",
+    },
+    {
+      label: "Grupos",
+      icon: <UsersRound className={iconSize} />,
+      tab: "grupos",
+    },
+    {
+      label: "Empleados",
+      icon: <UserPlus className={iconSize} />,
+      tab: "empleados",
+    },
+    {
+      label: "Monitoreo",
+      icon: <Map className={iconSize} />,
+      tab: "monitoreo",
+    },
+    {
+      label: "Dashboard",
+      icon: <BarChart3 className={iconSize} />,
+      tab: "dashboard",
+    },
   ];
 
   // Lista de opciones de creación
   const createOptions = [
-    { handler: handleMostrarFormulario, icon: <Building2 className={iconSize} />, label: "Crear Hospital", isActive: mostrarFormulario },
-    { handler: handleMostrarFormAdmin, icon: <User className={iconSize} />, label: "Crear Admin", isActive: mostrarFormAdmin },
-    { handler: handleMostrarFormGrupo, icon: <ClipboardList className={iconSize} />, label: "Crear Grupo", isActive: mostrarFormGrupo },
+    {
+      handler: handleMostrarFormulario,
+      icon: <Building2 className={iconSize} />,
+      label: "Crear Hospital",
+      isActive: mostrarFormulario,
+    },
+    {
+      handler: handleMostrarFormAdmin,
+      icon: <User className={iconSize} />,
+      label: "Crear Admin",
+      isActive: mostrarFormAdmin,
+    },
+    {
+      handler: handleMostrarFormGrupo,
+      icon: <ClipboardList className={iconSize} />,
+      label: "Crear Grupo",
+      isActive: mostrarFormGrupo,
+    },
   ];
 
   return (
@@ -68,14 +111,24 @@ export default function SuperadminSidebar({
     >
       {/* Header */}
       <div className="p-4 flex items-center justify-between">
-        <div className={`flex items-center ${!sidebarOpen && "justify-center w-full"}`}>
+        <div
+          className={`flex items-center ${
+            !sidebarOpen && "justify-center w-full"
+          }`}
+        >
           <Hospital className="h-6 w-6" />
-          <h1 className={`ml-2 font-bold text-lg ${!sidebarOpen && "hidden"}`}>MediGestión</h1>
+          <h1 className={`ml-2 font-bold text-lg ${!sidebarOpen && "hidden"}`}>
+            MediGestión
+          </h1>
         </div>
       </div>
 
       {/* User Profile */}
-      <div className={`mt-2 px-4 py-3 ${!sidebarOpen ? "flex justify-center" : ""}`}>
+      <div
+        className={`mt-2 px-4 py-3 ${
+          !sidebarOpen ? "flex justify-center" : ""
+        }`}
+      >
         <div className={`flex items-center ${!sidebarOpen ? "flex-col" : ""}`}>
           <div className="h-10 w-10 rounded-full bg-emerald-600 flex items-center justify-center">
             <User className="h-5 w-5" />
@@ -90,7 +143,9 @@ export default function SuperadminSidebar({
       </div>
 
       {/* Opciones principales */}
-      <div className="mt-6 flex flex-col flex-1 gap-1 px-2"> {/* 'gap-1' separa bloques, 'px-2' alinea mejor íconos */}
+      <div className="mt-6 flex flex-col flex-1 gap-1 px-2">
+        {" "}
+        {/* 'gap-1' separa bloques, 'px-2' alinea mejor íconos */}
         {mainOptions.map(({ label, icon, tab }) => (
           <button
             key={tab}
@@ -112,7 +167,6 @@ export default function SuperadminSidebar({
             {sidebarOpen && <span className={textClass}>{label}</span>}
           </button>
         ))}
-
         {/* Crear botones */}
         {createOptions.map(({ handler, icon, label, isActive }) => (
           <button
@@ -129,7 +183,9 @@ export default function SuperadminSidebar({
       </div>
 
       {/* Cerrar sesión */}
-      <div className={`px-2 pb-6 pt-4`}> {/* Mayor separación para el botón de cerrar sesión */}
+      <div className={`px-2 pb-6 pt-4`}>
+        {" "}
+        {/* Mayor separación para el botón de cerrar sesión */}
         <button
           onClick={() => {
             localStorage.removeItem("isAuthenticated");
