@@ -93,7 +93,7 @@ export default function AdminForm({
           }
 
           const res = await fetch(
-            `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado/${estadoSeleccionado.id_estado}`
+            `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${estadoSeleccionado.id_estado}`
           );
 
           if (!res.ok) {

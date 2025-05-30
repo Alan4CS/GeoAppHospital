@@ -52,7 +52,7 @@ export default function GrupoForm({
 
       try {
         const res = await fetch(
-          `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado/${estadoId}`
+          `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${estadoId}`
         );
         const data = await res.json();
         setMunicipios(data);
