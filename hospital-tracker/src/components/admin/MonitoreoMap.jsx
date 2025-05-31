@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useRef, useMemo, memo } from "react";
 import {
   MapContainer,
@@ -93,8 +91,9 @@ const createClusterCustomIcon = cluster => {
   });
 };
 
-const connectedIcon = createCustomIcon("#4CAF50"); // Verde
-const outsideGeofenceIcon = createCustomIcon("#FF5722", "#FFF"); // Naranja con borde blanco
+const connectedIcon = createCustomIcon("#4CAF50"); // Verde para conectados
+const outsideGeofenceIcon = createCustomIcon("#FF5722", "#FFF"); // Naranja para fuera de geocerca
+const inactiveIcon = createCustomIcon("#DC2626", "#FFF"); // Rojo para inactivos
 
 const MonitoreoMap = () => {
   const [showFilters, setShowFilters] = useState(true);
@@ -121,15 +120,17 @@ const MonitoreoMap = () => {
   const [states, setStates] = useState([]);
   const [hospitalsByState, setHospitalsByState] = useState({});
 
-  // Dimensiones fijas para elementos clave para reducir CLS
-  const mapContainerStyle = {
-    height: "calc(100vh - 64px - 8rem)", // Altura fija considerando header y KPIs
-    width: "100%",
-    position: "relative"
-  };
+  // Dimensiones optimizadas para mejor rendimiento
+  const mapContainerStyle = useMemo(() => ({
+    height: "calc(100vh - 64px - 10rem)", // Reducir altura considerando header, KPIs y padding
+    width: "95%", // Dejar un pequeño margen en los lados
+    position: "relative",
+    margin: "0 auto", // Centrar el mapa
+    maxWidth: "1800px", // Limitar el ancho máximo
+  }), []);
 
   const kpiCardStyle = {
-    minHeight: "104px", // Altura fija para cards de KPI
+    minHeight: "84px",
     display: "flex",
     alignItems: "center"
   };
@@ -248,19 +249,28 @@ const MonitoreoMap = () => {
           emp.ap_paterno?.charAt(0) || ""
         }`;
 
+        // Determinar el estado del empleado
+        let status;
+        if (emp.tipo_registro === 0) {
+          status = "inactive";
+        } else if (emp.tipo_registro === 1) {
+          status = "connected";
+        } else {
+          status = "disconnected";
+        }
+
         return {
           id: emp.id_user,
           name: `${emp.nombre} ${emp.ap_paterno} ${emp.ap_materno}`.trim(),
           firstName: emp.nombre,
           lastName: `${emp.ap_paterno} ${emp.ap_materno}`.trim(),
-          position: "Empleado", // Valor por defecto
-          hospital: "Hospital Asignado", // Valor por defecto
-          status: emp.tipo_registro === 1 ? "connected" : "disconnected",
+          position: "Empleado",
+          hospital: "Hospital Asignado",
+          status: status,
           outsideGeofence: !emp.dentro_geocerca,
           location: [emp.latitud, emp.longitud],
           lastConnection: new Date(emp.fecha_hora),
           avatar: avatar,
-          // Datos adicionales calculados
           hoursWorked: calculateHoursWorked(new Date(emp.fecha_hora)),
           geofenceExits: emp.dentro_geocerca ? 0 : 1,
         };
@@ -532,55 +542,72 @@ const MonitoreoMap = () => {
 
   // Componente separado para los marcadores de empleados
   const EmployeeMarkers = memo(({ employees }) => {
-    return employees.map((employee) => (
-      <Marker
-        key={employee.id}
-        position={employee.location}
-        icon={employee.outsideGeofence ? outsideGeofenceIcon : connectedIcon}
-        eventHandlers={{
-          click: () => handleEmployeeClick(employee.id)
-        }}
-      >
-        <Popup className="custom-popup">
-          <div className="text-sm p-1">
-            <div className="flex items-center mb-2">
-              <div className={`w-8 h-8 rounded-full ${getAvatarColor(employee.name)} text-white flex items-center justify-center font-medium mr-2 text-xs`}>
-                {employee.avatar}
+    return employees.map((employee) => {
+      // Determinar qué icono usar basado en el estado
+      let icon;
+      if (employee.status === "inactive") {
+        icon = inactiveIcon;
+      } else if (employee.outsideGeofence) {
+        icon = outsideGeofenceIcon;
+      } else {
+        icon = connectedIcon;
+      }
+
+      return (
+        <Marker
+          key={employee.id}
+          position={employee.location}
+          icon={icon}
+          eventHandlers={{
+            click: () => handleEmployeeClick(employee.id)
+          }}
+        >
+          <Popup className="custom-popup">
+            <div className="text-sm p-1">
+              <div className="flex items-center mb-2">
+                <div className={`w-8 h-8 rounded-full ${getAvatarColor(employee.name)} text-white flex items-center justify-center font-medium mr-2 text-xs`}>
+                  {employee.avatar}
+                </div>
+                <div>
+                  <h3 className="font-medium text-base">{employee.name}</h3>
+                  <p className="text-gray-600 text-xs">{employee.position}</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-medium text-base">{employee.name}</h3>
-                <p className="text-gray-600 text-xs">{employee.position}</p>
+              <div className="space-y-2">
+                <p className="text-gray-700">{employee.hospital}</p>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center text-gray-600 text-xs">
+                    <FaClock className="mr-1" />
+                    <span>Última conexión: {format(employee.lastConnection, "d 'de' MMMM, HH:mm", { locale: es })}</span>
+                  </div>
+                </div>
+                {employee.status === "inactive" ? (
+                  <div className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-lg flex items-center">
+                    <FaExclamationTriangle className="mr-1" />
+                    <span>Usuario inactivo</span>
+                  </div>
+                ) : employee.outsideGeofence ? (
+                  <div className="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-lg flex items-center">
+                    <FaExclamationTriangle className="mr-1" />
+                    <span>Fuera de geocerca</span>
+                  </div>
+                ) : (
+                  <div className="px-2 py-1 bg-emerald-100 text-emerald-800 text-xs rounded-lg flex items-center">
+                    <FaMapMarkerAlt className="mr-1" />
+                    <span>Dentro de geocerca</span>
+                  </div>
+                )}
+                <div className="text-xs text-gray-500">
+                  <p>Coordenadas:</p>
+                  <p>Lat: {employee.location[0]?.toFixed(6)}</p>
+                  <p>Lng: {employee.location[1]?.toFixed(6)}</p>
+                </div>
               </div>
             </div>
-            <div className="space-y-2">
-              <p className="text-gray-700">{employee.hospital}</p>
-              <div className="flex justify-between items-center">
-                <div className="flex items-center text-gray-600 text-xs">
-                  <FaClock className="mr-1" />
-                  <span>Última conexión: {format(employee.lastConnection, "d 'de' MMMM, HH:mm", { locale: es })}</span>
-                </div>
-              </div>
-              {employee.outsideGeofence ? (
-                <div className="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-lg flex items-center">
-                  <FaExclamationTriangle className="mr-1" />
-                  <span>Fuera de geocerca</span>
-                </div>
-              ) : (
-                <div className="px-2 py-1 bg-emerald-100 text-emerald-800 text-xs rounded-lg flex items-center">
-                  <FaMapMarkerAlt className="mr-1" />
-                  <span>Dentro de geocerca</span>
-                </div>
-              )}
-              <div className="text-xs text-gray-500">
-                <p>Coordenadas:</p>
-                <p>Lat: {employee.location[0]?.toFixed(6)}</p>
-                <p>Lng: {employee.location[1]?.toFixed(6)}</p>
-              </div>
-            </div>
-          </div>
-        </Popup>
-      </Marker>
-    ));
+          </Popup>
+        </Marker>
+      );
+    });
   });
   EmployeeMarkers.displayName = 'EmployeeMarkers';
 
@@ -699,47 +726,47 @@ const MonitoreoMap = () => {
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] bg-gray-50 overflow-hidden">
-      {/* KPIs con dimensiones fijas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4">
-        <div className="flex items-center p-4 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
-          <div className="p-3 bg-emerald-50 rounded-full mr-4">
-            <FaUserCheck className="text-emerald-600 text-xl" />
+      {/* KPIs con espaciado reducido */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 px-4 pt-2 pb-3 max-w-[1800px] mx-auto w-[95%]">
+        <div className="flex items-center p-3 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
+          <div className="p-2.5 bg-emerald-50 rounded-full mr-3">
+            <FaUserCheck className="text-emerald-600 text-lg" />
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500">Conectados</h3>
-            <p className="text-2xl font-bold text-gray-800">{connectedCount}</p>
+            <p className="text-xl font-bold text-gray-800">{connectedCount}</p>
           </div>
         </div>
 
-        <div className="flex items-center p-4 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
-          <div className="p-3 bg-gray-50 rounded-full mr-4">
-            <FaUserTimes className="text-gray-600 text-xl" />
+        <div className="flex items-center p-3 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
+          <div className="p-2.5 bg-gray-50 rounded-full mr-3">
+            <FaUserTimes className="text-gray-600 text-lg" />
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500">Desconectados</h3>
-            <p className="text-2xl font-bold text-gray-800">{disconnectedCount}</p>
+            <p className="text-xl font-bold text-gray-800">{disconnectedCount}</p>
           </div>
         </div>
 
-        <div className="flex items-center p-4 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
-          <div className="p-3 bg-orange-50 rounded-full mr-4">
-            <FaExclamationTriangle className="text-orange-600 text-xl" />
+        <div className="flex items-center p-3 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
+          <div className="p-2.5 bg-orange-50 rounded-full mr-3">
+            <FaExclamationTriangle className="text-orange-600 text-lg" />
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500">Fuera de Geocerca</h3>
-            <p className="text-2xl font-bold text-gray-800">{outsideGeofenceCount}</p>
+            <p className="text-xl font-bold text-gray-800">{outsideGeofenceCount}</p>
           </div>
         </div>
 
-        <div className="flex items-center p-4 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
-          <div className="p-3 bg-blue-50 rounded-full mr-4">
-            <FaHospital className="text-blue-600 text-xl" />
+        <div className="flex items-center p-3 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
+          <div className="p-2.5 bg-blue-50 rounded-full mr-3">
+            <FaHospital className="text-blue-600 text-lg" />
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500">Hospitales</h3>
-            <p className="text-2xl font-bold text-gray-800">{hospitals.length}</p>
+            <p className="text-xl font-bold text-gray-800">{hospitals.length}</p>
             {selectedState && (
-              <p className="text-xs text-blue-600 mt-1">
+              <p className="text-xs text-blue-600 mt-0.5">
                 {filteredHospitals.length} filtrados en {selectedState}
               </p>
             )}
@@ -782,12 +809,12 @@ const MonitoreoMap = () => {
         </div>
       )}
 
-      {/* Contenedor principal con dimensiones fijas */}
-      <div className="flex-1 p-4 pt-0 overflow-hidden">
-        <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative" style={mapContainerStyle}>
+      {/* Contenedor principal optimizado */}
+      <div className="flex-1 px-4 pt-2 pb-4 overflow-hidden flex justify-center">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative" style={mapContainerStyle}>
           {/* Barra de herramientas flotante con posición fija */}
           <div
-            className="absolute top-3 left-14 z-[999] bg-white rounded-lg shadow-lg border border-gray-200 transform-gpu"
+            className="absolute top-3 left-14 z-[10] bg-white rounded-lg shadow-lg border border-gray-200 transform-gpu"
             style={filterContainerStyle}
           >
             <div className="px-3 py-2">
@@ -888,7 +915,7 @@ const MonitoreoMap = () => {
 
           {/* Botón para mostrar/ocultar filtros */}
           <button
-            className="absolute top-4 left-4 z-[1000] bg-white text-emerald-600 p-3 rounded-full shadow-md hover:bg-emerald-50 transition-transform duration-200 transform-gpu"
+            className="absolute top-4 left-4 z-[11] bg-white text-emerald-600 p-3 rounded-full shadow-md hover:bg-emerald-50 transition-transform duration-200 transform-gpu"
             onClick={() => setShowFilters(!showFilters)}
           >
             <FaFilter 
@@ -898,11 +925,11 @@ const MonitoreoMap = () => {
             />
           </button>
 
-          {/* MapContainer con dimensiones fijas */}
+          {/* MapContainer con configuración optimizada */}
           <MapContainer
             center={mapCenter}
             zoom={mapZoom}
-            style={{ height: "100%", width: "100%" }}
+            style={{ height: "100%", width: "100%", zIndex: "1" }}
             ref={mapRef}
             whenCreated={(map) => {
               mapRef.current = map;
@@ -913,16 +940,44 @@ const MonitoreoMap = () => {
             renderer={L.canvas()}
             updateWhenZooming={false}
             updateWhenIdle={true}
+            // Agregar más optimizaciones
+            minZoom={5}
+            maxBounds={[
+              [14.5321, -119.2827], // Esquina suroeste de México
+              [32.7187, -86.5932]   // Esquina noreste de México
+            ]}
+            maxBoundsViscosity={1.0}
+            bounceAtZoomLimits={false}
           >
+            {/* Optimizar el TileLayer */}
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              tileSize={256}
+              minZoom={5}
+              maxZoom={18}
+              keepBuffer={2}
+              updateWhenIdle={true}
+              updateWhenZooming={false}
             />
 
-            {/* Hospitales y geocercas */}
-            {showHospitals && <HospitalMarkers hospitals={getHospitalsStatus.hospitals} />}
+            {/* Optimizar clusters */}
+            {showHospitals && (
+              <MarkerClusterGroup
+                chunkedLoading={true}
+                maxClusterRadius={60}
+                spiderfyOnMaxZoom={true}
+                showCoverageOnHover={false}
+                iconCreateFunction={createClusterCustomIcon}
+                disableClusteringAtZoom={16}
+                maxZoom={18}
+                animate={false}
+              >
+                <HospitalMarkers hospitals={getHospitalsStatus.hospitals} />
+              </MarkerClusterGroup>
+            )}
 
-            {/* Mostrar empleados solo si no hay estado seleccionado o si hay hospitales válidos */}
+            {/* Optimizar renderizado de empleados */}
             {(!selectedState || getHospitalsStatus.status === 'ok') && (
               <>
                 <GeofenceOverlays 
