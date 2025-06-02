@@ -1,6 +1,6 @@
 import express from "express";
 import { pool } from "../db/index.js";
-
+// Revivir
 const router = express.Router();
 
 router.get("/grupos-by-hospital", async (req, res) => {
