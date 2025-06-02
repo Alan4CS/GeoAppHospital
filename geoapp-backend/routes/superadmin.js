@@ -405,4 +405,33 @@ router.get("/superadmin-hospital-work", async (req, res) => {
     }
 });
 
+router.get("/superadmin-hospital-ubi/:id_user", async (req, res) => {
+
+  const { id_user } = req.params;
+  
+  try {
+    
+    const result = await pool.query(`
+      SELECT
+          sh.id_user,
+          sh.id_estado,
+          e.nombre_estado,
+          sh.id_municipio,
+          m.nombre_municipio,
+          sh.id_hospital,
+          h.nombre_hospital
+        FROM superadmin_hospital sh
+        LEFT JOIN estados e ON sh.id_estado = e.id_estado
+        LEFT JOIN municipios m ON sh.id_municipio = m.id_municipio
+        LEFT JOIN hospitals h ON sh.id_hospital = h.id_hospital
+        WHERE sh.id_user = $1
+       `,[id_user]
+    );
+    res.json(result.rows);
+  } catch (error) {
+      console.error("Error al obtener estado,municipio,hospital de los superadmin_hospitals:", error);
+      res.status(500).json({ error: "Error al obtener estado,municipio,hospital los superadmin_hospitals" });
+    }
+});
+
 export default router;
