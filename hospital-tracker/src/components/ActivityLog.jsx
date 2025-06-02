@@ -441,13 +441,22 @@ export default function ActivityLog() {
                     <div key={activity.id_user}>
                       {/* Tarjeta de actividad */}
                       <div
-                        className={`bg-white border rounded-lg p-4 ${
+                        className={`border rounded-lg p-4 transition-all duration-200 relative ${
                           isCurrentUser
-                            ? "border-emerald-200 bg-emerald-50"
-                            : "border-gray-200"
+                            ? "border-emerald-200 bg-emerald-50/80 shadow-lg shadow-emerald-100/50 ring-1 ring-emerald-200"
+                            : "bg-white border-gray-200 hover:shadow-sm"
                         } ${isEditingThis ? "mb-0" : "mb-3"}`}
                       >
-                        <div className="flex items-center gap-3">
+                        {isCurrentUser && (
+                          <div className="absolute -right-1 -top-2 bg-emerald-500 text-white text-xs px-2 py-0.5 rounded-full shadow-sm">
+                            Tú
+                          </div>
+                        )}
+                        <div
+                          className={`flex items-center gap-3 ${
+                            isCurrentUser ? "bg-emerald-50" : ""
+                          }`}
+                        >
                           {/* Avatar */}
                           <div
                             className={`w-12 h-12 rounded-lg ${getAvatarColor(
@@ -459,7 +468,13 @@ export default function ActivityLog() {
 
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
-                              <h3 className="text-base font-medium text-gray-900">
+                              <h3
+                                className={`text-base font-medium ${
+                                  isCurrentUser
+                                    ? "text-emerald-900"
+                                    : "text-gray-900"
+                                }`}
+                              >
                                 {userName}
                               </h3>
                               <div className="flex items-center gap-2">
@@ -477,7 +492,7 @@ export default function ActivityLog() {
                                 {isCurrentUser && !isEditingThis && (
                                   <button
                                     onClick={() => startEditing(activity)}
-                                    className="p-1 text-gray-400 hover:text-emerald-600 transition-colors"
+                                    className="p-1 text-emerald-500 hover:text-emerald-600 transition-colors"
                                     title="Editar mi ubicación"
                                   >
                                     <Edit2 className="h-4 w-4" />
@@ -490,10 +505,22 @@ export default function ActivityLog() {
                                 <div className="flex items-start">
                                   <MapPin className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0 mr-1" />
                                   <div>
-                                    <p className="text-xs text-gray-500">
+                                    <p
+                                      className={`text-xs ${
+                                        isCurrentUser
+                                          ? "text-emerald-600"
+                                          : "text-gray-500"
+                                      }`}
+                                    >
                                       Trabajando en:
                                     </p>
-                                    <p className="text-sm text-gray-700">
+                                    <p
+                                      className={`text-sm ${
+                                        isCurrentUser
+                                          ? "text-emerald-700"
+                                          : "text-gray-700"
+                                      }`}
+                                    >
                                       {activity.ubicacion}
                                     </p>
                                   </div>
