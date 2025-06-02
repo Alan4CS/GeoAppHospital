@@ -60,6 +60,7 @@ export default function ActivityLog() {
   });
   const [isEditing, setIsEditing] = useState(false);
   const [editingUserId, setEditingUserId] = useState(null);
+  const isInitialMount = useRef(true);
 
   // Obtener el ID del usuario actual
   const currentUserId =
@@ -224,8 +225,11 @@ export default function ActivityLog() {
   };
 
   useEffect(() => {
-    fetchSuperadminWork();
-  }, []);
+    if (isInitialMount.current) {
+      fetchSuperadminWork();
+      isInitialMount.current = false;
+    }
+  }, [currentUserId]);
 
   // Cargar estados al iniciar
   useEffect(() => {
@@ -246,7 +250,7 @@ export default function ActivityLog() {
 
   // Cargar municipios cuando cambia el estado
   useEffect(() => {
-    if (updateForm.estado && !isEditing) {
+    if (updateForm.estado) {
       const fetchMunicipios = async () => {
         try {
           const estadoSeleccionado = estados.find(
@@ -272,7 +276,7 @@ export default function ActivityLog() {
       };
 
       fetchMunicipios();
-    } else if (!updateForm.estado) {
+    } else {
       setMunicipios([]);
       setUpdateForm((prev) => ({
         ...prev,
@@ -280,11 +284,11 @@ export default function ActivityLog() {
         hospital: "",
       }));
     }
-  }, [updateForm.estado, estados, isEditing]);
+  }, [updateForm.estado, estados]);
 
   // Cargar hospitales cuando cambia el municipio
   useEffect(() => {
-    if (updateForm.estado && updateForm.municipio && !isEditing) {
+    if (updateForm.estado && updateForm.municipio) {
       const fetchHospitales = async () => {
         try {
           const estadoSeleccionado = estados.find(
@@ -311,7 +315,7 @@ export default function ActivityLog() {
 
       fetchHospitales();
     }
-  }, [updateForm.estado, updateForm.municipio, estados, isEditing]);
+  }, [updateForm.estado, updateForm.municipio, estados]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
