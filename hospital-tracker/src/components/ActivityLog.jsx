@@ -61,6 +61,7 @@ export default function ActivityLog() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingUserId, setEditingUserId] = useState(null);
   const isInitialMount = useRef(true);
+  const pollingInterval = useRef(null);
 
   // Obtener el ID del usuario actual
   const currentUserId =
@@ -224,6 +225,44 @@ export default function ActivityLog() {
     }
   };
 
+  // Función para iniciar el polling
+  const startPolling = () => {
+    // Detener el polling anterior si existe
+    if (pollingInterval.current) {
+      clearInterval(pollingInterval.current);
+    }
+
+    // Iniciar nuevo polling cada 5 segundos
+    pollingInterval.current = setInterval(() => {
+      if (isOpen && !isEditing) {
+        // Solo actualizar si el panel está abierto y no se está editando
+        fetchSuperadminWork();
+      }
+    }, 5000); // 5 segundos
+  };
+
+  // Detener el polling cuando el componente se desmonta
+  useEffect(() => {
+    return () => {
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+      }
+    };
+  }, []);
+
+  // Iniciar/detener polling cuando el panel se abre/cierra
+  useEffect(() => {
+    if (isOpen) {
+      fetchSuperadminWork(); // Actualizar inmediatamente al abrir
+      startPolling();
+    } else {
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+      }
+    }
+  }, [isOpen]);
+
+  // El efecto inicial ahora solo se ejecuta una vez
   useEffect(() => {
     if (isInitialMount.current) {
       fetchSuperadminWork();
