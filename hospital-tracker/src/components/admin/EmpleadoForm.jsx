@@ -9,6 +9,7 @@ import {
   MapPin,
   Hospital,
   Phone,
+  Mail
 } from "lucide-react";
 
 export default function EmpleadoForm({ onGuardar, onCancelar }) {
@@ -17,6 +18,7 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
     ap_paterno: "",
     ap_materno: "",
     CURP: "",
+    correo_electronico: "",
     telefono: "",
     estado: "",
     municipio: "",
@@ -188,6 +190,13 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
         else if (!/^[A-Z&Ñ]{4}[0-9]{6}[HM][A-Z]{5}[A-Z0-9]{2}$/.test(value))
           error = "El CURP debe tener el formato correcto (AAAA######AAA)";
         break;
+
+      case "correo_electronico":
+        if (!value) error = "El correo electrónico es obligatorio"
+        else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value))
+          error = "El correo electrónico debe tener el formato correcto"
+        break;
+
       case "telefono":
         if (!value) error = "El teléfono es obligatorio";
         else if (!/^\d{10}$/.test(value))
@@ -260,6 +269,7 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
       "ap_paterno",
       "ap_materno",
       "CURP",
+      "correo_electronico",
       "telefono",
       "estado",
       "municipio",
@@ -311,15 +321,15 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
 
       if (!estadoSeleccionado) {
         throw new Error("Estado no encontrado");
-      }
-
+      }      
       // Crear el objeto empleado con los datos del formulario
       const empleadoData = {
         nombre: form.nombres,
         ap_paterno: form.ap_paterno,
         ap_materno: form.ap_materno,
         CURP: form.CURP,
-        telefono: form.telefono,
+        correo_electronico: form.correo_electronico,
+        telefono: parseInt(form.telefono, 10),
         user,
         pass,
         role_name: "empleado",
@@ -389,6 +399,15 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
               extraInfo:
                 "Formato: 4 letras, 6 números, H/M, 5 letras, 2 alfanuméricos",
               maxLength: 18,
+            },
+            {
+              name: "correo_electronico",
+              label: "Correo electrónico",
+              placeholder: "Ej. ejemplo@gmail.com",
+              icon: <Mail className="h-4 w-4 mr-1 text-blue-600" />,
+              extraInfo:
+                "Formato: usuario@gmail.com",
+              maxLength: 100,
             },
             {
               name: "telefono",
