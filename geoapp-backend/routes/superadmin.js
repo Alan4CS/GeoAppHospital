@@ -319,12 +319,57 @@ router.post("/create-superadmin", async (req, res) => {
       [newUserId, roleId]
     );
 
+    // 5. Insertar en superadmin_hospital con valores null
+    await client.query(
+      `INSERT INTO superadmin_hospital (id_user, id_estado, id_municipio, id_hospital)
+       VALUES ($1, NULL, NULL, NULL)`,
+      [newUserId]
+    );
+
     await client.query("COMMIT");
     res.status(201).json({ message: "Super Administrador creado con éxito" });
   } catch (error) {
     await client.query("ROLLBACK");
     console.error("❌ Error al crear super administrador:", error);
     res.status(500).json({ error: "Error al crear el super administrador" });
+  } finally {
+    client.release();
+  }
+});
+
+router.put("/superadmin-hospital", async (req, res) => {
+  const { id_user, id_hospital, id_estado, id_municipio } = req.body;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const updateResult = await client.query(
+      `UPDATE superadmin_hospital
+       SET id_hospital = $1,
+           id_estado = $2,
+           id_municipio = $3
+       WHERE id_user = $4`,
+      [
+        id_hospital || null,
+        id_estado || null,
+        id_municipio || null,
+        id_user,
+      ]
+    );
+
+    if (updateResult.rowCount === 0) {
+      throw new Error("Registro no encontrado para actualizar");
+    }
+
+    await client.query("COMMIT");
+    res.status(200).json({ message: "Información actualizada exitosamente" });
+
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("❌ Error al actualizar superadmin_hospital:", error);
+    res.status(500).json({ error: "Error al actualizar información" });
   } finally {
     client.release();
   }
