@@ -23,7 +23,7 @@ router.get("/grupos-by-hospital", async (req, res) => {
 });
 
 router.post("/create-empleado", async (req, res) => {
-  const { nombre, ap_paterno, ap_materno, CURP, user, pass, role_name, id_estado, id_municipio, id_hospital, id_grupo } = req.body;
+  const { nombre, ap_paterno, ap_materno, CURP, correo_electronico, telefono, user, pass, role_name, id_estado, id_municipio, id_hospital, id_grupo } = req.body;
 
   const client = await pool.connect();
 
@@ -32,10 +32,10 @@ router.post("/create-empleado", async (req, res) => {
 
     // 2. Insertar en user_data
     const userDataResult = await client.query(
-      `INSERT INTO user_data (nombre, ap_paterno, ap_materno, curp_user, id_estado, id_municipio, id_hospital, id_group)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO user_data (nombre, ap_paterno, ap_materno, curp_user, correo_electronico, telefono, id_estado, id_municipio, id_hospital, id_group)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING id_user`,
-      [nombre, ap_paterno, ap_materno, CURP, id_estado, id_municipio, id_hospital, id_grupo]
+      [nombre, ap_paterno, ap_materno, CURP, correo_electronico, telefono, id_estado, id_municipio, id_hospital, id_grupo]
     );
     const newUserId = userDataResult.rows[0].id_user;
 
@@ -90,6 +90,8 @@ router.get("/get-empleados", async (req, res) => {
         u.ap_paterno,
         u.ap_materno,
         u.curp_user,
+        u.correo_electronico,
+        u.telefono,
         e.id_estado,
         e.nombre_estado AS estado,
         m.id_municipio,
