@@ -30,6 +30,7 @@ router.post("/empleados/login", async (req, res) => {
     }
 
     try {
+        // 1. Verificar credenciales
         const credResult = await pool.query(
             `SELECT id_user FROM user_credentials WHERE "user" = $1 AND pass = $2`,
             [user, pass]
@@ -41,32 +42,75 @@ router.post("/empleados/login", async (req, res) => {
 
         const id_user = credResult.rows[0].id_user;
 
-        const roleResult = await pool.query(
-            `SELECT r.role_name 
-             FROM user_roles ur
+        // 2. Obtener información completa del usuario
+        const userInfoResult = await pool.query(
+            `SELECT 
+                u.nombre,
+                u.ap_paterno,
+                u.ap_materno,
+                e.nombre_estado,
+                m.nombre_municipio,
+                h.nombre_hospital,
+                h.radio_geo,
+                h.latitud_hospital,
+                h.longitud_hospital,
+                r.role_name,
+                COALESCE(ru.dentro_geocerca, false) as dentro_geocerca,
+                ru.latitud,
+                ru.longitud,
+                ru.fecha_hora as ultima_actualizacion
+             FROM user_data u
+             JOIN user_roles ur ON u.id_user = ur.id_user
              JOIN roles r ON ur.id_role = r.id_role
-             WHERE ur.id_user = $1`,
+             LEFT JOIN estados e ON u.id_estado = e.id_estado
+             LEFT JOIN municipios m ON u.id_municipio = m.id_municipio
+             LEFT JOIN hospitals h ON u.id_hospital = h.id_hospital
+             LEFT JOIN registro_ubicaciones ru ON u.id_user = ru.id_user
+             WHERE u.id_user = $1`,
             [id_user]
         );
 
-        if (roleResult.rowCount === 0) {
-            return res.status(404).json({ error: "Rol no asignado al usuario." });
+        if (userInfoResult.rowCount === 0) {
+            return res.status(404).json({ error: "Usuario no encontrado." });
         }
 
-        const role_name = roleResult.rows[0].role_name;
+        const userInfo = userInfoResult.rows[0];
 
-        if (role_name.toLowerCase() !== "empleado") {
+        if (userInfo.role_name.toLowerCase() !== "empleado") {
             return res.status(403).json({ error: "Acceso restringido solo a empleados." });
         }
 
+        // Generar token JWT
         const token = jwt.sign(
-            { id_user, role: role_name },
+            { id_user, role: userInfo.role_name },
             process.env.JWT_SECRET || 'tu_clave_secreta',
             { expiresIn: '7d' }
         );
 
-        console.log(`✅ Usuario ${id_user} (${role_name}) logueado correctamente`);
-        res.status(200).json({ id_user, role: role_name, token });
+        // Preparar respuesta con toda la información
+        const response = {
+            id_user,
+            nombre: `${userInfo.nombre} ${userInfo.ap_paterno} ${userInfo.ap_materno}`,
+            estado: userInfo.nombre_estado,
+            municipio: userInfo.nombre_municipio,
+            hospital: userInfo.nombre_hospital,
+            tiene_geocerca: userInfo.radio_geo !== null,
+            geocerca: userInfo.radio_geo ? {
+                radio_geo: userInfo.radio_geo,
+                latitud: userInfo.latitud_hospital,
+                longitud: userInfo.longitud_hospital
+            } : null,
+            ubicacion_actual: userInfo.latitud && userInfo.longitud ? {
+                latitud: userInfo.latitud,
+                longitud: userInfo.longitud,
+                dentro_geocerca: userInfo.dentro_geocerca,
+                ultima_actualizacion: userInfo.ultima_actualizacion
+            } : null,
+            token
+        };
+
+        console.log(`✅ Usuario ${id_user} (${userInfo.role_name}) logueado correctamente`);
+        res.status(200).json(response);
 
     } catch (error) {
         console.error("❌ Error en login de empleados:", error);
@@ -79,45 +123,91 @@ router.post("/empleados/login", async (req, res) => {
 
 /**
  * POST /api/ubicaciones
+ * Actualiza la ubicación del usuario y verifica si está dentro de la geocerca
  */
 router.post("/ubicaciones", authenticateToken, async (req, res) => {
-    const { latitud, longitud, dentro_geocerca, tipo_registro } = req.body;
+    const { latitud, longitud } = req.body;
     const id_user = req.user.id_user;
 
-    if (
-        latitud == null ||
-        longitud == null ||
-        dentro_geocerca == null ||
-        tipo_registro == null
-    ) {
-        return res.status(400).json({ error: "Faltan datos obligatorios." });
+    if (latitud == null || longitud == null) {
+        return res.status(400).json({ error: "Latitud y longitud son obligatorios." });
     }
 
     try {
+        // 1. Obtener la geocerca del hospital del usuario
+        const hospitalQuery = await pool.query(
+            `SELECT 
+                h.radio_geo,
+                h.latitud_hospital,
+                h.longitud_hospital
+             FROM user_data u
+             JOIN hospitals h ON u.id_hospital = h.id_hospital
+             WHERE u.id_user = $1`,
+            [id_user]
+        );
+
+        let dentro_geocerca = false;
+
+        if (hospitalQuery.rowCount > 0) {
+            const hospital = hospitalQuery.rows[0];
+            
+            if (hospital.radio_geo) {
+                try {
+                    // Convertir el GeoJSON de la geocerca
+                    const geocerca = JSON.parse(hospital.radio_geo.replace(/'/g, '"'));
+                    
+                    // TODO: Aquí se debe implementar la lógica para verificar si el punto está dentro del polígono
+                    // Por ahora, usaremos una verificación simple de distancia si es un círculo
+                    if (geocerca.type === 'Circle') {
+                        const distancia = calcularDistancia(
+                            latitud, 
+                            longitud, 
+                            hospital.latitud_hospital, 
+                            hospital.longitud_hospital
+                        );
+                        dentro_geocerca = distancia <= geocerca.radius;
+                    } else if (geocerca.type === 'Polygon') {
+                        dentro_geocerca = puntoEnPoligono(
+                            [longitud, latitud], 
+                            geocerca.coordinates[0]
+                        );
+                    }
+                } catch (error) {
+                    console.error("Error al procesar la geocerca:", error);
+                }
+            }
+        }
+
+        // 2. Actualizar o insertar la ubicación
         const result = await pool.query(
             `UPDATE registro_ubicaciones
              SET latitud = $2,
                  longitud = $3,
                  fecha_hora = NOW(),
-                 dentro_geocerca = $4,
-                 tipo_registro = $5
-             WHERE id_user = $1`,
-            [id_user, latitud, longitud, dentro_geocerca, tipo_registro]
+                 dentro_geocerca = $4
+             WHERE id_user = $1
+             RETURNING *`,
+            [id_user, latitud, longitud, dentro_geocerca]
         );
 
         if (result.rowCount === 0) {
             await pool.query(
                 `INSERT INTO registro_ubicaciones 
-                 (id_user, latitud, longitud, fecha_hora, dentro_geocerca, tipo_registro) 
-                 VALUES ($1, $2, $3, NOW(), $4, $5)`,
-                [id_user, latitud, longitud, dentro_geocerca, tipo_registro]
+                 (id_user, latitud, longitud, fecha_hora, dentro_geocerca) 
+                 VALUES ($1, $2, $3, NOW(), $4)
+                 RETURNING *`,
+                [id_user, latitud, longitud, dentro_geocerca]
             );
             console.log(`✅ Se insertó una nueva ubicación para el usuario ${id_user}`);
         } else {
             console.log(`✅ Se actualizó la ubicación del usuario ${id_user}`);
         }
 
-        res.status(200).json({ mensaje: "Ubicación actualizada correctamente." });
+        res.status(200).json({ 
+            mensaje: "Ubicación actualizada correctamente.",
+            dentro_geocerca,
+            fecha_hora: new Date()
+        });
     } catch (error) {
         console.error("❌ Error al actualizar ubicación:", error);
         res.status(500).json({
@@ -126,5 +216,36 @@ router.post("/ubicaciones", authenticateToken, async (req, res) => {
         });
     }
 });
+
+// Función auxiliar para calcular la distancia entre dos puntos en metros
+function calcularDistancia(lat1, lon1, lat2, lon2) {
+    const R = 6371e3; // Radio de la tierra en metros
+    const φ1 = lat1 * Math.PI/180;
+    const φ2 = lat2 * Math.PI/180;
+    const Δφ = (lat2-lat1) * Math.PI/180;
+    const Δλ = (lon2-lon1) * Math.PI/180;
+
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+    return R * c; // en metros
+}
+
+// Función auxiliar para verificar si un punto está dentro de un polígono
+function puntoEnPoligono(point, polygon) {
+    // Implementación del algoritmo ray-casting
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i][0], yi = polygon[i][1];
+        const xj = polygon[j][0], yj = polygon[j][1];
+        
+        const intersect = ((yi > point[1]) !== (yj > point[1]))
+            && (point[0] < (xj - xi) * (point[1] - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
 
 export default router;
