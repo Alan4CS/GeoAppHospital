@@ -351,12 +351,7 @@ router.put("/superadmin-hospital", async (req, res) => {
            id_estado = $2,
            id_municipio = $3
        WHERE id_user = $4`,
-      [
-        id_hospital || null,
-        id_estado || null,
-        id_municipio || null,
-        id_user,
-      ]
+      [id_hospital || null, id_estado || null, id_municipio || null, id_user]
     );
 
     if (updateResult.rowCount === 0) {
@@ -365,7 +360,6 @@ router.put("/superadmin-hospital", async (req, res) => {
 
     await client.query("COMMIT");
     res.status(200).json({ message: "Información actualizada exitosamente" });
-
   } catch (error) {
     await client.query("ROLLBACK");
     console.error("❌ Error al actualizar superadmin_hospital:", error);
@@ -376,9 +370,7 @@ router.put("/superadmin-hospital", async (req, res) => {
 });
 
 router.get("/superadmin-hospital-work", async (req, res) => {
-  
   try {
-    
     const result = await pool.query(`
       SELECT
           sh.id_user,
@@ -396,24 +388,27 @@ router.get("/superadmin-hospital-work", async (req, res) => {
         LEFT JOIN estados e ON sh.id_estado = e.id_estado
         LEFT JOIN municipios m ON sh.id_municipio = m.id_municipio
         LEFT JOIN hospitals h ON sh.id_hospital = h.id_hospital
-       `
-    );
+       `);
     res.json(result.rows);
   } catch (error) {
-      console.error("Error al obtener los superadmin_hospitals:", error);
-      res.status(500).json({ error: "Error al consultar los superadmin_hospitals" });
-    }
+    console.error("Error al obtener los superadmin_hospitals:", error);
+    res
+      .status(500)
+      .json({ error: "Error al consultar los superadmin_hospitals" });
+  }
 });
 
 router.get("/superadmin-hospital-ubi/:id_user", async (req, res) => {
-
   const { id_user } = req.params;
-  
+
   try {
-    
-    const result = await pool.query(`
+    const result = await pool.query(
+      `
       SELECT
           sh.id_user,
+          u.nombre,
+          u.ap_paterno,
+          u.ap_materno,
           sh.id_estado,
           e.nombre_estado,
           sh.id_municipio,
@@ -421,17 +416,25 @@ router.get("/superadmin-hospital-ubi/:id_user", async (req, res) => {
           sh.id_hospital,
           h.nombre_hospital
         FROM superadmin_hospital sh
+        JOIN user_data u ON sh.id_user = u.id_user
         LEFT JOIN estados e ON sh.id_estado = e.id_estado
         LEFT JOIN municipios m ON sh.id_municipio = m.id_municipio
         LEFT JOIN hospitals h ON sh.id_hospital = h.id_hospital
         WHERE sh.id_user = $1
-       `,[id_user]
+       `,
+      [id_user]
     );
     res.json(result.rows);
   } catch (error) {
-      console.error("Error al obtener estado,municipio,hospital de los superadmin_hospitals:", error);
-      res.status(500).json({ error: "Error al obtener estado,municipio,hospital los superadmin_hospitals" });
-    }
+    console.error(
+      "Error al obtener estado,municipio,hospital de los superadmin_hospitals:",
+      error
+    );
+    res.status(500).json({
+      error:
+        "Error al obtener estado,municipio,hospital los superadmin_hospitals",
+    });
+  }
 });
 
 export default router;
