@@ -60,7 +60,7 @@ export default function ActivityLog() {
   });
   const [isEditing, setIsEditing] = useState(false);
   const [editingUserId, setEditingUserId] = useState(null);
-  const effectRan = useRef(false);
+  const isInitialMount = useRef(true);
 
   // Obtener el ID del usuario actual
   const currentUserId =
@@ -225,11 +225,11 @@ export default function ActivityLog() {
   };
 
   useEffect(() => {
-    if (effectRan.current === false) {
+    if (isInitialMount.current) {
       fetchSuperadminWork();
-      effectRan.current = true;
+      isInitialMount.current = false;
     }
-  }, []);
+  }, [currentUserId]);
 
   // Cargar estados al iniciar
   useEffect(() => {
@@ -288,36 +288,33 @@ export default function ActivityLog() {
 
   // Cargar hospitales cuando cambia el municipio
   useEffect(() => {
-    const fetchHospitales = async () => {
-      if (!updateForm.estado || !updateForm.municipio) {
-        setHospitales([]);
-        return;
-      }
+    if (updateForm.estado && updateForm.municipio) {
+      const fetchHospitales = async () => {
+        try {
+          const estadoSeleccionado = estados.find(
+            (e) => e.nombre_estado === updateForm.estado
+          );
 
-      try {
-        const estadoSeleccionado = estados.find(
-          (e) => e.nombre_estado === updateForm.estado
-        );
+          if (!estadoSeleccionado) {
+            setHospitales([]);
+            return;
+          }
 
-        if (!estadoSeleccionado) {
+          const res = await fetch(
+            `https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${updateForm.municipio}`
+          );
+
+          if (!res.ok) throw new Error("Error al obtener hospitales");
+          const data = await res.json();
+          setHospitales(data);
+        } catch (error) {
+          console.error("Error al obtener hospitales:", error);
           setHospitales([]);
-          return;
         }
+      };
 
-        const res = await fetch(
-          `https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${updateForm.municipio}`
-        );
-
-        if (!res.ok) throw new Error("Error al obtener hospitales");
-        const data = await res.json();
-        setHospitales(data);
-      } catch (error) {
-        console.error("Error al obtener hospitales:", error);
-        setHospitales([]);
-      }
-    };
-
-    fetchHospitales();
+      fetchHospitales();
+    }
   }, [updateForm.estado, updateForm.municipio, estados]);
 
   const handleSubmit = async (e) => {
@@ -335,23 +332,18 @@ export default function ActivityLog() {
 
   const startEditing = async (activity) => {
     if (activity.id_user === currentUserId) {
+      setIsEditing(true);
       setEditingUserId(activity.id_user);
       const estado =
         estados.find((e) => e.id_estado === activity.id_estado)
           ?.nombre_estado || "";
-
-      setUpdateForm({
-        estado: estado,
-        municipio: "",
-        hospital: "",
-        status: activity.status,
-      });
 
       try {
         const estadoSeleccionado = estados.find(
           (e) => e.nombre_estado === estado
         );
         if (estadoSeleccionado) {
+          // Cargar municipios
           const resMunicipios = await fetch(
             `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${estadoSeleccionado.id_estado}`
           );
@@ -359,11 +351,7 @@ export default function ActivityLog() {
           const municipiosData = await resMunicipios.json();
           setMunicipios(municipiosData);
 
-          setUpdateForm((prev) => ({
-            ...prev,
-            municipio: activity.id_municipio?.toString() || "",
-          }));
-
+          // Si hay un municipio seleccionado, cargar hospitales
           if (activity.id_municipio) {
             const resHospitales = await fetch(
               `https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${activity.id_municipio}`
@@ -372,18 +360,19 @@ export default function ActivityLog() {
               throw new Error("Error al obtener hospitales");
             const hospitalesData = await resHospitales.json();
             setHospitales(hospitalesData);
-
-            setUpdateForm((prev) => ({
-              ...prev,
-              hospital: activity.id_hospital?.toString() || "",
-            }));
           }
+
+          // Actualizar el formulario después de cargar los datos
+          setUpdateForm({
+            estado: estado,
+            municipio: activity.id_municipio?.toString() || "",
+            hospital: activity.id_hospital?.toString() || "",
+            status: activity.status,
+          });
         }
       } catch (error) {
         console.error("Error al cargar datos para edición:", error);
       }
-
-      setIsEditing(true);
     }
   };
 
@@ -456,13 +445,22 @@ export default function ActivityLog() {
                     <div key={activity.id_user}>
                       {/* Tarjeta de actividad */}
                       <div
-                        className={`bg-white border rounded-lg p-4 ${
+                        className={`border rounded-lg p-4 transition-all duration-200 relative ${
                           isCurrentUser
-                            ? "border-emerald-200 bg-emerald-50"
-                            : "border-gray-200"
+                            ? "border-emerald-200 bg-emerald-50/80 shadow-lg shadow-emerald-100/50 ring-1 ring-emerald-200"
+                            : "bg-white border-gray-200 hover:shadow-sm"
                         } ${isEditingThis ? "mb-0" : "mb-3"}`}
                       >
-                        <div className="flex items-center gap-3">
+                        {isCurrentUser && (
+                          <div className="absolute -right-1 -top-2 bg-emerald-500 text-white text-xs px-2 py-0.5 rounded-full shadow-sm">
+                            Tú
+                          </div>
+                        )}
+                        <div
+                          className={`flex items-center gap-3 ${
+                            isCurrentUser ? "bg-emerald-50" : ""
+                          }`}
+                        >
                           {/* Avatar */}
                           <div
                             className={`w-12 h-12 rounded-lg ${getAvatarColor(
@@ -474,7 +472,13 @@ export default function ActivityLog() {
 
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
-                              <h3 className="text-base font-medium text-gray-900">
+                              <h3
+                                className={`text-base font-medium ${
+                                  isCurrentUser
+                                    ? "text-emerald-900"
+                                    : "text-gray-900"
+                                }`}
+                              >
                                 {userName}
                               </h3>
                               <div className="flex items-center gap-2">
@@ -492,7 +496,7 @@ export default function ActivityLog() {
                                 {isCurrentUser && !isEditingThis && (
                                   <button
                                     onClick={() => startEditing(activity)}
-                                    className="p-1 text-gray-400 hover:text-emerald-600 transition-colors"
+                                    className="p-1 text-emerald-500 hover:text-emerald-600 transition-colors"
                                     title="Editar mi ubicación"
                                   >
                                     <Edit2 className="h-4 w-4" />
@@ -505,10 +509,22 @@ export default function ActivityLog() {
                                 <div className="flex items-start">
                                   <MapPin className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0 mr-1" />
                                   <div>
-                                    <p className="text-xs text-gray-500">
+                                    <p
+                                      className={`text-xs ${
+                                        isCurrentUser
+                                          ? "text-emerald-600"
+                                          : "text-gray-500"
+                                      }`}
+                                    >
                                       Trabajando en:
                                     </p>
-                                    <p className="text-sm text-gray-700">
+                                    <p
+                                      className={`text-sm ${
+                                        isCurrentUser
+                                          ? "text-emerald-700"
+                                          : "text-gray-700"
+                                      }`}
+                                    >
                                       {activity.ubicacion}
                                     </p>
                                   </div>
