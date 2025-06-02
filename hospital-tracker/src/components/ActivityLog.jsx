@@ -60,7 +60,6 @@ export default function ActivityLog() {
   });
   const [isEditing, setIsEditing] = useState(false);
   const [editingUserId, setEditingUserId] = useState(null);
-  const effectRan = useRef(false);
 
   // Obtener el ID del usuario actual
   const currentUserId =
@@ -225,10 +224,7 @@ export default function ActivityLog() {
   };
 
   useEffect(() => {
-    if (effectRan.current === false) {
-      fetchSuperadminWork();
-      effectRan.current = true;
-    }
+    fetchSuperadminWork();
   }, []);
 
   // Cargar estados al iniciar
@@ -250,7 +246,7 @@ export default function ActivityLog() {
 
   // Cargar municipios cuando cambia el estado
   useEffect(() => {
-    if (updateForm.estado) {
+    if (updateForm.estado && !isEditing) {
       const fetchMunicipios = async () => {
         try {
           const estadoSeleccionado = estados.find(
@@ -276,7 +272,7 @@ export default function ActivityLog() {
       };
 
       fetchMunicipios();
-    } else {
+    } else if (!updateForm.estado) {
       setMunicipios([]);
       setUpdateForm((prev) => ({
         ...prev,
@@ -284,41 +280,38 @@ export default function ActivityLog() {
         hospital: "",
       }));
     }
-  }, [updateForm.estado, estados]);
+  }, [updateForm.estado, estados, isEditing]);
 
   // Cargar hospitales cuando cambia el municipio
   useEffect(() => {
-    const fetchHospitales = async () => {
-      if (!updateForm.estado || !updateForm.municipio) {
-        setHospitales([]);
-        return;
-      }
+    if (updateForm.estado && updateForm.municipio && !isEditing) {
+      const fetchHospitales = async () => {
+        try {
+          const estadoSeleccionado = estados.find(
+            (e) => e.nombre_estado === updateForm.estado
+          );
 
-      try {
-        const estadoSeleccionado = estados.find(
-          (e) => e.nombre_estado === updateForm.estado
-        );
+          if (!estadoSeleccionado) {
+            setHospitales([]);
+            return;
+          }
 
-        if (!estadoSeleccionado) {
+          const res = await fetch(
+            `https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${updateForm.municipio}`
+          );
+
+          if (!res.ok) throw new Error("Error al obtener hospitales");
+          const data = await res.json();
+          setHospitales(data);
+        } catch (error) {
+          console.error("Error al obtener hospitales:", error);
           setHospitales([]);
-          return;
         }
+      };
 
-        const res = await fetch(
-          `https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${updateForm.municipio}`
-        );
-
-        if (!res.ok) throw new Error("Error al obtener hospitales");
-        const data = await res.json();
-        setHospitales(data);
-      } catch (error) {
-        console.error("Error al obtener hospitales:", error);
-        setHospitales([]);
-      }
-    };
-
-    fetchHospitales();
-  }, [updateForm.estado, updateForm.municipio, estados]);
+      fetchHospitales();
+    }
+  }, [updateForm.estado, updateForm.municipio, estados, isEditing]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -335,23 +328,18 @@ export default function ActivityLog() {
 
   const startEditing = async (activity) => {
     if (activity.id_user === currentUserId) {
+      setIsEditing(true);
       setEditingUserId(activity.id_user);
       const estado =
         estados.find((e) => e.id_estado === activity.id_estado)
           ?.nombre_estado || "";
-
-      setUpdateForm({
-        estado: estado,
-        municipio: "",
-        hospital: "",
-        status: activity.status,
-      });
 
       try {
         const estadoSeleccionado = estados.find(
           (e) => e.nombre_estado === estado
         );
         if (estadoSeleccionado) {
+          // Cargar municipios
           const resMunicipios = await fetch(
             `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${estadoSeleccionado.id_estado}`
           );
@@ -359,11 +347,7 @@ export default function ActivityLog() {
           const municipiosData = await resMunicipios.json();
           setMunicipios(municipiosData);
 
-          setUpdateForm((prev) => ({
-            ...prev,
-            municipio: activity.id_municipio?.toString() || "",
-          }));
-
+          // Si hay un municipio seleccionado, cargar hospitales
           if (activity.id_municipio) {
             const resHospitales = await fetch(
               `https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${activity.id_municipio}`
@@ -372,18 +356,19 @@ export default function ActivityLog() {
               throw new Error("Error al obtener hospitales");
             const hospitalesData = await resHospitales.json();
             setHospitales(hospitalesData);
-
-            setUpdateForm((prev) => ({
-              ...prev,
-              hospital: activity.id_hospital?.toString() || "",
-            }));
           }
+
+          // Actualizar el formulario después de cargar los datos
+          setUpdateForm({
+            estado: estado,
+            municipio: activity.id_municipio?.toString() || "",
+            hospital: activity.id_hospital?.toString() || "",
+            status: activity.status,
+          });
         }
       } catch (error) {
         console.error("Error al cargar datos para edición:", error);
       }
-
-      setIsEditing(true);
     }
   };
 
