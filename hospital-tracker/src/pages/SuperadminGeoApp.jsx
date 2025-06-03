@@ -556,6 +556,16 @@ export default function SuperadminGeoApp() {
                     )}
 
                     {activeTab === "empleados" && (
+                      <div className="flex items-center space-x-2">
+
+                      <button
+                        onClick={handleMostrarFormEmpleado}
+                        className="flex items-center bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Agregar Empleados por CSV
+                      </button>
+
                       <button
                         onClick={handleMostrarFormEmpleado}
                         className="flex items-center bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition-colors"
@@ -563,6 +573,7 @@ export default function SuperadminGeoApp() {
                         <Plus className="h-4 w-4 mr-2" />
                         Nuevo Empleado
                       </button>
+                    </div>
                     )}
                   </>
                 )}
