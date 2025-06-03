@@ -51,6 +51,8 @@ router.post("/empleados/login", async (req, res) => {
                 e.nombre_estado,
                 m.nombre_municipio,
                 h.nombre_hospital,
+                h.direccion_hospital,
+                h.tipo_hospital,
                 h.radio_geo,
                 h.latitud_hospital,
                 h.longitud_hospital,
@@ -93,13 +95,21 @@ router.post("/empleados/login", async (req, res) => {
             nombre: `${userInfo.nombre} ${userInfo.ap_paterno} ${userInfo.ap_materno}`,
             estado: userInfo.nombre_estado,
             municipio: userInfo.nombre_municipio,
-            hospital: userInfo.nombre_hospital,
-            tiene_geocerca: userInfo.radio_geo !== null,
-            geocerca: userInfo.radio_geo ? {
-                radio_geo: userInfo.radio_geo,
-                latitud: userInfo.latitud_hospital,
-                longitud: userInfo.longitud_hospital
-            } : null,
+            hospital: {
+                nombre: userInfo.nombre_hospital,
+                direccion: userInfo.direccion_hospital,
+                tipo: userInfo.tipo_hospital,
+                ubicacion: {
+                    latitud: userInfo.latitud_hospital,
+                    longitud: userInfo.longitud_hospital
+                },
+                tiene_geocerca: userInfo.radio_geo !== null,
+                geocerca: userInfo.radio_geo ? {
+                    radio_geo: userInfo.radio_geo,
+                    latitud: userInfo.latitud_hospital,
+                    longitud: userInfo.longitud_hospital
+                } : null
+            },
             ubicacion_actual: userInfo.latitud && userInfo.longitud ? {
                 latitud: userInfo.latitud,
                 longitud: userInfo.longitud,
