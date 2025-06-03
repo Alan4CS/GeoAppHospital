@@ -557,23 +557,22 @@ export default function SuperadminGeoApp() {
 
                     {activeTab === "empleados" && (
                       <div className="flex items-center space-x-2">
+                        <button
+                          onClick={handleMostrarFormEmpleado}
+                          className="flex items-center bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Agregar Empleados por CSV
+                        </button>
 
-                      <button
-                        onClick={handleMostrarFormEmpleado}
-                        className="flex items-center bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Agregar Empleados por CSV
-                      </button>
-
-                      <button
-                        onClick={handleMostrarFormEmpleado}
-                        className="flex items-center bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition-colors"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Nuevo Empleado
-                      </button>
-                    </div>
+                        <button
+                          onClick={handleMostrarFormEmpleado}
+                          className="flex items-center bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition-colors"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Nuevo Empleado
+                        </button>
+                      </div>
                     )}
                   </>
                 )}
@@ -589,7 +588,8 @@ export default function SuperadminGeoApp() {
             !mostrarFormGrupo &&
             !mostrarFormEmpleado &&
             activeTab !== "monitoreo" &&
-            activeTab !== "configuracion" && (
+            activeTab !== "configuracion" &&
+            activeTab !== "dashboard" && (
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
                 <StatsCard
                   title="Total Hospitales"
