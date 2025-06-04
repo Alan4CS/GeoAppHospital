@@ -90,6 +90,52 @@ export default function GrupoForm({
     fetchHospitales();
   }, [estadoId, municipioId]);
 
+  // Autorrellenar estado, municipio y hospital SOLO con el endpoint de ubicacion
+  useEffect(() => {
+    const userId = localStorage.getItem("userId");
+    if (!userId) return;
+
+    const fetchUbicacion = async () => {
+      try {
+        const res = await fetch(
+          `https://geoapphospital.onrender.com/api/superadmin/superadmin-hospital-ubi/${userId}`
+        );
+        if (!res.ok) throw new Error("Error al obtener ubicación del admin");
+        const data = await res.json();
+        if (data && data.length > 0) {
+          const info = data[0];
+          setForm((prev) => ({
+            ...prev,
+            estado: info.nombre_estado || "",
+            municipio: info.nombre_municipio || "",
+            hospital: info.nombre_hospital || "",
+            id_estado: info.id_estado,
+            id_municipio: info.id_municipio,
+            id_hospital: info.id_hospital,
+          }));
+          setEstados([
+            { id_estado: info.id_estado, nombre_estado: info.nombre_estado },
+          ]);
+          setMunicipios([
+            {
+              id_municipio: info.id_municipio,
+              nombre_municipio: info.nombre_municipio,
+            },
+          ]);
+          setHospitales([
+            {
+              id_hospital: info.id_hospital,
+              nombre_hospital: info.nombre_hospital,
+            },
+          ]);
+        }
+      } catch (error) {
+        console.error("Error al obtener ubicación del admin:", error);
+      }
+    };
+    fetchUbicacion();
+  }, []);
+
   const validateField = (name, value) => {
     let error = "";
     if (!value) {
@@ -194,74 +240,62 @@ export default function GrupoForm({
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Estado
           </label>
-          <select
-            name="estado"
-            value={estadoId}
-            onChange={handleChange}
-            className="w-full border rounded px-4 py-2"
-            required
-          >
-            <option value="">Selecciona un estado</option>
-            {estados.map((e) => (
-              <option key={e.id_estado} value={e.id_estado}>
-                {e.nombre_estado}
-              </option>
-            ))}
-          </select>
+          <input
+            type="text"
+            value={form.estado}
+            readOnly
+            className="w-full px-4 py-2 border rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+            tabIndex={-1}
+          />
+          <p className="mt-1 text-xs text-gray-400">
+            Estado asignado automáticamente desde la ubicación del administrador
+          </p>
+          {errors.estado && touched.estado && (
+            <p className="mt-1 text-sm text-red-600">{errors.estado}</p>
+          )}
         </div>
 
         {/* Municipio */}
-        {estadoId && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Municipio
-            </label>
-            <select
-              name="municipio"
-              value={municipioId}
-              onChange={handleChange}
-              className="w-full border rounded px-4 py-2"
-              required
-            >
-              <option value="">Selecciona un municipio</option>
-              {municipios.map((m) => (
-                <option key={m.id_municipio} value={m.id_municipio}>
-                  {m.nombre_municipio}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Municipio
+          </label>
+          <input
+            type="text"
+            value={form.municipio}
+            readOnly
+            className="w-full px-4 py-2 border rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+            tabIndex={-1}
+          />
+          <p className="mt-1 text-xs text-gray-400">
+            Municipio asignado automáticamente desde la ubicación del
+            administrador
+          </p>
+          {errors.municipio && touched.municipio && (
+            <p className="mt-1 text-sm text-red-600">{errors.municipio}</p>
+          )}
+        </div>
 
         {/* Hospital */}
-        {municipioId && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Hospital
-            </label>
-            <select
-              name="hospital_id"
-              value={form.hospital_id}
-              onChange={handleChange}
-              className={`w-full border rounded px-4 py-2 ${
-                errors.hospital_id && touched.hospital_id
-                  ? "border-red-500"
-                  : ""
-              }`}
-              required
-            >
-              <option value="">Selecciona un hospital</option>
-              {hospitales.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.nombre}
-                </option>
-              ))}
-            </select>
-            {errors.hospital_id && touched.hospital_id && (
-              <p className="text-red-600 text-sm mt-1">{errors.hospital_id}</p>
-            )}
-          </div>
-        )}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Hospital
+          </label>
+          <input
+            type="text"
+            value={form.hospital}
+            readOnly
+            className="w-full px-4 py-2 border rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+            tabIndex={-1}
+          />
+          <p className="mt-1 text-xs text-gray-400">
+            Hospital asignado automáticamente desde la ubicación del
+            administrador
+          </p>
+          {errors.hospital && touched.hospital && (
+            <p className="mt-1 text-sm text-red-600">{errors.hospital}</p>
+          )}
+        </div>
 
         {/* Nombre del grupo */}
         <div>
