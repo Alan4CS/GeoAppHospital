@@ -25,7 +25,7 @@ export default function CsvUploader({ onCancelar }) {
       <div className="p-6 border-b border-gray-200">
         <h2 className="text-xl font-semibold text-gray-800 flex items-center">
           <FileUp className="h-5 w-5 mr-2 text-blue-600" />
-          Subir Archivo CSV
+          Subir Archivo CSV para Agregar Multiples Empleados
         </h2>
         <p className="text-gray-500 mt-1">
           Carga un archivo CSV para visualizar su contenido en la tabla.
