@@ -5,6 +5,7 @@ import HospitalForm from "../components/admin/HospitalForm";
 import AdminForm from "../components/admin/AdminForm";
 import SuperadminSidebar from "../components/admin/SuperadminSidebar";
 import GrupoForm from "../components/admin/GrupoForm";
+import SubidaMasivaEmpleados from "../components/admin/SubidaMasivaEmpleados";
 import EmpleadoForm from "../components/admin/EmpleadoForm";
 import {
   Hospital,
@@ -23,6 +24,7 @@ import HospitalList from "../components/lists/HospitalList";
 import AdministradorList from "../components/lists/AdministradorList";
 import GrupoList from "../components/lists/GrupoList";
 import EmpleadoList from "../components/lists/EmpleadoList";
+import { set } from "lodash";
 
 export default function SuperadminGeoApp() {
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
@@ -35,6 +37,7 @@ export default function SuperadminGeoApp() {
   const [mostrarFormAdmin, setMostrarFormAdmin] = useState(false);
   const [mostrarFormGrupo, setMostrarFormGrupo] = useState(false);
   const [mostrarFormEmpleado, setMostrarFormEmpleado] = useState(false);
+  const [mostrarSubidaMasivaEmpleados, setMostrarSubidaMasivaEmpleados] = useState(false);
   const [mostrarCredenciales, setMostrarCredenciales] = useState(false);
   const [credencialesGeneradas, setCredencialesGeneradas] = useState(null);
   const navigate = useNavigate();
@@ -161,6 +164,7 @@ export default function SuperadminGeoApp() {
     setMostrarFormAdmin(false);
     setMostrarFormGrupo(false);
     setMostrarFormEmpleado(false);
+    setMostrarSubidaMasivaEmpleados(false);
     setEditandoHospital(false);
     setHospitalEditando(null);
     setHospitalIndexEditando(null);
@@ -180,6 +184,11 @@ export default function SuperadminGeoApp() {
   const handleMostrarFormGrupo = () => {
     resetearFormularios();
     setMostrarFormGrupo(true);
+  };
+
+  const handleMostrarSubidaMasivaEmpleados = () => {
+    resetearFormularios();
+    setMostrarSubidaMasivaEmpleados(true);
   };
 
   const handleMostrarFormEmpleado = () => {
@@ -479,6 +488,7 @@ export default function SuperadminGeoApp() {
         handleMostrarFormulario={handleMostrarFormulario}
         handleMostrarFormAdmin={handleMostrarFormAdmin}
         handleMostrarFormGrupo={handleMostrarFormGrupo}
+        handleMostrarSubidaMasivaEmpleados={handleMostrarSubidaMasivaEmpleados}
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
       />
@@ -523,7 +533,8 @@ export default function SuperadminGeoApp() {
               {!mostrarFormulario &&
                 !mostrarFormAdmin &&
                 !mostrarFormGrupo &&
-                !mostrarFormEmpleado && (
+                !mostrarFormEmpleado && 
+                !mostrarSubidaMasivaEmpleados &&(
                   <>
                     {activeTab === "hospitales" && (
                       <button
@@ -558,7 +569,7 @@ export default function SuperadminGeoApp() {
                     {activeTab === "empleados" && (
                       <div className="flex items-center space-x-2">
                         <button
-                          onClick={handleMostrarFormEmpleado}
+                          onClick={handleMostrarSubidaMasivaEmpleados}
                           className="flex items-center bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
                         >
                           <Plus className="h-4 w-4 mr-2" />
@@ -587,6 +598,7 @@ export default function SuperadminGeoApp() {
             !mostrarFormAdmin &&
             !mostrarFormGrupo &&
             !mostrarFormEmpleado &&
+            !mostrarSubidaMasivaEmpleados &&
             activeTab !== "monitoreo" &&
             activeTab !== "configuracion" &&
             activeTab !== "dashboard" && (
@@ -683,11 +695,22 @@ export default function SuperadminGeoApp() {
             />
           )}
 
+          {/* FORMULARIO SUBIDA MASIVA EMPLEADOS */}
+          {mostrarSubidaMasivaEmpleados && (
+            <SubidaMasivaEmpleados
+              onCancelar={() => {
+                resetearFormularios();
+                setActiveTab("empleados");
+              }}
+            />
+          )}
+
           {/* DASHBOARD */}
           {!mostrarFormulario &&
             !mostrarFormAdmin &&
             !mostrarFormGrupo &&
             !mostrarFormEmpleado &&
+            !mostrarSubidaMasivaEmpleados &&
             activeTab === "dashboard" && <MonitoreoDashboard />}
 
           {/* MONITOREO */}
@@ -695,6 +718,7 @@ export default function SuperadminGeoApp() {
             !mostrarFormAdmin &&
             !mostrarFormGrupo &&
             !mostrarFormEmpleado &&
+            !mostrarSubidaMasivaEmpleados &&
             activeTab === "monitoreo" && <MonitoreoMap />}
 
           {/* CONFIGURACIÓN DEL SISTEMA */}
@@ -702,6 +726,7 @@ export default function SuperadminGeoApp() {
             !mostrarFormAdmin &&
             !mostrarFormGrupo &&
             !mostrarFormEmpleado &&
+            !mostrarSubidaMasivaEmpleados &&
             activeTab === "configuracion" && <MonitoreoConfig />}
 
           {/* CONTENIDO SEGÚN TAB */}
@@ -709,6 +734,7 @@ export default function SuperadminGeoApp() {
             !mostrarFormAdmin &&
             !mostrarFormGrupo &&
             !mostrarFormEmpleado &&
+            !mostrarSubidaMasivaEmpleados &&
             activeTab !== "monitoreo" &&
             activeTab !== "configuracion" &&
             activeTab !== "dashboard" && (
