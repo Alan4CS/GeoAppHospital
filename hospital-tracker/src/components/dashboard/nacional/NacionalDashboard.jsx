@@ -348,58 +348,53 @@ export default function NacionalDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Header */}
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Title Section */}
-        <div className="text-center mb-8">
-          <h2 className="text-4xl font-bold text-gray-900 mb-3">
-            Dashboard Nacional
-          </h2>
-          <p className="text-xl text-gray-600 mb-8">
-            Monitoreo integral de geocercas y operaciones por estado
-          </p>
-        </div>
-
-        {/* Date Filter Section - Separated */}
-        <div className="flex justify-center mb-8">
-          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg p-6 border border-white/20 max-w-md">
-            <div className="flex items-center mb-4">
-              <Calendar className="h-5 w-5 text-emerald-600 mr-2" />
-              <h3 className="text-lg font-semibold text-gray-700">
-                Período de Análisis
-              </h3>
+      {/* Date Filter Section - Más ancho y destacado */}
+      <div className="flex justify-center mb-8 mt-8">
+        <div
+          className="w-full max-w-3xl bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/30 flex flex-col items-center"
+          style={{
+            minHeight: 120,
+          }}
+        >
+          <div className="flex items-center mb-6">
+            <Calendar className="h-6 w-6 text-emerald-600 mr-3" />
+            <h3 className="text-2xl font-bold text-gray-800">
+              Período de Análisis
+            </h3>
+          </div>
+          <div className="grid grid-cols-2 gap-8 w-full">
+            <div>
+              <label className="block text-base text-gray-700 mb-2 font-semibold">
+                Desde
+              </label>
+              <input
+                type="date"
+                value={dateRange.startDate}
+                onChange={(e) =>
+                  setDateRange({ ...dateRange, startDate: e.target.value })
+                }
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow"
+              />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-600 mb-2 font-medium">
-                  Desde
-                </label>
-                <input
-                  type="date"
-                  value={dateRange.startDate}
-                  onChange={(e) =>
-                    setDateRange({ ...dateRange, startDate: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-2 font-medium">
-                  Hasta
-                </label>
-                <input
-                  type="date"
-                  value={dateRange.endDate}
-                  onChange={(e) =>
-                    setDateRange({ ...dateRange, endDate: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                />
-              </div>
+            <div>
+              <label className="block text-base text-gray-700 mb-2 font-semibold">
+                Hasta
+              </label>
+              <input
+                type="date"
+                value={dateRange.endDate}
+                onChange={(e) =>
+                  setDateRange({ ...dateRange, endDate: e.target.value })
+                }
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow"
+              />
             </div>
           </div>
         </div>
+      </div>
 
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Compact KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
           <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg p-4 text-white">
@@ -470,9 +465,6 @@ export default function NacionalDashboard() {
                       Distribución nacional de incidencias
                     </p>
                   </div>
-                </div>
-                <div className="text-xs text-gray-500">
-                  <p>🖱️ Arrastra para mover • 🔍 Scroll para zoom</p>
                 </div>
               </div>
               <div
@@ -612,9 +604,6 @@ export default function NacionalDashboard() {
                     </p>
                   </div>
                 </div>
-                <div className="text-xs text-gray-500">
-                  <p>🖱️ Arrastra para mover • 🔍 Scroll para zoom</p>
-                </div>
               </div>
               <div
                 className="relative bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 overflow-hidden"
@@ -650,15 +639,18 @@ export default function NacionalDashboard() {
                             stroke="#000000"
                             strokeWidth={0.5}
                             onMouseMove={(evt) => {
-                              const { clientX, clientY } = evt;
+                              const containerRect =
+                                evt.currentTarget.ownerSVGElement.getBoundingClientRect();
+                              const offsetX = evt.clientX - containerRect.left;
+                              const offsetY = evt.clientY - containerRect.top;
                               const stateName =
                                 stateCodeToName[stateCode] ||
                                 geo.properties.name;
-                              setGeocercaTooltip({
+                              setHorasTooltip({
                                 content: stateInfo
-                                  ? `${stateName}\nSalidas: ${stateInfo.geofenceExits}\nHospitales: ${stateInfo.hospitals}`
+                                  ? `${stateName}\nHoras: ${stateInfo.hoursWorked}\nHospitales: ${stateInfo.hospitals}`
                                   : stateName || "Estado",
-                                position: { x: clientX + 12, y: clientY + 12 },
+                                position: { x: offsetX + 12, y: offsetY + 12 },
                                 show: true,
                               });
                             }}
@@ -692,8 +684,8 @@ export default function NacionalDashboard() {
                   <div
                     style={{
                       position: "absolute",
-                      left: geocercaTooltip.position.x,
-                      top: geocercaTooltip.position.y,
+                      left: horasTooltip.position.x,
+                      top: horasTooltip.position.y,
                       backgroundColor: "rgba(0, 0, 0, 0.9)",
                       color: "white",
                       padding: "12px 16px",
