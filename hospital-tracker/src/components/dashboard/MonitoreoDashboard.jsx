@@ -19,6 +19,7 @@ import {
   Table2,
 } from "lucide-react";
 import { format, subDays, parseISO, differenceInDays } from "date-fns";
+import NacionalDashboard from "./nacional/NacionalDashboard";
 
 // Componente principal del dashboard de monitoreo
 const MonitoreoDashboard = () => {
@@ -609,100 +610,7 @@ const MonitoreoDashboard = () => {
       ) : (
         <>
           {/* Pestaña Nacional */}
-          {selectedTab === "nacional" && (
-            <div className="space-y-6">
-              {/* Tarjetas de estadísticas */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white rounded-xl shadow-sm p-6">
-                  <div className="flex items-center">
-                    <div className="p-3 bg-emerald-100 rounded-full">
-                      <Users className="h-6 w-6 text-emerald-600" />
-                    </div>
-                    <div className="ml-4">
-                      <h3 className="text-sm font-medium text-gray-500">
-                        Total Nacional
-                      </h3>
-                      <p className="text-2xl font-bold text-gray-800">
-                        {stats.totalEmployees}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-4 text-sm text-gray-600">
-                    <div className="flex justify-between items-center">
-                      <span>Total de horas trabajadas:</span>
-                      <span className="font-medium">{stats.totalHours}h</span>
-                    </div>
-                    <div className="flex justify-between items-center mt-1">
-                      <span>Promedio diario:</span>
-                      <span className="font-medium">
-                        {stats.avgHoursPerDay}h
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-xl shadow-sm p-6">
-                  <div className="flex items-center">
-                    <div className="p-3 bg-amber-100 rounded-full">
-                      <MapPin className="h-6 w-6 text-amber-600" />
-                    </div>
-                    <div className="ml-4">
-                      <h3 className="text-sm font-medium text-gray-500">
-                        Salidas de geocerca
-                      </h3>
-                      <p className="text-2xl font-bold text-gray-800">
-                        {stats.totalGeofenceExits}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-4 text-sm text-gray-600">
-                    <div className="flex justify-between items-center">
-                      <span>Promedio diario:</span>
-                      <span className="font-medium">
-                        {stats.avgGeofenceExitsPerDay}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center mt-1">
-                      <span>Tasa de cumplimiento:</span>
-                      <span className="font-medium">
-                        {stats.complianceRate}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-xl shadow-sm p-6">
-                  <div className="flex items-center">
-                    <div className="p-3 bg-blue-100 rounded-full">
-                      <Building2 className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <div className="ml-4">
-                      <h3 className="text-sm font-medium text-gray-500">
-                        Cobertura Nacional
-                      </h3>
-                      <p className="text-2xl font-bold text-gray-800">
-                        {states.length}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-4 text-sm text-gray-600">
-                    <div className="flex justify-between items-center">
-                      <span>Estados activos:</span>
-                      <span className="font-medium">{states.length}</span>
-                    </div>
-                    <div className="flex justify-between items-center mt-1">
-                      <span>Total hospitales:</span>
-                      <span className="font-medium">
-                        {hospitals ? hospitals.length : 0}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Mantener los gráficos y otras secciones aquí */}
-            </div>
-          )}
+          {selectedTab === "nacional" && <NacionalDashboard />}
 
           {/* Pestaña Estatal */}
           {selectedTab === "estatal" && (
