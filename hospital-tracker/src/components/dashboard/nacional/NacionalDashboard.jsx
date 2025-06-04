@@ -3,8 +3,15 @@
 import { useState, useEffect, useRef } from "react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import { scaleQuantile } from "d3-scale";
-import { format } from "date-fns";
-import { Calendar, Building2, Users, TrendingUp, MapPin } from "lucide-react";
+import { format, subDays, subMonths, subYears, isAfter } from "date-fns";
+import {
+  Calendar,
+  Building2,
+  Users,
+  TrendingUp,
+  MapPin,
+  Check,
+} from "lucide-react";
 
 // Mapeo de códigos de estado a nombres
 const stateCodeToName = {
@@ -52,6 +59,17 @@ export default function NacionalDashboard() {
     endDate: format(new Date(), "yyyy-MM-dd"),
   });
 
+  // Estados para el filtro de fechas mejorado
+  const [selectedPreset, setSelectedPreset] = useState("30d");
+  const [hasChanges, setHasChanges] = useState(false);
+  const [tempDateRange, setTempDateRange] = useState({
+    startDate: format(
+      new Date(new Date().setDate(new Date().getDate() - 30)),
+      "yyyy-MM-dd"
+    ),
+    endDate: format(new Date(), "yyyy-MM-dd"),
+  });
+
   const [stateData, setStateData] = useState([]);
   const [geocercaTooltip, setGeocercaTooltip] = useState({
     content: "",
@@ -65,6 +83,84 @@ export default function NacionalDashboard() {
   });
 
   const mapContainerRef = useRef(null);
+
+  const datePresets = [
+    { label: "Últimos 7 días", value: "7d", days: 7 },
+    { label: "Últimos 15 días", value: "15d", days: 15 },
+    { label: "Últimos 30 días", value: "30d", days: 30 },
+    { label: "Últimos 60 días", value: "60d", days: 60 },
+    { label: "Últimos 90 días", value: "90d", days: 90 },
+    { label: "Último trimestre", value: "3m", months: 3 },
+    { label: "Últimos 6 meses", value: "6m", months: 6 },
+    { label: "Último año", value: "1y", years: 1 },
+    { label: "Personalizado", value: "custom" },
+  ];
+
+  const handlePresetChange = (preset) => {
+    setSelectedPreset(preset);
+    const today = new Date();
+
+    if (preset === "custom") {
+      return;
+    }
+
+    const presetConfig = datePresets.find((p) => p.value === preset);
+    if (!presetConfig) return;
+
+    let newStartDate;
+    if (presetConfig.days) {
+      newStartDate = subDays(today, presetConfig.days);
+    } else if (presetConfig.months) {
+      newStartDate = subMonths(today, presetConfig.months);
+    } else if (presetConfig.years) {
+      newStartDate = subYears(today, presetConfig.years);
+    } else {
+      return;
+    }
+
+    setTempDateRange({
+      startDate: format(newStartDate, "yyyy-MM-dd"),
+      endDate: format(today, "yyyy-MM-dd"),
+    });
+    setHasChanges(true);
+  };
+
+  const handleDateChange = (field, value) => {
+    setTempDateRange((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+    setSelectedPreset("custom");
+    setHasChanges(true);
+  };
+
+  const applyChanges = () => {
+    setDateRange(tempDateRange);
+    setHasChanges(false);
+  };
+
+  const resetToOriginal = () => {
+    setTempDateRange(dateRange);
+    setHasChanges(false);
+    setSelectedPreset("");
+  };
+
+  const isValidRange =
+    tempDateRange.startDate &&
+    tempDateRange.endDate &&
+    !isAfter(
+      new Date(tempDateRange.startDate),
+      new Date(tempDateRange.endDate)
+    );
+
+  const daysDifference =
+    tempDateRange.startDate && tempDateRange.endDate
+      ? Math.ceil(
+          (new Date(tempDateRange.endDate).getTime() -
+            new Date(tempDateRange.startDate).getTime()) /
+            (1000 * 60 * 60 * 24)
+        )
+      : 0;
 
   // Datos simulados usando los códigos de estado
   useEffect(() => {
@@ -342,61 +438,114 @@ export default function NacionalDashboard() {
     .sort((a, b) => b.hoursWorked - a.hoursWorked)
     .slice(0, 10);
 
-  const tabs = ["Nacional", "Estatal", "Municipal", "Hospital"];
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      {/* Header */}
+      {/* Filtro de fechas compacto */}
+      <div className="max-w-7xl mx-auto px-4 pt-6">
+        <div className="bg-white rounded-2xl shadow-lg p-5 mb-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            {/* Título */}
+            <div className="flex items-center mb-4 md:mb-0">
+              <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center mr-3">
+                <Calendar className="h-5 w-5 text-white" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-800">
+                Período de Análisis
+              </h3>
+            </div>
 
-      {/* Date Filter Section - Más ancho y destacado */}
-      <div className="flex justify-center mb-8 mt-8">
-        <div
-          className="w-full max-w-3xl bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/30 flex flex-col items-center"
-          style={{
-            minHeight: 120,
-          }}
-        >
-          <div className="flex items-center mb-6">
-            <Calendar className="h-6 w-6 text-emerald-600 mr-3" />
-            <h3 className="text-2xl font-bold text-gray-800">
-              Período de Análisis
-            </h3>
-          </div>
-          <div className="grid grid-cols-2 gap-8 w-full">
-            <div>
-              <label className="block text-base text-gray-700 mb-2 font-semibold">
-                Desde
-              </label>
-              <input
-                type="date"
-                value={dateRange.startDate}
-                onChange={(e) =>
-                  setDateRange({ ...dateRange, startDate: e.target.value })
-                }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow"
-              />
+            {/* Selector de presets */}
+            <div className="w-full md:w-64">
+              <select
+                value={selectedPreset}
+                onChange={(e) => handlePresetChange(e.target.value)}
+                className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="">Selección rápida</option>
+                {datePresets.map((preset) => (
+                  <option key={preset.value} value={preset.value}>
+                    {preset.label}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div>
-              <label className="block text-base text-gray-700 mb-2 font-semibold">
-                Hasta
-              </label>
-              <input
-                type="date"
-                value={dateRange.endDate}
-                onChange={(e) =>
-                  setDateRange({ ...dateRange, endDate: e.target.value })
-                }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow"
-              />
+
+            {/* Inputs de fecha */}
+            <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+              <div className="flex items-center">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center mr-2">
+                  <Calendar className="h-4 w-4 text-emerald-500" />
+                </div>
+                <input
+                  type="date"
+                  value={tempDateRange.startDate}
+                  onChange={(e) =>
+                    handleDateChange("startDate", e.target.value)
+                  }
+                  className="h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="flex items-center">
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
+                  <Calendar className="h-4 w-4 text-blue-500" />
+                </div>
+                <input
+                  type="date"
+                  value={tempDateRange.endDate}
+                  onChange={(e) => handleDateChange("endDate", e.target.value)}
+                  className="h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            {/* Botones */}
+            <div className="flex gap-2">
+              <button
+                onClick={resetToOriginal}
+                disabled={!hasChanges}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={applyChanges}
+                disabled={!isValidRange || !hasChanges}
+                className="px-4 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 flex items-center"
+              >
+                <Check className="h-4 w-4 mr-1" />
+                Aplicar
+              </button>
             </div>
           </div>
+
+          {/* Mensaje de rango seleccionado */}
+          {isValidRange && (
+            <div className="mt-4 bg-emerald-50 border border-emerald-100 rounded-lg p-2 flex items-center justify-center">
+              <Check className="h-4 w-4 text-emerald-500 mr-2" />
+              <span className="text-sm text-emerald-800">
+                Rango seleccionado: {daysDifference + 1} días (
+                {format(new Date(tempDateRange.startDate), "dd/MM/yyyy")} -{" "}
+                {format(new Date(tempDateRange.endDate), "dd/MM/yyyy")})
+              </span>
+            </div>
+          )}
+
+          {/* Mensaje de error */}
+          {tempDateRange.startDate &&
+            tempDateRange.endDate &&
+            !isValidRange && (
+              <div className="mt-4 bg-red-50 border border-red-100 rounded-lg p-2 flex items-center justify-center">
+                <Calendar className="h-4 w-4 text-red-500 mr-2" />
+                <span className="text-sm text-red-800">
+                  La fecha de inicio debe ser anterior a la fecha final
+                </span>
+              </div>
+            )}
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Compact KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg p-4 text-white">
             <div className="flex items-center justify-between mb-2">
               <Building2 className="h-6 w-6 text-emerald-100" />
@@ -449,10 +598,10 @@ export default function NacionalDashboard() {
         </div>
 
         {/* Maps and Charts Layout */}
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-8">
-          {/* Left Column - Maps (Now takes more space) */}
-          <div className="xl:col-span-4 space-y-8">
-            {/* Mapa de Geocercas - Larger */}
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+          {/* Left Column - Maps */}
+          <div className="xl:col-span-4 space-y-6">
+            {/* Mapa de Geocercas */}
             <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-white/20">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
@@ -567,7 +716,7 @@ export default function NacionalDashboard() {
                   </div>
                 )}
               </div>
-              {/* Leyenda mejorada */}
+              {/* Leyenda */}
               <div className="mt-6 flex items-center justify-center space-x-4 text-sm">
                 <span className="font-medium text-gray-600">Menos salidas</span>
                 <div className="flex space-x-1">
@@ -590,7 +739,7 @@ export default function NacionalDashboard() {
               </div>
             </div>
 
-            {/* Mapa de Horas - Larger */}
+            {/* Mapa de Horas */}
             <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-white/20">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
@@ -701,7 +850,7 @@ export default function NacionalDashboard() {
                   </div>
                 )}
               </div>
-              {/* Leyenda mejorada */}
+              {/* Leyenda */}
               <div className="mt-6 flex items-center justify-center space-x-4 text-sm">
                 <span className="font-medium text-gray-600">Menos horas</span>
                 <div className="flex space-x-1">
