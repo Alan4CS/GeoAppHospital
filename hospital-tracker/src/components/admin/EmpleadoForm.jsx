@@ -9,7 +9,7 @@ import {
   MapPin,
   Hospital,
   Phone,
-  Mail
+  Mail,
 } from "lucide-react";
 
 export default function EmpleadoForm({ onGuardar, onCancelar }) {
@@ -33,127 +33,62 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
   const [grupos, setGrupos] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Cargar estados al iniciar
+  // Autorrellenar estado, municipio y hospital SOLO con el endpoint de ubicacion
   useEffect(() => {
-    const fetchEstados = async () => {
+    const userId = localStorage.getItem("userId");
+    if (!userId) return;
+
+    const fetchUbicacion = async () => {
       try {
         const res = await fetch(
-          "https://geoapphospital.onrender.com/api/superadmin/estados"
+          `https://geoapphospital.onrender.com/api/superadmin/superadmin-hospital-ubi/${userId}`
         );
-        if (!res.ok) {
-          throw new Error("Error al obtener estados");
-        }
+        if (!res.ok) throw new Error("Error al obtener ubicación del admin");
         const data = await res.json();
-        setEstados(data);
+        if (data && data.length > 0) {
+          const info = data[0];
+          setForm((prev) => ({
+            ...prev,
+            estado: info.nombre_estado || "",
+            municipio: info.nombre_municipio || "",
+            hospital: info.nombre_hospital || "",
+            id_estado: info.id_estado,
+            id_municipio: info.id_municipio,
+            id_hospital: info.id_hospital,
+          }));
+          // Llenar los arreglos de estados, municipios y hospitales con los datos del admin
+          setEstados([
+            { id_estado: info.id_estado, nombre_estado: info.nombre_estado },
+          ]);
+          setMunicipios([
+            {
+              id_municipio: info.id_municipio,
+              nombre_municipio: info.nombre_municipio,
+            },
+          ]);
+          setHospitales([
+            {
+              id_hospital: info.id_hospital,
+              nombre_hospital: info.nombre_hospital,
+            },
+          ]);
+        }
       } catch (error) {
-        console.error("Error al obtener estados:", error);
+        console.error("Error al obtener ubicación del admin:", error);
       }
     };
-    fetchEstados();
+    fetchUbicacion();
   }, []);
 
-  // Cargar municipios cuando cambia el estado
+  // Obtener grupos cuando cambia el id_hospital
   useEffect(() => {
-    if (form.estado) {
-      const fetchMunicipios = async () => {
-        try {
-          const estadoSeleccionado = estados.find(
-            (e) => e.nombre_estado === form.estado
-          );
-
-          if (!estadoSeleccionado) {
-            setMunicipios([]);
-            return;
-          }
-
-          const res = await fetch(
-            `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${estadoSeleccionado.id_estado}`
-          );
-
-          if (!res.ok) {
-            throw new Error("Error al obtener municipios");
-          }
-
-          const data = await res.json();
-          setMunicipios(data);
-        } catch (error) {
-          console.error("Error al obtener municipios:", error);
-          setMunicipios([]);
-        }
-      };
-
-      fetchMunicipios();
-      // Resetear municipio, hospital y grupo cuando cambia el estado
-      setForm((prev) => ({
-        ...prev,
-        municipio: "",
-        hospital: "",
-        grupo: "",
-      }));
-    } else {
-      setMunicipios([]);
-    }
-  }, [form.estado, estados]);
-
-  // Cargar hospitales cuando cambia el municipio
-  useEffect(() => {
-    const fetchHospitales = async () => {
-      if (!form.estado || !form.municipio) {
-        setHospitales([]);
-        return;
-      }
-
-      try {
-        const estadoSeleccionado = estados.find(
-          (e) => e.nombre_estado === form.estado
-        );
-
-        if (!estadoSeleccionado) {
-          setHospitales([]);
-          return;
-        }
-
-        const res = await fetch(
-          `https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${form.municipio}`
-        );
-
-        if (!res.ok) {
-          throw new Error("Error al obtener hospitales por municipio");
-        }
-
-        const data = await res.json();
-        setHospitales(data);
-      } catch (error) {
-        console.error("Error al obtener hospitales:", error);
-        setHospitales([]);
-      }
-    };
-
-    fetchHospitales();
-
-    // Resetear hospital y grupo cuando cambia el municipio
-    if (form.municipio !== "") {
-      setForm((prev) => ({
-        ...prev,
-        hospital: "",
-        grupo: "",
-      }));
-    }
-  }, [form.estado, form.municipio, estados]);
-
-  // Cargar grupos cuando cambia el hospital
-  useEffect(() => {
-    if (form.hospital) {
+    if (form.id_hospital) {
       const fetchGrupos = async () => {
         try {
           const res = await fetch(
-            `https://geoapphospital.onrender.com/api/employees/grupos-by-hospital?id_hospital=${form.hospital}`
+            `https://geoapphospital.onrender.com/api/employees/grupos-by-hospital?id_hospital=${form.id_hospital}`
           );
-
-          if (!res.ok) {
-            throw new Error("Error al obtener grupos");
-          }
-
+          if (!res.ok) throw new Error("Error al obtener grupos");
           const data = await res.json();
           setGrupos(data);
         } catch (error) {
@@ -161,17 +96,11 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
           setGrupos([]);
         }
       };
-
       fetchGrupos();
-      // Resetear grupo cuando cambia el hospital
-      setForm((prev) => ({
-        ...prev,
-        grupo: "",
-      }));
     } else {
       setGrupos([]);
     }
-  }, [form.hospital]);
+  }, [form.id_hospital]);
 
   const validateField = (name, value) => {
     let error = "";
@@ -192,9 +121,11 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
         break;
 
       case "correo_electronico":
-        if (!value) error = "El correo electrónico es obligatorio"
-        else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value))
-          error = "El correo electrónico debe tener el formato correcto"
+        if (!value) error = "El correo electrónico es obligatorio";
+        else if (
+          !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)
+        )
+          error = "El correo electrónico debe tener el formato correcto";
         break;
 
       case "telefono":
@@ -318,10 +249,25 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
       const estadoSeleccionado = estados.find(
         (e) => e.nombre_estado === form.estado
       );
+      // Obtener el ID del municipio seleccionado
+      const municipioSeleccionado = municipios.find(
+        (m) => m.nombre_municipio === form.municipio
+      );
+      // Obtener el ID del hospital seleccionado
+      const hospitalSeleccionado = hospitales.find(
+        (h) => h.nombre_hospital === form.hospital
+      );
 
       if (!estadoSeleccionado) {
         throw new Error("Estado no encontrado");
-      }      
+      }
+      if (!municipioSeleccionado) {
+        throw new Error("Municipio no encontrado");
+      }
+      if (!hospitalSeleccionado) {
+        throw new Error("Hospital no encontrado");
+      }
+
       // Crear el objeto empleado con los datos del formulario
       const empleadoData = {
         nombre: form.nombres,
@@ -334,8 +280,8 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
         pass,
         role_name: "empleado",
         id_estado: parseInt(estadoSeleccionado.id_estado),
-        id_municipio: parseInt(form.municipio),
-        id_hospital: parseInt(form.hospital),
+        id_municipio: parseInt(municipioSeleccionado.id_municipio),
+        id_hospital: parseInt(hospitalSeleccionado.id_hospital),
         id_grupo: parseInt(form.grupo),
       };
       console.log("Datos del empleado:", empleadoData);
@@ -405,8 +351,7 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
               label: "Correo electrónico",
               placeholder: "Ej. ejemplo@gmail.com",
               icon: <Mail className="h-4 w-4 mr-1 text-blue-600" />,
-              extraInfo:
-                "Formato: usuario@gmail.com",
+              extraInfo: "Formato: usuario@gmail.com",
               maxLength: 100,
             },
             {
@@ -460,25 +405,17 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
               <MapPin className="h-4 w-4 mr-1 inline text-blue-600" />
               Estado
             </label>
-            <select
-              name="estado"
+            <input
+              type="text"
               value={form.estado}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                errors.estado && touched.estado
-                  ? "border-red-500"
-                  : "border-gray-300"
-              }`}
-              required
-            >
-              <option value="">Selecciona un estado</option>
-              {estados.map((estado) => (
-                <option key={estado.id_estado} value={estado.nombre_estado}>
-                  {estado.nombre_estado}
-                </option>
-              ))}
-            </select>
+              readOnly
+              className="w-full px-4 py-2 border rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+              tabIndex={-1}
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              Estado asignado automáticamente desde la ubicación del
+              administrador
+            </p>
             {errors.estado && touched.estado && (
               <p className="mt-1 text-sm text-red-600">{errors.estado}</p>
             )}
@@ -491,28 +428,17 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
                 <Building2 className="h-4 w-4 mr-1 inline text-blue-600" />
                 Municipio
               </label>
-              <select
-                name="municipio"
+              <input
+                type="text"
                 value={form.municipio}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                  errors.municipio && touched.municipio
-                    ? "border-red-500"
-                    : "border-gray-300"
-                }`}
-                required
-              >
-                <option value="">Selecciona un municipio</option>
-                {municipios.map((municipio) => (
-                  <option
-                    key={municipio.id_municipio}
-                    value={municipio.id_municipio}
-                  >
-                    {municipio.nombre_municipio.toUpperCase()}
-                  </option>
-                ))}
-              </select>
+                readOnly
+                className="w-full px-4 py-2 border rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+                tabIndex={-1}
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                Municipio asignado automáticamente desde la ubicación del
+                administrador
+              </p>
               {errors.municipio && touched.municipio && (
                 <p className="mt-1 text-sm text-red-600">{errors.municipio}</p>
               )}
@@ -526,28 +452,17 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
                 <Hospital className="h-4 w-4 mr-1 inline text-blue-600" />
                 Hospital
               </label>
-              <select
-                name="hospital"
+              <input
+                type="text"
                 value={form.hospital}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                  errors.hospital && touched.hospital
-                    ? "border-red-500"
-                    : "border-gray-300"
-                }`}
-                required
-              >
-                <option value="">Selecciona un hospital</option>
-                {hospitales.map((hospital) => (
-                  <option
-                    key={hospital.id_hospital}
-                    value={hospital.id_hospital}
-                  >
-                    {hospital.nombre_hospital}
-                  </option>
-                ))}
-              </select>
+                readOnly
+                className="w-full px-4 py-2 border rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+                tabIndex={-1}
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                Hospital asignado automáticamente desde la ubicación del
+                administrador
+              </p>
               {errors.hospital && touched.hospital && (
                 <p className="mt-1 text-sm text-red-600">{errors.hospital}</p>
               )}
