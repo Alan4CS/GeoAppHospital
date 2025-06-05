@@ -189,16 +189,25 @@ export default function ActivityLog() {
 
   // Actualizar el trabajo del superadmin
   const updateSuperadminWork = async () => {
-    const estadoSeleccionado = estados.find(
-      (e) => e.nombre_estado === updateForm.estado
-    );
-
-    const payload = {
-      id_user: currentUserId,
-      id_estado: estadoSeleccionado?.id_estado,
-      id_municipio: Number.parseInt(updateForm.municipio, 10),
-      id_hospital: Number.parseInt(updateForm.hospital, 10),
-    };
+    let payload;
+    if (updateForm.status === "finished") {
+      payload = {
+        id_user: currentUserId,
+        id_estado: null,
+        id_municipio: null,
+        id_hospital: null,
+      };
+    } else {
+      const estadoSeleccionado = estados.find(
+        (e) => e.nombre_estado === updateForm.estado
+      );
+      payload = {
+        id_user: currentUserId,
+        id_estado: estadoSeleccionado?.id_estado,
+        id_municipio: Number.parseInt(updateForm.municipio, 10),
+        id_hospital: Number.parseInt(updateForm.hospital, 10),
+      };
+    }
 
     try {
       const response = await fetch(
@@ -325,36 +334,36 @@ export default function ActivityLog() {
     }
   }, [updateForm.estado, estados]);
 
-  // Cargar hospitales cuando cambia el municipio
+  // Cargar hospitales libres cuando cambia municipio y estado
   useEffect(() => {
-    if (updateForm.estado && updateForm.municipio) {
-      const fetchHospitales = async () => {
+    if (
+      updateForm.estado &&
+      updateForm.municipio &&
+      updateForm.status === "active"
+    ) {
+      const fetchHospitalesLibres = async () => {
         try {
           const estadoSeleccionado = estados.find(
             (e) => e.nombre_estado === updateForm.estado
           );
-
           if (!estadoSeleccionado) {
             setHospitales([]);
             return;
           }
-
           const res = await fetch(
-            `https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${updateForm.municipio}`
+            `https://geoapphospital.onrender.com/api/superadmin/superadmin-hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${updateForm.municipio}`
           );
-
-          if (!res.ok) throw new Error("Error al obtener hospitales");
+          if (!res.ok) throw new Error("Error al obtener hospitales libres");
           const data = await res.json();
           setHospitales(data);
         } catch (error) {
-          console.error("Error al obtener hospitales:", error);
+          console.error("Error al obtener hospitales libres:", error);
           setHospitales([]);
         }
       };
-
-      fetchHospitales();
+      fetchHospitalesLibres();
     }
-  }, [updateForm.estado, updateForm.municipio, estados]);
+  }, [updateForm.estado, updateForm.municipio, updateForm.status, estados]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -390,22 +399,44 @@ export default function ActivityLog() {
           const municipiosData = await resMunicipios.json();
           setMunicipios(municipiosData);
 
-          // Si hay un municipio seleccionado, cargar hospitales
+          // Si hay un municipio seleccionado, cargar hospitales LIBRES usando el endpoint correcto
+          let hospitalesData = [];
           if (activity.id_municipio) {
             const resHospitales = await fetch(
-              `https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${activity.id_municipio}`
+              `https://geoapphospital.onrender.com/api/superadmin/superadmin-hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${activity.id_municipio}`
             );
             if (!resHospitales.ok)
               throw new Error("Error al obtener hospitales");
-            const hospitalesData = await resHospitales.json();
+            hospitalesData = await resHospitales.json();
+
+            // Si el hospital actual no está en la lista, agrégalo manualmente
+            if (
+              activity.id_hospital &&
+              !hospitalesData.some(
+                (h) => h.id_hospital === activity.id_hospital
+              )
+            ) {
+              hospitalesData.push({
+                id_hospital: activity.id_hospital,
+                nombre_hospital:
+                  activity.nombre_hospital || "Hospital asignado",
+              });
+            }
+
             setHospitales(hospitalesData);
+          } else {
+            setHospitales([]);
           }
 
           // Actualizar el formulario después de cargar los datos
           setUpdateForm({
             estado: estado,
             municipio: activity.id_municipio?.toString() || "",
-            hospital: activity.id_hospital?.toString() || "",
+            hospital:
+              activity.id_hospital &&
+              hospitalesData.some((h) => h.id_hospital === activity.id_hospital)
+                ? activity.id_hospital.toString()
+                : "",
             status: activity.status,
           });
         }
@@ -595,7 +626,8 @@ export default function ActivityLog() {
                                   value={updateForm.estado}
                                   onChange={handleChange}
                                   className="w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-                                  required
+                                  required={updateForm.status === "active"}
+                                  disabled={updateForm.status === "finished"}
                                 >
                                   <option value="">Seleccionar</option>
                                   {estados.map((estado) => (
@@ -618,8 +650,11 @@ export default function ActivityLog() {
                                   value={updateForm.municipio}
                                   onChange={handleChange}
                                   className="w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-                                  required
-                                  disabled={!updateForm.estado}
+                                  required={updateForm.status === "active"}
+                                  disabled={
+                                    !updateForm.estado ||
+                                    updateForm.status === "finished"
+                                  }
                                 >
                                   <option value="">Seleccionar</option>
                                   {municipios.map((municipio) => (
@@ -639,29 +674,52 @@ export default function ActivityLog() {
                                 <label className="block text-xs font-medium text-gray-700 mb-1">
                                   Hospital
                                 </label>
-                                <select
-                                  name="hospital"
-                                  value={updateForm.hospital}
-                                  onChange={handleChange}
-                                  className="w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-                                  required
-                                  disabled={!updateForm.municipio}
-                                >
-                                  <option value="">Seleccionar</option>
-                                  {hospitales.map((hospital) => (
-                                    <option
-                                      key={hospital.id_hospital}
-                                      value={hospital.id_hospital}
-                                    >
-                                      {hospital.nombre_hospital}
-                                    </option>
-                                  ))}
-                                </select>
+                                {updateForm.hospital &&
+                                !hospitales.some(
+                                  (h) =>
+                                    h.id_hospital?.toString() ===
+                                    updateForm.hospital
+                                ) ? (
+                                  // Si el hospital actual no está en la lista, mostrarlo como solo lectura
+                                  <input
+                                    type="text"
+                                    value={
+                                      activities.find(
+                                        (a) => a.id_user === currentUserId
+                                      )?.nombre_hospital || "Hospital asignado"
+                                    }
+                                    readOnly
+                                    className="w-full px-2 py-1.5 text-sm border rounded bg-gray-100 text-gray-500 cursor-not-allowed"
+                                    tabIndex={-1}
+                                  />
+                                ) : (
+                                  <select
+                                    name="hospital"
+                                    value={updateForm.hospital}
+                                    onChange={handleChange}
+                                    className="w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                                    required={updateForm.status === "active"}
+                                    disabled={
+                                      !updateForm.municipio ||
+                                      updateForm.status === "finished"
+                                    }
+                                  >
+                                    <option value="">Seleccionar</option>
+                                    {hospitales.map((hospital) => (
+                                      <option
+                                        key={hospital.id_hospital}
+                                        value={hospital.id_hospital}
+                                      >
+                                        {hospital.nombre_hospital}
+                                      </option>
+                                    ))}
+                                  </select>
+                                )}
                               </div>
 
                               <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                                  Estado
+                                  Estatus de trabajo
                                 </label>
                                 <select
                                   name="status"
