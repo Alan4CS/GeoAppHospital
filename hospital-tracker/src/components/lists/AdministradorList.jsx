@@ -167,6 +167,40 @@ const AdministradorList = ({
     }
   };
 
+  // Función para filtrar administradores
+  const administradoresFiltrados = useMemo(() => {
+    return administradores.filter((admin) => {
+      // Limpiamos y normalizamos el término de búsqueda
+      const busquedaLimpia = busquedaAdmin.toLowerCase().trim();
+
+      if (!busquedaLimpia) return true; // Si no hay búsqueda, mostrar todo
+
+      // Construimos el nombre completo del administrador
+      const nombreCompleto = `${admin.nombre || ""} ${admin.ap_paterno || ""} ${
+        admin.ap_materno || ""
+      }`
+        .toLowerCase()
+        .trim();
+
+      // Términos individuales de búsqueda (permite buscar partes del nombre)
+      const terminosBusqueda = busquedaLimpia.split(/\s+/);
+
+      // Verifica si todos los términos de búsqueda están presentes
+      const coincideNombre = terminosBusqueda.every(
+        (termino) =>
+          nombreCompleto.includes(termino) ||
+          admin.curp_user?.toLowerCase().includes(termino)
+      );
+
+      const cumpleTipo =
+        !tipoAdminFiltro || admin.role_name === tipoAdminFiltro;
+      const cumpleEstado =
+        !estadoAdminFiltro || admin.estado === estadoAdminFiltro;
+
+      return coincideNombre && cumpleTipo && cumpleEstado;
+    });
+  }, [administradores, busquedaAdmin, tipoAdminFiltro, estadoAdminFiltro]);
+
   const renderSuperAdminTable = (admins) => (
     <div className="bg-white rounded-lg border border-red-200 overflow-hidden">
       <table className="min-w-full divide-y divide-red-100">
@@ -370,11 +404,11 @@ const AdministradorList = ({
         </div>
       </div>
 
-      {administradores.length > 0 ? (
+      {administradoresFiltrados.length > 0 ? (
         <div className="p-6 space-y-8">
           {/* Sección Super Admins */}
           {(() => {
-            const superAdmins = administradores.filter(
+            const superAdmins = administradoresFiltrados.filter(
               (a) => a.role_name === "superadmin"
             );
             if (superAdmins.length > 0) {
@@ -459,7 +493,7 @@ const AdministradorList = ({
           {(() => {
             const estados = [
               ...new Set(
-                administradores
+                administradoresFiltrados
                   .filter((a) => a.role_name !== "superadmin")
                   .map((a) => a.estado || "Sin estado")
               ),
@@ -467,8 +501,9 @@ const AdministradorList = ({
 
             if (
               estados.length === 0 &&
-              administradores.filter((a) => a.role_name !== "superadmin")
-                .length > 0
+              administradoresFiltrados.filter(
+                (a) => a.role_name !== "superadmin"
+              ).length > 0
             ) {
               return (
                 <div className="text-center text-gray-500 my-8">
@@ -479,7 +514,7 @@ const AdministradorList = ({
             }
 
             return estados.map((estadoNombre) => {
-              const adminsDelEstado = administradores.filter(
+              const adminsDelEstado = administradoresFiltrados.filter(
                 (a) =>
                   a.role_name !== "superadmin" &&
                   (a.estado || "Sin estado") === estadoNombre
@@ -523,7 +558,8 @@ const AdministradorList = ({
         </div>
       ) : (
         <div className="p-6 text-center text-gray-500">
-          No hay administradores registrados todavía.
+          No se encontraron administradores que coincidan con los criterios de
+          búsqueda.
         </div>
       )}
 
