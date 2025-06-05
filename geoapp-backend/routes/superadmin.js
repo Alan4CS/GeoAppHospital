@@ -437,4 +437,27 @@ router.get("/superadmin-hospital-ubi/:id_user", async (req, res) => {
   }
 });
 
+router.get("/superadmin-hospitals-by-municipio", async (req, res) => {
+  const { id_estado, id_municipio } = req.query;
+
+  try {
+    const result = await pool.query(
+      `SELECT id_hospital, nombre_hospital 
+       FROM hospitals 
+       WHERE estado_id = $1 
+         AND id_municipio = $2
+         AND id_hospital NOT IN (
+           SELECT id_hospital FROM superadmin_hospital WHERE id_hospital IS NOT NULL
+         )`,
+      [id_estado, id_municipio]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("❌ Error al obtener hospitales por municipio:", error);
+    res.status(500).json({ error: "Error al consultar hospitales" });
+  }
+});
+
+
 export default router;
