@@ -598,379 +598,412 @@ export default function NacionalDashboard() {
         </div>
 
         {/* Maps and Charts Layout */}
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
-          {/* Left Column - Maps */}
-          <div className="xl:col-span-4 space-y-6">
+        <div className="grid grid-cols-1 gap-6">
+          {/* Sección de Geocercas */}
+          <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
             {/* Mapa de Geocercas */}
-            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-white/20">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center">
-                  <div className="w-3 h-8 bg-gradient-to-b from-red-500 to-red-600 rounded-full mr-4"></div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-800">
-                      Salidas de Geocerca por Estado
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      Distribución nacional de incidencias
-                    </p>
+            <div className="xl:col-span-3">
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-white/20 h-[700px]">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center">
+                    <div className="w-3 h-8 bg-gradient-to-b from-red-500 to-red-600 rounded-full mr-4"></div>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-800">
+                        Salidas de Geocerca por Estado
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        Distribución nacional de incidencias
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div
-                ref={mapContainerRef}
-                className="relative bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 overflow-hidden"
-                style={{ height: "500px" }}
-              >
-                <ComposableMap
-                  projection="geoMercator"
-                  projectionConfig={{
-                    scale: 1200,
-                    center: [-102, 23],
-                  }}
-                  style={{ width: "100%", height: "100%" }}
-                  width={800}
-                  height={500}
+                <div
+                  ref={mapContainerRef}
+                  className="relative bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 overflow-hidden flex items-center justify-center h-[calc(100%-120px)]"
                 >
-                  <Geographies geography="/lib/mx.json">
-                    {({ geographies }) => {
-                      return geographies.map((geo) => {
-                        const stateCode = geo.properties.id;
-                        const stateInfo = stateData.find(
-                          (s) => s.state === stateCode
-                        );
-
-                        return (
-                          <Geography
-                            key={geo.rsmKey}
-                            geography={geo}
-                            fill={
-                              stateInfo
-                                ? geofenceColorScale(stateInfo.geofenceExits)
-                                : "#f8fafc"
-                            }
-                            stroke="#000000"
-                            strokeWidth={0.5}
-                            onMouseMove={(evt) => {
-                              const containerRect =
-                                mapContainerRef.current?.getBoundingClientRect();
-                              const offsetX = evt.clientX - containerRect.left;
-                              const offsetY = evt.clientY - containerRect.top;
-                              const stateName =
-                                stateCodeToName[stateCode] ||
-                                geo.properties.name;
-                              setGeocercaTooltip({
-                                content: stateInfo
-                                  ? `${stateName}\nSalidas: ${stateInfo.geofenceExits}\nHospitales: ${stateInfo.hospitals}`
-                                  : stateName || "Estado",
-                                position: { x: offsetX + 12, y: offsetY + 12 },
-                                show: true,
-                              });
-                            }}
-                            onMouseLeave={() => {
-                              setGeocercaTooltip({
-                                ...geocercaTooltip,
-                                show: false,
-                              });
-                            }}
-                            style={{
-                              default: {
-                                outline: "none",
-                                cursor: "pointer",
-                                fill: stateInfo
-                                  ? geofenceColorScale(stateInfo.geofenceExits)
-                                  : "#f8fafc",
-                                transition: "all 0.2s ease",
-                              },
-                              hover: {
-                                outline: "none",
-                                fill: stateInfo ? "#dc2626" : "#e2e8f0",
-                                cursor: "pointer",
-                                filter: "brightness(1.1)",
-                              },
-                              pressed: { outline: "none" },
-                            }}
-                          />
-                        );
-                      });
+                  <ComposableMap
+                    projection="geoMercator"
+                    projectionConfig={{
+                      scale: 1400,
+                      center: [-102, 24],
                     }}
-                  </Geographies>
-                </ComposableMap>
-                {geocercaTooltip.show && (
-                  <div
                     style={{
-                      position: "absolute",
-                      left: geocercaTooltip.position.x,
-                      top: geocercaTooltip.position.y,
-                      backgroundColor: "rgba(0, 0, 0, 0.9)",
-                      color: "white",
-                      padding: "12px 16px",
-                      borderRadius: "12px",
-                      fontSize: "12px",
-                      zIndex: 1000,
-                      whiteSpace: "pre-line",
-                      pointerEvents: "none",
-                      transform: "translateY(-100%)",
+                      width: "100%",
+                      height: "100%",
+                      maxWidth: "1000px",
+                      margin: "0 auto",
                     }}
                   >
-                    {geocercaTooltip.content}
-                  </div>
-                )}
-              </div>
-              {/* Leyenda */}
-              <div className="mt-6 flex items-center justify-center space-x-4 text-sm">
-                <span className="font-medium text-gray-600">Menos salidas</span>
-                <div className="flex space-x-1">
-                  {[
-                    "#fef2f2",
-                    "#fca5a5",
-                    "#ef4444",
-                    "#dc2626",
-                    "#991b1b",
-                    "#7f1d1d",
-                  ].map((color, i) => (
+                    <Geographies geography="/lib/mx.json">
+                      {({ geographies }) => {
+                        return geographies.map((geo) => {
+                          const stateCode = geo.properties.id;
+                          const stateInfo = stateData.find(
+                            (s) => s.state === stateCode
+                          );
+
+                          return (
+                            <Geography
+                              key={geo.rsmKey}
+                              geography={geo}
+                              fill={
+                                stateInfo
+                                  ? geofenceColorScale(stateInfo.geofenceExits)
+                                  : "#f8fafc"
+                              }
+                              stroke="#000000"
+                              strokeWidth={0.5}
+                              onMouseMove={(evt) => {
+                                const containerRect =
+                                  mapContainerRef.current?.getBoundingClientRect();
+                                const offsetX =
+                                  evt.clientX - containerRect.left;
+                                const offsetY = evt.clientY - containerRect.top;
+                                const stateName =
+                                  stateCodeToName[stateCode] ||
+                                  geo.properties.name;
+                                setGeocercaTooltip({
+                                  content: stateInfo
+                                    ? `${stateName}\nSalidas: ${stateInfo.geofenceExits}\nHospitales: ${stateInfo.hospitals}`
+                                    : stateName || "Estado",
+                                  position: {
+                                    x: offsetX + 12,
+                                    y: offsetY + 12,
+                                  },
+                                  show: true,
+                                });
+                              }}
+                              onMouseLeave={() => {
+                                setGeocercaTooltip({
+                                  ...geocercaTooltip,
+                                  show: false,
+                                });
+                              }}
+                              style={{
+                                default: {
+                                  outline: "none",
+                                  cursor: "pointer",
+                                  fill: stateInfo
+                                    ? geofenceColorScale(
+                                        stateInfo.geofenceExits
+                                      )
+                                    : "#f8fafc",
+                                  transition: "all 0.2s ease",
+                                },
+                                hover: {
+                                  outline: "none",
+                                  fill: stateInfo ? "#dc2626" : "#e2e8f0",
+                                  cursor: "pointer",
+                                  filter: "brightness(1.1)",
+                                },
+                                pressed: { outline: "none" },
+                              }}
+                            />
+                          );
+                        });
+                      }}
+                    </Geographies>
+                  </ComposableMap>
+                  {geocercaTooltip.show && (
                     <div
-                      key={i}
-                      className="w-6 h-4 border border-gray-300 rounded-sm shadow-sm"
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
+                      style={{
+                        position: "absolute",
+                        left: geocercaTooltip.position.x,
+                        top: geocercaTooltip.position.y,
+                        backgroundColor: "rgba(0, 0, 0, 0.9)",
+                        color: "white",
+                        padding: "12px 16px",
+                        borderRadius: "12px",
+                        fontSize: "14px",
+                        zIndex: 1000,
+                        whiteSpace: "pre-line",
+                        pointerEvents: "none",
+                        transform: "translateY(-100%)",
+                        minWidth: "200px",
+                        backdropFilter: "blur(8px)",
+                        boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                        border: "1px solid rgba(255, 255, 255, 0.1)",
+                      }}
+                    >
+                      {geocercaTooltip.content}
+                    </div>
+                  )}
                 </div>
-                <span className="font-medium text-gray-600">Más salidas</span>
+                {/* Leyenda */}
+                <div className="mt-6 flex items-center justify-center space-x-4 text-sm">
+                  <span className="font-medium text-gray-600">
+                    Menos salidas
+                  </span>
+                  <div className="flex space-x-1">
+                    {[
+                      "#fef2f2",
+                      "#fca5a5",
+                      "#ef4444",
+                      "#dc2626",
+                      "#991b1b",
+                      "#7f1d1d",
+                    ].map((color, i) => (
+                      <div
+                        key={i}
+                        className="w-6 h-4 border border-gray-300 rounded-sm shadow-sm"
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                  <span className="font-medium text-gray-600">Más salidas</span>
+                </div>
               </div>
             </div>
 
-            {/* Mapa de Horas */}
-            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-white/20">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center">
-                  <div className="w-3 h-8 bg-gradient-to-b from-blue-500 to-blue-600 rounded-full mr-4"></div>
+            {/* Top 10 Geocercas */}
+            <div className="xl:col-span-1">
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl p-4 border border-white/20 h-[700px]">
+                <div className="flex items-center mb-4">
+                  <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-pink-600 rounded-lg flex items-center justify-center mr-3">
+                    <MapPin className="h-4 w-4 text-white" />
+                  </div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-800">
-                      Horas Trabajadas por Estado
+                    <h3 className="text-base font-bold text-gray-800">
+                      Top 10 Estados
                     </h3>
-                    <p className="text-sm text-gray-600">
-                      Distribución de carga laboral
-                    </p>
+                    <p className="text-xs text-gray-600">Salidas de geocerca</p>
                   </div>
                 </div>
-              </div>
-              <div
-                className="relative bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 overflow-hidden"
-                style={{ height: "500px" }}
-              >
-                <ComposableMap
-                  projection="geoMercator"
-                  projectionConfig={{
-                    scale: 1200,
-                    center: [-102, 23],
-                  }}
-                  style={{ width: "100%", height: "100%" }}
-                  width={800}
-                  height={500}
-                >
-                  <Geographies geography="/lib/mx.json">
-                    {({ geographies }) =>
-                      geographies.map((geo) => {
-                        const stateCode = geo.properties.id;
-                        const stateInfo = stateData.find(
-                          (s) => s.state === stateCode
-                        );
-
-                        return (
-                          <Geography
-                            key={geo.rsmKey}
-                            geography={geo}
-                            fill={
-                              stateInfo
-                                ? hoursColorScale(stateInfo.hoursWorked)
-                                : "#f8fafc"
-                            }
-                            stroke="#000000"
-                            strokeWidth={0.5}
-                            onMouseMove={(evt) => {
-                              const containerRect =
-                                evt.currentTarget.ownerSVGElement.getBoundingClientRect();
-                              const offsetX = evt.clientX - containerRect.left;
-                              const offsetY = evt.clientY - containerRect.top;
-                              const stateName =
-                                stateCodeToName[stateCode] ||
-                                geo.properties.name;
-                              setHorasTooltip({
-                                content: stateInfo
-                                  ? `${stateName}\nHoras: ${stateInfo.hoursWorked}\nHospitales: ${stateInfo.hospitals}`
-                                  : stateName || "Estado",
-                                position: { x: offsetX + 12, y: offsetY + 12 },
-                                show: true,
-                              });
-                            }}
-                            onMouseLeave={() => {
-                              setHorasTooltip({ ...horasTooltip, show: false });
-                            }}
+                <div className="space-y-3">
+                  {topGeofenceStates.map((state, index) => (
+                    <div
+                      key={state.state}
+                      className="flex items-center group hover:bg-red-50 rounded-lg p-2 transition-colors"
+                    >
+                      <div className="w-6 h-6 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3 flex-shrink-0 shadow-md">
+                        {index + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-semibold text-gray-900 truncate">
+                            {stateCodeToName[state.state] || state.state}
+                          </span>
+                          <span className="text-xs font-bold text-red-600">
+                            {state.geofenceExits}
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-gradient-to-r from-red-500 to-red-600 h-2 rounded-full transition-all duration-500 shadow-sm"
                             style={{
-                              default: {
-                                outline: "none",
-                                cursor: "pointer",
-                                fill: stateInfo
-                                  ? hoursColorScale(stateInfo.hoursWorked)
-                                  : "#f8fafc",
-                                transition: "all 0.2s ease",
-                              },
-                              hover: {
-                                outline: "none",
-                                fill: stateInfo ? "#1d4ed8" : "#e2e8f0",
-                                cursor: "pointer",
-                                filter: "brightness(1.1)",
-                              },
-                              pressed: { outline: "none" },
+                              width: `${
+                                (state.geofenceExits /
+                                  topGeofenceStates[0].geofenceExits) *
+                                100
+                              }%`,
                             }}
                           />
-                        );
-                      })
-                    }
-                  </Geographies>
-                </ComposableMap>
-                {horasTooltip.show && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: horasTooltip.position.x,
-                      top: horasTooltip.position.y,
-                      backgroundColor: "rgba(0, 0, 0, 0.9)",
-                      color: "white",
-                      padding: "12px 16px",
-                      borderRadius: "12px",
-                      fontSize: "12px",
-                      zIndex: 1000,
-                      whiteSpace: "pre-line",
-                      pointerEvents: "none",
-                      transform: "translateY(-100%)",
-                    }}
-                  >
-                    {horasTooltip.content}
-                  </div>
-                )}
-              </div>
-              {/* Leyenda */}
-              <div className="mt-6 flex items-center justify-center space-x-4 text-sm">
-                <span className="font-medium text-gray-600">Menos horas</span>
-                <div className="flex space-x-1">
-                  {[
-                    "#eff6ff",
-                    "#bfdbfe",
-                    "#60a5fa",
-                    "#3b82f6",
-                    "#1d4ed8",
-                    "#1e40af",
-                  ].map((color, i) => (
-                    <div
-                      key={i}
-                      className="w-6 h-4 border border-gray-300 rounded-sm shadow-sm"
-                      style={{ backgroundColor: color }}
-                    />
+                        </div>
+                      </div>
+                    </div>
                   ))}
                 </div>
-                <span className="font-medium text-gray-600">Más horas</span>
               </div>
             </div>
           </div>
 
-          {/* Right Column - Top 10 Charts */}
-          <div className="xl:col-span-1 space-y-6">
-            {/* Top 10 Geocercas */}
-            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl p-4 border border-white/20">
-              <div className="flex items-center mb-4">
-                <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-pink-600 rounded-lg flex items-center justify-center mr-3">
-                  <MapPin className="h-4 w-4 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-gray-800">
-                    Top 10 Estados
-                  </h3>
-                  <p className="text-xs text-gray-600">Salidas de geocerca</p>
-                </div>
-              </div>
-              <div className="space-y-3">
-                {topGeofenceStates.map((state, index) => (
-                  <div
-                    key={state.state}
-                    className="flex items-center group hover:bg-red-50 rounded-lg p-2 transition-colors"
-                  >
-                    <div className="w-6 h-6 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3 flex-shrink-0 shadow-md">
-                      {index + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-semibold text-gray-900 truncate">
-                          {stateCodeToName[state.state] || state.state}
-                        </span>
-                        <span className="text-xs font-bold text-red-600">
-                          {state.geofenceExits}
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-gradient-to-r from-red-500 to-red-600 h-2 rounded-full transition-all duration-500 shadow-sm"
-                          style={{
-                            width: `${
-                              (state.geofenceExits /
-                                topGeofenceStates[0].geofenceExits) *
-                              100
-                            }%`,
-                          }}
-                        />
-                      </div>
+          {/* Sección de Horas */}
+          <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+            {/* Mapa de Horas */}
+            <div className="xl:col-span-3">
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-white/20 h-[700px]">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center">
+                    <div className="w-3 h-8 bg-gradient-to-b from-blue-500 to-blue-600 rounded-full mr-4"></div>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-800">
+                        Horas Trabajadas por Estado
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        Distribución de carga laboral
+                      </p>
                     </div>
                   </div>
-                ))}
+                </div>
+                <div className="relative bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 overflow-hidden flex items-center justify-center h-[calc(100%-120px)]">
+                  <ComposableMap
+                    projection="geoMercator"
+                    projectionConfig={{
+                      scale: 1400,
+                      center: [-102, 24],
+                    }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      maxWidth: "1000px",
+                      margin: "0 auto",
+                    }}
+                  >
+                    <Geographies geography="/lib/mx.json">
+                      {({ geographies }) =>
+                        geographies.map((geo) => {
+                          const stateCode = geo.properties.id;
+                          const stateInfo = stateData.find(
+                            (s) => s.state === stateCode
+                          );
+
+                          return (
+                            <Geography
+                              key={geo.rsmKey}
+                              geography={geo}
+                              fill={
+                                stateInfo
+                                  ? hoursColorScale(stateInfo.hoursWorked)
+                                  : "#f8fafc"
+                              }
+                              stroke="#000000"
+                              strokeWidth={0.5}
+                              onMouseMove={(evt) => {
+                                const containerRect =
+                                  evt.currentTarget.ownerSVGElement.getBoundingClientRect();
+                                const offsetX =
+                                  evt.clientX - containerRect.left;
+                                const offsetY = evt.clientY - containerRect.top;
+                                const stateName =
+                                  stateCodeToName[stateCode] ||
+                                  geo.properties.name;
+                                setHorasTooltip({
+                                  content: stateInfo
+                                    ? `${stateName}\nHoras: ${stateInfo.hoursWorked}\nHospitales: ${stateInfo.hospitals}`
+                                    : stateName || "Estado",
+                                  position: {
+                                    x: offsetX + 12,
+                                    y: offsetY + 12,
+                                  },
+                                  show: true,
+                                });
+                              }}
+                              onMouseLeave={() => {
+                                setHorasTooltip({
+                                  ...horasTooltip,
+                                  show: false,
+                                });
+                              }}
+                              style={{
+                                default: {
+                                  outline: "none",
+                                  cursor: "pointer",
+                                  fill: stateInfo
+                                    ? hoursColorScale(stateInfo.hoursWorked)
+                                    : "#f8fafc",
+                                  transition: "all 0.2s ease",
+                                },
+                                hover: {
+                                  outline: "none",
+                                  fill: stateInfo ? "#1d4ed8" : "#e2e8f0",
+                                  cursor: "pointer",
+                                  filter: "brightness(1.1)",
+                                },
+                                pressed: { outline: "none" },
+                              }}
+                            />
+                          );
+                        })
+                      }
+                    </Geographies>
+                  </ComposableMap>
+                  {horasTooltip.show && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: horasTooltip.position.x,
+                        top: horasTooltip.position.y,
+                        backgroundColor: "rgba(0, 0, 0, 0.9)",
+                        color: "white",
+                        padding: "12px 16px",
+                        borderRadius: "12px",
+                        fontSize: "14px",
+                        zIndex: 1000,
+                        whiteSpace: "pre-line",
+                        pointerEvents: "none",
+                        transform: "translateY(-100%)",
+                        minWidth: "200px",
+                        backdropFilter: "blur(8px)",
+                        boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                        border: "1px solid rgba(255, 255, 255, 0.1)",
+                      }}
+                    >
+                      {horasTooltip.content}
+                    </div>
+                  )}
+                </div>
+                {/* Leyenda */}
+                <div className="mt-6 flex items-center justify-center space-x-4 text-sm">
+                  <span className="font-medium text-gray-600">Menos horas</span>
+                  <div className="flex space-x-1">
+                    {[
+                      "#eff6ff",
+                      "#bfdbfe",
+                      "#60a5fa",
+                      "#3b82f6",
+                      "#1d4ed8",
+                      "#1e40af",
+                    ].map((color, i) => (
+                      <div
+                        key={i}
+                        className="w-6 h-4 border border-gray-300 rounded-sm shadow-sm"
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                  <span className="font-medium text-gray-600">Más horas</span>
+                </div>
               </div>
             </div>
 
             {/* Top 10 Horas */}
-            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl p-4 border border-white/20">
-              <div className="flex items-center mb-4">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center mr-3">
-                  <Calendar className="h-4 w-4 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-gray-800">
-                    Top 10 Estados
-                  </h3>
-                  <p className="text-xs text-gray-600">Horas trabajadas</p>
-                </div>
-              </div>
-              <div className="space-y-3">
-                {topHoursStates.map((state, index) => (
-                  <div
-                    key={state.state}
-                    className="flex items-center group hover:bg-blue-50 rounded-lg p-2 transition-colors"
-                  >
-                    <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3 flex-shrink-0 shadow-md">
-                      {index + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-semibold text-gray-900 truncate">
-                          {stateCodeToName[state.state] || state.state}
-                        </span>
-                        <span className="text-xs font-bold text-blue-600">
-                          {state.hoursWorked.toLocaleString()}h
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500 shadow-sm"
-                          style={{
-                            width: `${
-                              (state.hoursWorked /
-                                topHoursStates[0].hoursWorked) *
-                              100
-                            }%`,
-                          }}
-                        />
-                      </div>
-                    </div>
+            <div className="xl:col-span-1">
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl p-4 border border-white/20 h-[700px]">
+                <div className="flex items-center mb-4">
+                  <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center mr-3">
+                    <Calendar className="h-4 w-4 text-white" />
                   </div>
-                ))}
+                  <div>
+                    <h3 className="text-base font-bold text-gray-800">
+                      Top 10 Estados
+                    </h3>
+                    <p className="text-xs text-gray-600">Horas trabajadas</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {topHoursStates.map((state, index) => (
+                    <div
+                      key={state.state}
+                      className="flex items-center group hover:bg-blue-50 rounded-lg p-2 transition-colors"
+                    >
+                      <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3 flex-shrink-0 shadow-md">
+                        {index + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-semibold text-gray-900 truncate">
+                            {stateCodeToName[state.state] || state.state}
+                          </span>
+                          <span className="text-xs font-bold text-blue-600">
+                            {state.hoursWorked.toLocaleString()}h
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500 shadow-sm"
+                            style={{
+                              width: `${
+                                (state.hoursWorked /
+                                  topHoursStates[0].hoursWorked) *
+                                100
+                              }%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
