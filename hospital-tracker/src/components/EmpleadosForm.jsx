@@ -30,7 +30,7 @@ export default function ActivityLog() {
   const [showSuccess, setShowSuccess] = useState(false);
   const isInitialMount = useRef(true);
   const pollingInterval = useRef(null);
-  const { updateLocation } = useLocation();
+  const { updateLocation, currentLocation, locationVersion } = useLocation();
 
   // Obtener el ID del usuario actual
   const currentUserId =
@@ -470,6 +470,25 @@ export default function ActivityLog() {
       }
     }
   };
+
+  // Efecto para actualizar el formulario cuando cambia la ubicación
+  useEffect(() => {
+    if (currentLocation) {
+      console.log(
+        "📍 Actualizando formulario empleados con nueva ubicación:",
+        currentLocation
+      );
+      setUpdateForm((prev) => ({
+        ...prev,
+        estado: currentLocation.nombre_estado || "",
+        municipio: currentLocation.nombre_municipio || "",
+        hospital: currentLocation.nombre_hospital || "",
+        id_estado: currentLocation.id_estado,
+        id_municipio: currentLocation.id_municipio,
+        id_hospital: currentLocation.id_hospital,
+      }));
+    }
+  }, [currentLocation, locationVersion]);
 
   return (
     <>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "../../context/LocationContext";
 import {
   ClipboardCheck,
   Key,
@@ -32,53 +33,46 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
   const [hospitales, setHospitales] = useState([]);
   const [grupos, setGrupos] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { currentLocation, locationVersion } = useLocation();
 
-  // Autorrellenar estado, municipio y hospital SOLO con el endpoint de ubicacion
+  // Reemplazar el useEffect existente de ubicación con este nuevo
   useEffect(() => {
-    const userId = localStorage.getItem("userId");
-    if (!userId) return;
+    if (currentLocation) {
+      console.log(
+        "📍 Actualizando formulario empleados con nueva ubicación:",
+        currentLocation
+      );
+      setForm((prev) => ({
+        ...prev,
+        estado: currentLocation.nombre_estado || "",
+        municipio: currentLocation.nombre_municipio || "",
+        hospital: currentLocation.nombre_hospital || "",
+        id_estado: currentLocation.id_estado,
+        id_municipio: currentLocation.id_municipio,
+        id_hospital: currentLocation.id_hospital,
+      }));
 
-    const fetchUbicacion = async () => {
-      try {
-        const res = await fetch(
-          `https://geoapphospital.onrender.com/api/superadmin/superadmin-hospital-ubi/${userId}`
-        );
-        if (!res.ok) throw new Error("Error al obtener ubicación del admin");
-        const data = await res.json();
-        if (data && data.length > 0) {
-          const info = data[0];
-          setForm((prev) => ({
-            ...prev,
-            estado: info.nombre_estado || "",
-            municipio: info.nombre_municipio || "",
-            hospital: info.nombre_hospital || "",
-            id_estado: info.id_estado,
-            id_municipio: info.id_municipio,
-            id_hospital: info.id_hospital,
-          }));
-          // Llenar los arreglos de estados, municipios y hospitales con los datos del admin
-          setEstados([
-            { id_estado: info.id_estado, nombre_estado: info.nombre_estado },
-          ]);
-          setMunicipios([
-            {
-              id_municipio: info.id_municipio,
-              nombre_municipio: info.nombre_municipio,
-            },
-          ]);
-          setHospitales([
-            {
-              id_hospital: info.id_hospital,
-              nombre_hospital: info.nombre_hospital,
-            },
-          ]);
-        }
-      } catch (error) {
-        console.error("Error al obtener ubicación del admin:", error);
-      }
-    };
-    fetchUbicacion();
-  }, []);
+      // Actualizar los estados para los dropdowns
+      setEstados([
+        {
+          id_estado: currentLocation.id_estado,
+          nombre_estado: currentLocation.nombre_estado,
+        },
+      ]);
+      setMunicipios([
+        {
+          id_municipio: currentLocation.id_municipio,
+          nombre_municipio: currentLocation.nombre_municipio,
+        },
+      ]);
+      setHospitales([
+        {
+          id_hospital: currentLocation.id_hospital,
+          nombre_hospital: currentLocation.nombre_hospital,
+        },
+      ]);
+    }
+  }, [currentLocation, locationVersion]);
 
   // Obtener grupos cuando cambia el id_hospital
   useEffect(() => {
