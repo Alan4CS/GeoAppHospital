@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
   Building2,
-  ChevronRight,
   ClipboardList,
   Hospital,
   LogOut,
@@ -100,16 +99,45 @@ export default function SuperadminSidebar({
       onMouseEnter={() => setSidebarOpen(true)}
       onMouseLeave={() => setSidebarOpen(false)}
       className={`${
-        sidebarOpen ? "w-56" : "w-20"
+        sidebarOpen ? "w-56 overflow-y-auto" : "w-20 overflow-hidden"
       } bg-gradient-to-b from-emerald-800 to-teal-900 text-white will-change-transform transition-[width] duration-200 ease-in-out flex flex-col h-screen fixed`}
+      style={{
+        scrollbarWidth: sidebarOpen ? "thin" : "none",
+        scrollbarColor: sidebarOpen
+          ? "#10b981 rgba(16, 185, 129, 0.1)"
+          : "transparent transparent",
+      }}
     >
+      {sidebarOpen && (
+        <style jsx>{`
+          div::-webkit-scrollbar {
+            width: 6px;
+          }
+          div::-webkit-scrollbar-track {
+            background: rgba(16, 185, 129, 0.1);
+            border-radius: 3px;
+          }
+          div::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #10b981, #059669);
+            border-radius: 3px;
+            transition: all 0.2s ease;
+          }
+          div::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #34d399, #10b981);
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+          }
+          div::-webkit-scrollbar-corner {
+            background: transparent;
+          }
+        `}</style>
+      )}
       {/* Header */}
       <div className="p-6 flex items-center">
         <div className="w-full flex items-center">
           <div className="w-12 flex justify-center flex-shrink-0">
             <Hospital className="h-7 w-7" />
           </div>
-          <h1 
+          <h1
             className={`transition-[width,opacity] duration-200 ease-in-out overflow-hidden ${
               !sidebarOpen ? "w-0 opacity-0" : "w-auto opacity-100"
             }`}
@@ -127,13 +155,17 @@ export default function SuperadminSidebar({
               <User className="h-6 w-6" />
             </div>
           </div>
-          <div 
+          <div
             className={`transition-[width,opacity] duration-200 ease-in-out overflow-hidden ${
               sidebarOpen ? "w-auto opacity-100" : "w-0 opacity-0"
             }`}
           >
-            <p className="font-medium text-sm whitespace-nowrap">Administrador</p>
-            <p className="text-xs text-emerald-200 whitespace-nowrap">Super Admin</p>
+            <p className="font-medium text-sm whitespace-nowrap">
+              Administrador
+            </p>
+            <p className="text-xs text-emerald-200 whitespace-nowrap">
+              Super Admin
+            </p>
           </div>
         </div>
       </div>
@@ -166,7 +198,7 @@ export default function SuperadminSidebar({
               <div className="w-12 flex justify-center flex-shrink-0">
                 {icon}
               </div>
-              <span 
+              <span
                 className={`transition-[width,opacity] duration-200 ease-in-out overflow-hidden whitespace-nowrap ${
                   sidebarOpen ? "w-auto opacity-100" : "w-0 opacity-0"
                 }`}
@@ -195,7 +227,7 @@ export default function SuperadminSidebar({
               <div className="w-12 flex justify-center flex-shrink-0">
                 {icon}
               </div>
-              <span 
+              <span
                 className={`transition-[width,opacity] duration-200 ease-in-out overflow-hidden whitespace-nowrap ${
                   sidebarOpen ? "w-auto opacity-100" : "w-0 opacity-0"
                 }`}
@@ -226,7 +258,7 @@ export default function SuperadminSidebar({
           <div className="w-12 flex justify-center flex-shrink-0">
             <LogOut className={iconSize} />
           </div>
-          <span 
+          <span
             className={`transition-[width,opacity] duration-200 ease-in-out overflow-hidden whitespace-nowrap ${
               sidebarOpen ? "w-auto opacity-100" : "w-0 opacity-0"
             }`}
