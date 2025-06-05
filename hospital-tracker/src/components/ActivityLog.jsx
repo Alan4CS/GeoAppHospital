@@ -11,40 +11,6 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-// Datos estáticos simulados con información completa
-const staticActivities = [
-  {
-    id: 1,
-    admin: "Usuario Actual",
-    adminId: "1",
-    status: "active",
-    estado: "Quintana Roo",
-    municipio: "Benito Juárez",
-    location: "Hospital General de Cancún",
-    startTime: new Date(Date.now() - 30 * 60000).toISOString(),
-  },
-  {
-    id: 2,
-    admin: "Alan Cano",
-    adminId: "2",
-    status: "active",
-    estado: "Baja California",
-    municipio: "Tijuana",
-    location: "Hospital General de Tijuana",
-    startTime: new Date(Date.now() - 45 * 60000).toISOString(),
-  },
-  {
-    id: 3,
-    admin: "Angel Jiménez",
-    adminId: "3",
-    status: "active",
-    estado: "Nuevo León",
-    municipio: "Monterrey",
-    location: "Hospital Regional IMSS 20",
-    startTime: new Date(Date.now() - 120 * 60000).toISOString(),
-  },
-];
-
 export default function ActivityLog() {
   const [isOpen, setIsOpen] = useState(false);
   const [activities, setActivities] = useState([]);
@@ -60,6 +26,7 @@ export default function ActivityLog() {
   });
   const [isEditing, setIsEditing] = useState(false);
   const [editingUserId, setEditingUserId] = useState(null);
+  const [showSuccess, setShowSuccess] = useState(false);
   const isInitialMount = useRef(true);
   const pollingInterval = useRef(null);
 
@@ -142,7 +109,13 @@ export default function ActivityLog() {
             activity.nombre_hospital
               ? `${activity.nombre_estado}, ${activity.nombre_municipio} - ${activity.nombre_hospital}`
               : "Sin ubicación asignada",
-        }));
+        }))
+        // Ordenar: activos primero, inactivos al final
+        .sort((a, b) => {
+          if (a.status === "active" && b.status === "inactive") return -1;
+          if (a.status === "inactive" && b.status === "active") return 1;
+          return 0;
+        });
 
       // Agregamos la información del superadmin actual
       if (superadminData && superadminData.length > 0) {
@@ -179,11 +152,8 @@ export default function ActivityLog() {
       setActiveAdmins(activeCount);
     } catch (error) {
       console.error("❌ Error al obtener trabajo:", error);
-      // Usar datos estáticos en caso de error
-      setActivities(staticActivities);
-      setActiveAdmins(
-        staticActivities.filter((a) => a.status === "active").length
-      );
+      setActivities([]);
+      setActiveAdmins(0);
     }
   };
 
@@ -201,6 +171,16 @@ export default function ActivityLog() {
       const estadoSeleccionado = estados.find(
         (e) => e.nombre_estado === updateForm.estado
       );
+      // Verifica que el hospital seleccionado esté disponible
+      const hospitalDisponible = hospitales.some(
+        (h) => h.id_hospital?.toString() === updateForm.hospital
+      );
+      if (!hospitalDisponible) {
+        alert(
+          "El hospital seleccionado ya no está disponible. Por favor, selecciona otro hospital."
+        );
+        return;
+      }
       payload = {
         id_user: currentUserId,
         id_estado: estadoSeleccionado?.id_estado,
@@ -228,6 +208,9 @@ export default function ActivityLog() {
       await fetchSuperadminWork();
       setIsEditing(false);
       setEditingUserId(null);
+      // Mostrar mensaje flotante de éxito
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 2500);
     } catch (error) {
       console.error("❌ Error al actualizar trabajo:", error);
       alert("Error al actualizar el trabajo. Por favor, intente nuevamente.");
@@ -372,6 +355,25 @@ export default function ActivityLog() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    // Si el usuario cambia de "Terminado" a "Trabajando", limpia los campos de ubicación
+    if (
+      name === "status" &&
+      value === "active" &&
+      updateForm.status === "finished"
+    ) {
+      setUpdateForm((prev) => ({
+        ...prev,
+        status: value,
+        estado: "",
+        municipio: "",
+        hospital: "",
+      }));
+      setMunicipios([]);
+      setHospitales([]);
+      return;
+    }
+
     setUpdateForm((prev) => ({
       ...prev,
       [name]: value,
@@ -382,6 +384,25 @@ export default function ActivityLog() {
     if (activity.id_user === currentUserId) {
       setIsEditing(true);
       setEditingUserId(activity.id_user);
+
+      // Si el usuario está en estado "inactivo" (terminado), inicia el formulario en "finished" y limpia los campos
+      if (
+        !activity.id_estado ||
+        !activity.id_municipio ||
+        !activity.id_hospital ||
+        activity.status === "inactive"
+      ) {
+        setUpdateForm({
+          estado: "",
+          municipio: "",
+          hospital: "",
+          status: "finished",
+        });
+        setMunicipios([]);
+        setHospitales([]);
+        return;
+      }
+
       const estado =
         estados.find((e) => e.id_estado === activity.id_estado)
           ?.nombre_estado || "";
@@ -448,6 +469,13 @@ export default function ActivityLog() {
 
   return (
     <>
+      {/* Mensaje flotante de éxito */}
+      {showSuccess && (
+        <div className="fixed top-6 right-6 z-[9999] bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in-down">
+          <CheckCircle2 className="h-5 w-5" />
+          <span>¡Guardado correctamente!</span>
+        </div>
+      )}
       {/* Botón flotante */}
       <button
         onClick={() => setIsOpen(true)}
@@ -517,13 +545,15 @@ export default function ActivityLog() {
                       <div
                         className={`border rounded-lg p-4 transition-all duration-200 relative ${
                           isCurrentUser
-                            ? "border-emerald-200 bg-emerald-50/80 shadow-lg shadow-emerald-100/50 ring-1 ring-emerald-200"
+                            ? "border-emerald-300 bg-gradient-to-r from-emerald-50 to-emerald-100/50 shadow-lg shadow-emerald-200/30 ring-1 ring-emerald-300"
+                            : activity.status === "inactive"
+                            ? "bg-gray-50 border-gray-200 opacity-75"
                             : "bg-white border-gray-200 hover:shadow-sm"
                         } ${isEditingThis ? "mb-0" : "mb-3"}`}
                       >
                         {isCurrentUser && (
-                          <div className="absolute -right-1 -top-2 bg-emerald-500 text-white text-xs px-2 py-0.5 rounded-full shadow-sm">
-                            Tú
+                          <div className="absolute -right-2 -top-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-md border-2 border-white">
+                            ✨ Tú
                           </div>
                         )}
                         <div
@@ -532,12 +562,23 @@ export default function ActivityLog() {
                           }`}
                         >
                           {/* Avatar */}
-                          <div
-                            className={`w-12 h-12 rounded-lg ${getAvatarColor(
-                              userName
-                            )} flex items-center justify-center text-white font-bold text-lg`}
-                          >
-                            {getInitials(userName)}
+                          <div className="relative">
+                            <div
+                              className={`w-12 h-12 rounded-lg ${getAvatarColor(
+                                userName
+                              )} flex items-center justify-center text-white font-bold text-lg ${
+                                isCurrentUser
+                                  ? "ring-2 ring-emerald-400 ring-offset-2"
+                                  : ""
+                              }`}
+                            >
+                              {getInitials(userName)}
+                            </div>
+                            {isCurrentUser && (
+                              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
+                                <div className="w-2 h-2 bg-white rounded-full"></div>
+                              </div>
+                            )}
                           </div>
 
                           <div className="flex-1 min-w-0">
@@ -558,9 +599,9 @@ export default function ActivityLog() {
                                     Activo
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                                    <AlertCircle className="h-3 w-3 mr-1" />
-                                    Inactivo
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-300">
+                                    <div className="h-2 w-2 bg-gray-400 rounded-full mr-1.5"></div>
+                                    Sin asignar
                                   </span>
                                 )}
                                 {isCurrentUser && !isEditingThis && (
@@ -600,10 +641,10 @@ export default function ActivityLog() {
                                   </div>
                                 </div>
                               ) : (
-                                <div className="flex items-center">
-                                  <AlertCircle className="h-4 w-4 text-amber-500 mr-1" />
-                                  <span className="text-amber-600 text-sm">
-                                    Sin asignación activa
+                                <div className="flex items-center bg-gray-50 rounded-md px-2 py-1">
+                                  <div className="h-3 w-3 bg-gray-300 rounded-full mr-2 flex-shrink-0"></div>
+                                  <span className="text-gray-500 text-sm font-medium">
+                                    Fuera de servicio
                                   </span>
                                 </div>
                               )}
@@ -674,38 +715,48 @@ export default function ActivityLog() {
                                 <label className="block text-xs font-medium text-gray-700 mb-1">
                                   Hospital
                                 </label>
-                                {updateForm.hospital &&
-                                !hospitales.some(
-                                  (h) =>
-                                    h.id_hospital?.toString() ===
-                                    updateForm.hospital
-                                ) ? (
-                                  // Si el hospital actual no está en la lista, mostrarlo como solo lectura
-                                  <input
-                                    type="text"
-                                    value={
-                                      activities.find(
-                                        (a) => a.id_user === currentUserId
-                                      )?.nombre_hospital || "Hospital asignado"
-                                    }
-                                    readOnly
-                                    className="w-full px-2 py-1.5 text-sm border rounded bg-gray-100 text-gray-500 cursor-not-allowed"
-                                    tabIndex={-1}
-                                  />
-                                ) : (
-                                  <select
-                                    name="hospital"
-                                    value={updateForm.hospital}
-                                    onChange={handleChange}
-                                    className="w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-                                    required={updateForm.status === "active"}
-                                    disabled={
-                                      !updateForm.municipio ||
-                                      updateForm.status === "finished"
-                                    }
-                                  >
+                                <select
+                                  name="hospital"
+                                  value={updateForm.hospital}
+                                  onChange={handleChange}
+                                  className="w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                                  required={updateForm.status === "active"}
+                                  disabled={
+                                    !updateForm.municipio ||
+                                    updateForm.status === "finished"
+                                  }
+                                >
+                                  {/* Si no hay hospital seleccionado, muestra "Seleccionar" */}
+                                  {!updateForm.hospital && (
                                     <option value="">Seleccionar</option>
-                                    {hospitales.map((hospital) => (
+                                  )}
+                                  {/* Solo mostrar el nombre del hospital actual como opción seleccionada si está trabajando */}
+                                  {updateForm.hospital &&
+                                    updateForm.status === "active" &&
+                                    hospitales.every(
+                                      (h) =>
+                                        h.id_hospital?.toString() !==
+                                        updateForm.hospital
+                                    ) && (
+                                      <option value={updateForm.hospital}>
+                                        {hospitales.find(
+                                          (h) =>
+                                            h.id_hospital?.toString() ===
+                                            updateForm.hospital
+                                        )?.nombre_hospital ||
+                                          activities.find(
+                                            (a) => a.id_user === currentUserId
+                                          )?.nombre_hospital ||
+                                          "Hospital asignado"}
+                                      </option>
+                                    )}
+                                  {hospitales
+                                    .filter(
+                                      (hospital) =>
+                                        hospital.id_hospital?.toString() !==
+                                        updateForm.hospital
+                                    )
+                                    .map((hospital) => (
                                       <option
                                         key={hospital.id_hospital}
                                         value={hospital.id_hospital}
@@ -713,8 +764,7 @@ export default function ActivityLog() {
                                         {hospital.nombre_hospital}
                                       </option>
                                     ))}
-                                  </select>
-                                )}
+                                </select>
                               </div>
 
                               <div>
