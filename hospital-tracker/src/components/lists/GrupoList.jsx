@@ -248,12 +248,25 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
 
   // Filtrar grupos basado en la búsqueda
   const gruposFiltrados = grupos.filter((grupo) => {
-    const coincideBusqueda =
-      !busquedaGrupo ||
-      grupo.nombre_grupo?.toLowerCase().includes(busquedaGrupo.toLowerCase()) ||
-      grupo.descripcion_group
-        ?.toLowerCase()
-        .includes(busquedaGrupo.toLowerCase());
+    // Limpiamos y normalizamos el término de búsqueda
+    const busquedaLimpia = busquedaGrupo.toLowerCase().trim();
+
+    if (!busquedaLimpia) return true; // Si no hay búsqueda, mostrar todo
+
+    // Construimos el texto completo del grupo para búsqueda
+    const textoCompleto = `${grupo.nombre_grupo || ""} ${
+      grupo.descripcion_group || ""
+    } ${grupo.nombre_hospital || ""}`
+      .toLowerCase()
+      .trim();
+
+    // Términos individuales de búsqueda
+    const terminosBusqueda = busquedaLimpia.split(/\s+/);
+
+    // Verifica si todos los términos de búsqueda están presentes
+    const coincideBusqueda = terminosBusqueda.every((termino) =>
+      textoCompleto.includes(termino)
+    );
 
     const coincideEstado =
       !estadoFiltro || grupo.nombre_estado === estadoFiltro;

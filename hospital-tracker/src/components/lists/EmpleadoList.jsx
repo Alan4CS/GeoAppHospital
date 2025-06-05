@@ -71,18 +71,25 @@ const EmpleadoList = ({
   };
 
   const empleadosFiltrados = empleadosLocales.filter((empleado) => {
-    const coincideBusqueda =
-      !busquedaEmpleado ||
-      empleado.nombre?.toLowerCase().includes(busquedaEmpleado.toLowerCase()) ||
-      empleado.ap_paterno
-        ?.toLowerCase()
-        .includes(busquedaEmpleado.toLowerCase()) ||
-      empleado.ap_materno
-        ?.toLowerCase()
-        .includes(busquedaEmpleado.toLowerCase()) ||
-      empleado.curp_user
-        ?.toLowerCase()
-        .includes(busquedaEmpleado.toLowerCase());
+    // Limpiamos y normalizamos el término de búsqueda
+    const busquedaLimpia = busquedaEmpleado?.toLowerCase().trim() || "";
+
+    if (!busquedaLimpia) return true;
+
+    // Construimos el texto completo del empleado para búsqueda
+    const textoCompleto = `${empleado.nombre || ""} ${
+      empleado.ap_paterno || ""
+    } ${empleado.ap_materno || ""} ${empleado.curp_user || ""}`
+      .toLowerCase()
+      .trim();
+
+    // Términos individuales de búsqueda
+    const terminosBusqueda = busquedaLimpia.split(/\s+/);
+
+    // Verifica si todos los términos de búsqueda están presentes
+    const coincideBusqueda = terminosBusqueda.every((termino) =>
+      textoCompleto.includes(termino)
+    );
 
     const coincideEstado =
       !estadoEmpleadoFiltro || empleado.estado === estadoEmpleadoFiltro;

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ClipboardList, Check, Save, X } from "lucide-react";
+import { useLocation } from "../../context/LocationContext";
 
 export default function GrupoForm({
   editando = false,
@@ -25,6 +26,8 @@ export default function GrupoForm({
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [cargando, setCargando] = useState(false);
+
+  const { currentLocation, locationVersion } = useLocation();
 
   // Cargar estados al iniciar
   useEffect(() => {
@@ -135,6 +138,25 @@ export default function GrupoForm({
     };
     fetchUbicacion();
   }, []);
+
+  // Efecto que escucha cambios en la ubicación
+  useEffect(() => {
+    if (currentLocation) {
+      console.log(
+        "📍 Actualizando formulario con nueva ubicación:",
+        currentLocation
+      );
+      setForm((prev) => ({
+        ...prev,
+        estado: currentLocation.nombre_estado || "",
+        municipio: currentLocation.nombre_municipio || "",
+        hospital: currentLocation.nombre_hospital || "",
+        id_estado: currentLocation.id_estado,
+        id_municipio: currentLocation.id_municipio,
+        id_hospital: currentLocation.id_hospital,
+      }));
+    }
+  }, [currentLocation, locationVersion]); // Agregamos locationVersion como dependencia
 
   const validateField = (name, value) => {
     let error = "";
