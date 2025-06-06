@@ -3,8 +3,8 @@
 import { useState, useEffect, useMemo } from "react"
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps"
 import { scaleQuantile } from "d3-scale"
-import { format } from "date-fns"
-import { Calendar, Building2, MapPin, Clock, LogOut, Plus, Minus, Users, ArrowUpRight, Briefcase, Building, TrendingUp } from "lucide-react"
+import { format, subDays, subMonths, subYears, isAfter } from "date-fns"
+import { Calendar, Building2, MapPin, Clock, LogOut, Plus, Minus, Users, ArrowUpRight, Briefcase, Building, TrendingUp, Check } from "lucide-react"
 import { AreaChart, Area, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, LabelList } from 'recharts'
 
 // URL del mapa GeoJSON de México (estados)
@@ -145,6 +145,89 @@ export default function EstatalDashboard() {
     coordinates: [-102, 23],
     zoom: 3
   })
+
+  // Estados para el filtro de fechas mejorado
+  const [selectedPreset, setSelectedPreset] = useState("30d")
+  const [hasChanges, setHasChanges] = useState(false)
+  const [tempDateRange, setTempDateRange] = useState({
+    startDate: format(new Date(new Date().setDate(new Date().getDate() - 30)), "yyyy-MM-dd"),
+    endDate: format(new Date(), "yyyy-MM-dd"),
+  })
+
+  const datePresets = [
+    { label: "Últimos 7 días", value: "7d", days: 7 },
+    { label: "Últimos 15 días", value: "15d", days: 15 },
+    { label: "Últimos 30 días", value: "30d", days: 30 },
+    { label: "Últimos 60 días", value: "60d", days: 60 },
+    { label: "Últimos 90 días", value: "90d", days: 90 },
+    { label: "Último trimestre", value: "3m", months: 3 },
+    { label: "Últimos 6 meses", value: "6m", months: 6 },
+    { label: "Último año", value: "1y", years: 1 },
+    { label: "Personalizado", value: "custom" },
+  ]
+
+  const handlePresetChange = (preset) => {
+    setSelectedPreset(preset)
+    const today = new Date()
+
+    if (preset === "custom") {
+      return
+    }
+
+    const presetConfig = datePresets.find((p) => p.value === preset)
+    if (!presetConfig) return
+
+    let newStartDate
+    if (presetConfig.days) {
+      newStartDate = subDays(today, presetConfig.days)
+    } else if (presetConfig.months) {
+      newStartDate = subMonths(today, presetConfig.months)
+    } else if (presetConfig.years) {
+      newStartDate = subYears(today, presetConfig.years)
+    } else {
+      return
+    }
+
+    setTempDateRange({
+      startDate: format(newStartDate, "yyyy-MM-dd"),
+      endDate: format(today, "yyyy-MM-dd"),
+    })
+    setHasChanges(true)
+  }
+
+  const handleDateChange = (field, value) => {
+    setTempDateRange((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
+    setSelectedPreset("custom")
+    setHasChanges(true)
+  }
+
+  const applyChanges = () => {
+    setDateRange(tempDateRange)
+    setHasChanges(false)
+  }
+
+  const resetToOriginal = () => {
+    setTempDateRange(dateRange)
+    setHasChanges(false)
+    setSelectedPreset("")
+  }
+
+  const isValidRange =
+    tempDateRange.startDate &&
+    tempDateRange.endDate &&
+    !isAfter(new Date(tempDateRange.startDate), new Date(tempDateRange.endDate))
+
+  const daysDifference =
+    tempDateRange.startDate && tempDateRange.endDate
+      ? Math.ceil(
+          (new Date(tempDateRange.endDate).getTime() -
+            new Date(tempDateRange.startDate).getTime()) /
+            (1000 * 60 * 60 * 24)
+        )
+      : 0
 
   // Simular datos por estado y municipio
   useEffect(() => {
@@ -498,111 +581,188 @@ export default function EstatalDashboard() {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         {/* Header con Filtros */}
         <div className="max-w-7xl mx-auto pt-8 px-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            {/* Selector de Estado */}
-            <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/30">
-              <div className="flex items-center mb-6">
-                <MapPin className="h-6 w-6 text-indigo-600 mr-3" />
-                <h3 className="text-2xl font-bold text-gray-800">Selección de Estado</h3>
+          {/* Panel principal de filtros */}
+          <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/30 mb-8">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center mr-4">
+                  <MapPin className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">Filtros de Análisis</h2>
+                  <p className="text-sm text-gray-600">Configura los parámetros de visualización</p>
+                </div>
               </div>
-              <div className="flex flex-col space-y-4">
-                <label className="block text-base text-gray-700 font-semibold">
-                  Estado Actual: <span className="text-indigo-600">{stateCodeToName[selectedState]}</span>
-                </label>
-                <select
-                  value={selectedState}
-                  onChange={(e) => setSelectedState(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors shadow bg-white"
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={resetToOriginal}
+                  className="px-4 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-2"
                 >
-                  {stateData.map((state) => (
-                    <option key={state.state} value={state.state}>
-                      {stateCodeToName[state.state] || state.state}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-sm text-gray-600 mt-2">
-                  Selecciona un estado para ver sus estadísticas detalladas y la distribución de datos por municipio.
-                </p>
+                  <Clock className="h-4 w-4" />
+                  Restablecer
+                </button>
+                <button 
+                  onClick={applyChanges}
+                  disabled={!isValidRange}
+                  className="px-4 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Check className="h-4 w-4" />
+                  Aplicar Filtros
+                </button>
               </div>
             </div>
 
-            {/* Filtro de Fechas */}
-            <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/30">
-              <div className="flex items-center mb-6">
-                <Calendar className="h-6 w-6 text-emerald-600 mr-3" />
-                <h3 className="text-2xl font-bold text-gray-800">Período de Análisis</h3>
-              </div>
-              <div className="grid grid-cols-2 gap-8">
-                <div>
-                  <label className="block text-base text-gray-700 mb-2 font-semibold">Desde</label>
-                  <input
-                    type="date"
-                    value={dateRange.startDate}
-                    onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow"
-                  />
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              {/* Selector de Estado */}
+              <div className="lg:col-span-4">
+                <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-gray-800">Estado Seleccionado</h3>
+                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                      <Building2 className="h-4 w-4 text-emerald-600" />
+                    </div>
+                  </div>
+                  <select
+                    value={selectedState}
+                    onChange={(e) => setSelectedState(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white shadow-sm text-base"
+                  >
+                    <option value="">Seleccionar Estado</option>
+                    {stateData.map((state) => (
+                      <option key={state.state} value={state.state}>
+                        {stateCodeToName[state.state] || state.state}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedState && (
+                    <div className="mt-4 p-3 bg-emerald-50 rounded-lg border border-emerald-100">
+                      <p className="text-sm text-emerald-700">
+                        Estado actual: <span className="font-semibold">{stateCodeToName[selectedState]}</span>
+                      </p>
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-base text-gray-700 mb-2 font-semibold">Hasta</label>
-                  <input
-                    type="date"
-                    value={dateRange.endDate}
-                    onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow"
-                  />
+              </div>
+
+              {/* Filtros de Fecha */}
+              <div className="lg:col-span-8">
+                <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="font-semibold text-gray-800">Período de Análisis</h3>
+                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                      <Calendar className="h-4 w-4 text-emerald-600" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Selector Rápido */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Selección Rápida
+                      </label>
+                      <select
+                        value={selectedPreset}
+                        onChange={(e) => handlePresetChange(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white shadow-sm"
+                      >
+                        <option value="">Personalizado</option>
+                        {datePresets.map((preset) => (
+                          <option key={preset.value} value={preset.value}>
+                            {preset.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Fechas Personalizadas */}
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Desde
+                          </label>
+                          <input
+                            type="date"
+                            value={tempDateRange.startDate}
+                            onChange={(e) => handleDateChange("startDate", e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white shadow-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Hasta
+                          </label>
+                          <input
+                            type="date"
+                            value={tempDateRange.endDate}
+                            onChange={(e) => handleDateChange("endDate", e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white shadow-sm"
+                          />
+                        </div>
+                      </div>
+                      {isValidRange && (
+                        <div className="flex items-center justify-between px-4 py-2 bg-emerald-50 rounded-lg border border-emerald-100">
+                          <span className="text-sm text-emerald-700">
+                            Período: {daysDifference} días
+                          </span>
+                          {hasChanges && (
+                            <span className="text-xs text-emerald-600 font-medium px-2 py-1 bg-emerald-100 rounded-full">
+                              Cambios pendientes
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {/* Hospital Card */}
-            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg p-4 text-white">
-              <div className="flex items-center justify-between mb-2">
-                <Building2 className="h-6 w-6 text-emerald-100" />
-                <TrendingUp className="h-4 w-4 text-emerald-200" />
+          {/* Métricas Rápidas */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl p-6 text-white">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Building2 className="h-5 w-5 text-white" />
+                </div>
+                <TrendingUp className="h-4 w-4 text-white/70" />
               </div>
-              <h3 className="text-sm font-medium text-emerald-100 mb-1">Total Hospitales</h3>
-              <p className="text-2xl font-bold">
-                {stateData.find((s) => s.state === selectedState)?.hospitals || 0}
-              </p>
+              <p className="text-sm text-white/70">Total Hospitales</p>
+              <p className="text-2xl font-bold">24</p>
             </div>
 
-            {/* Employees Card */}
-            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg p-4 text-white">
-              <div className="flex items-center justify-between mb-2">
-                <Users className="h-6 w-6 text-blue-100" />
-                <TrendingUp className="h-4 w-4 text-blue-200" />
+            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-6 text-white">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-white" />
+                </div>
+                <TrendingUp className="h-4 w-4 text-white/70" />
               </div>
-              <h3 className="text-sm font-medium text-blue-100 mb-1">Total Empleados</h3>
-              <p className="text-2xl font-bold">
-                {(stateData.find((s) => s.state === selectedState)?.employees || 0).toLocaleString()}
-              </p>
+              <p className="text-sm text-white/70">Total Personal</p>
+              <p className="text-2xl font-bold">1,248</p>
             </div>
 
-            {/* Geofence Exits Card */}
-            <div className="bg-gradient-to-br from-red-500 to-pink-600 rounded-xl shadow-lg p-4 text-white">
-              <div className="flex items-center justify-between mb-2">
-                <MapPin className="h-6 w-6 text-red-100" />
-                <TrendingUp className="h-4 w-4 text-red-200" />
+            <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-6 text-white">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <MapPin className="h-5 w-5 text-white" />
+                </div>
+                <TrendingUp className="h-4 w-4 text-white/70" />
               </div>
-              <h3 className="text-sm font-medium text-red-100 mb-1">Salidas Totales</h3>
-              <p className="text-2xl font-bold">
-                {(stateData.find((s) => s.state === selectedState)?.geofenceExits || 0).toLocaleString()}
-              </p>
+              <p className="text-sm text-white/70">Salidas Totales</p>
+              <p className="text-2xl font-bold">567</p>
             </div>
 
-            {/* Hours Card */}
-            <div className="bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl shadow-lg p-4 text-white">
-              <div className="flex items-center justify-between mb-2">
-                <Calendar className="h-6 w-6 text-purple-100" />
-                <TrendingUp className="h-4 w-4 text-purple-200" />
+            <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-6 text-white">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Clock className="h-5 w-5 text-white" />
+                </div>
+                <TrendingUp className="h-4 w-4 text-white/70" />
               </div>
-              <h3 className="text-sm font-medium text-purple-100 mb-1">Horas Totales</h3>
-              <p className="text-2xl font-bold">
-                {(stateData.find((s) => s.state === selectedState)?.hoursWorked || 0).toLocaleString()}
-              </p>
+              <p className="text-sm text-white/70">Horas Totales</p>
+              <p className="text-2xl font-bold">1,920</p>
             </div>
           </div>
 

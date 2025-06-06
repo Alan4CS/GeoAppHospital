@@ -537,77 +537,80 @@ export default function EnhancedMunicipalDashboard() {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         {/* Header con Filtros */}
         <div className="max-w-7xl mx-auto pt-8 px-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            {/* Selector de Estado y Municipio */}
-            <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/30 lg:col-span-2">
-              <div className="flex items-center mb-6">
-                <MapPin className="h-6 w-6 text-indigo-600 mr-3" />
-                <h3 className="text-2xl font-bold text-gray-800">Selección de Ubicación</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-base text-gray-700 font-semibold mb-2">
-                    Estado: <span className="text-indigo-600">{selectedEstado}</span>
-                  </label>
-                  <select
-                    value={selectedEstado}
-                    onChange={(e) => {
-                      setSelectedEstado(e.target.value)
-                      setSelectedMunicipio("")
-                    }}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors shadow bg-white"
-                  >
-                    {estadosList.map((estado) => (
-                      <option key={estado} value={estado}>
-                        {estado}
-                      </option>
-                    ))}
-                  </select>
+          {/* Panel principal de filtros */}
+          <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/30 mb-8">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center mr-4">
+                  <MapPin className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <label className="block text-base text-gray-700 font-semibold mb-2">
-                    Municipio: <span className="text-emerald-600">{selectedMunicipio}</span>
-                  </label>
-                  <select
-                    value={selectedMunicipio}
-                    onChange={(e) => setSelectedMunicipio(e.target.value)}
-                    disabled={!selectedEstado}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow bg-white disabled:bg-gray-100"
-                  >
-                    <option value="">Seleccionar municipio</option>
-                    {municipiosList.map((municipio) => (
-                      <option key={municipio} value={municipio}>
-                        {municipio}
-                      </option>
-                    ))}
-                  </select>
+                  <h2 className="text-2xl font-bold text-gray-800">Filtros de Análisis</h2>
+                  <p className="text-sm text-gray-600 mt-1">Selecciona la ubicación y el período de tiempo a analizar</p>
                 </div>
               </div>
             </div>
 
-            {/* Filtro de Fechas */}
-            <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/30">
-              <div className="flex items-center mb-6">
-                <Calendar className="h-6 w-6 text-emerald-600 mr-3" />
-                <h3 className="text-2xl font-bold text-gray-800">Período</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Selector de Estado */}
+              <div>
+                <label className="block text-base text-gray-700 font-semibold mb-2">
+                  Estado: <span className="text-emerald-600">{selectedEstado}</span>
+                </label>
+                <select
+                  value={selectedEstado}
+                  onChange={(e) => {
+                    setSelectedEstado(e.target.value)
+                    setSelectedMunicipio("")
+                  }}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-base focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow-sm bg-white hover:bg-gray-50"
+                >
+                  {estadosList.map((estado) => (
+                    <option key={estado} value={estado}>
+                      {estado}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div className="space-y-4">
+
+              {/* Selector de Municipio */}
+              <div>
+                <label className="block text-base text-gray-700 font-semibold mb-2">
+                  Municipio: <span className="text-emerald-600">{selectedMunicipio}</span>
+                </label>
+                <select
+                  value={selectedMunicipio}
+                  onChange={(e) => setSelectedMunicipio(e.target.value)}
+                  disabled={!selectedEstado}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-base focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow-sm bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">Seleccionar municipio</option>
+                  {municipiosList.map((municipio) => (
+                    <option key={municipio} value={municipio}>
+                      {municipio}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Selector de Fechas */}
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-base text-gray-700 mb-2 font-semibold">Desde</label>
+                  <label className="block text-base text-gray-700 font-semibold mb-2">Desde</label>
                   <input
                     type="date"
                     value={dateRange.startDate}
                     onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-base focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow-sm bg-white hover:bg-gray-50"
                   />
                 </div>
                 <div>
-                  <label className="block text-base text-gray-700 mb-2 font-semibold">Hasta</label>
+                  <label className="block text-base text-gray-700 font-semibold mb-2">Hasta</label>
                   <input
                     type="date"
                     value={dateRange.endDate}
                     onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-base focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow-sm bg-white hover:bg-gray-50"
                   />
                 </div>
               </div>
