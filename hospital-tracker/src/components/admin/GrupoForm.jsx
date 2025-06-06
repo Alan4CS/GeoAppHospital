@@ -4,109 +4,54 @@ import { useEffect, useState } from "react";
 import { ClipboardList, Check, Save, X } from "lucide-react";
 import { useLocation } from "../../context/LocationContext";
 
-export default function GrupoForm({
+const GrupoForm = ({
   editando = false,
   grupo = null,
   onGuardar,
   onCancelar,
-}) {
+}) => {
+  // Estados iniciales
   const [form, setForm] = useState({
     nombre: "",
     descripcion: "",
     hospital_id: "",
     activo: true,
+    estado: "",
+    municipio: "",
+    hospital: "",
+    id_estado: null,
+    id_municipio: null,
+    id_hospital: null,
   });
 
-  const [estados, setEstados] = useState([]);
-  const [municipios, setMunicipios] = useState([]);
-  const [hospitales, setHospitales] = useState([]);
-
-  const [estadoId, setEstadoId] = useState("");
-  const [municipioId, setMunicipioId] = useState("");
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [cargando, setCargando] = useState(false);
 
   const { currentLocation, locationVersion } = useLocation();
 
-  // Cargar estados al iniciar
+  // Solo mantenemos el efecto de ubicación inicial
   useEffect(() => {
-    const fetchEstados = async () => {
-      try {
-        const res = await fetch(
-          "https://geoapphospital.onrender.com/api/superadmin/estados"
-        );
-        const data = await res.json();
-        setEstados(data);
-      } catch (error) {
-        console.error("Error al obtener estados:", error);
-      }
-    };
-    fetchEstados();
-  }, []);
-
-  // Cargar municipios al seleccionar estado
-  useEffect(() => {
-    const fetchMunicipios = async () => {
-      if (!estadoId) {
-        setMunicipios([]);
-        return;
-      }
+    const fetchLocationData = async () => {
+      const userId = localStorage.getItem("userId");
+      if (!userId) return;
 
       try {
-        const res = await fetch(
-          `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${estadoId}`
-        );
-        const data = await res.json();
-        setMunicipios(data);
-      } catch (error) {
-        console.error("Error al obtener municipios:", error);
-        setMunicipios([]);
-      }
-    };
-    fetchMunicipios();
-  }, [estadoId]);
+        setCargando(true);
+        console.log("🚀 Iniciando fetch de ubicación");
 
-  // Cargar hospitales al seleccionar municipio
-  useEffect(() => {
-    const fetchHospitales = async () => {
-      if (!estadoId || !municipioId) {
-        setHospitales([]);
-        return;
-      }
-
-      try {
-        const res = await fetch(
-          `https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoId}&id_municipio=${municipioId}`
-        );
-        const data = await res.json();
-        const normalizados = data.map((h) => ({
-          id: h.id_hospital,
-          nombre: h.nombre_hospital,
-        }));
-        setHospitales(normalizados);
-      } catch (error) {
-        console.error("Error al obtener hospitales:", error);
-        setHospitales([]);
-      }
-    };
-    fetchHospitales();
-  }, [estadoId, municipioId]);
-
-  // Autorrellenar estado, municipio y hospital SOLO con el endpoint de ubicacion
-  useEffect(() => {
-    const userId = localStorage.getItem("userId");
-    if (!userId) return;
-
-    const fetchUbicacion = async () => {
-      try {
         const res = await fetch(
           `https://geoapphospital.onrender.com/api/superadmin/superadmin-hospital-ubi/${userId}`
         );
+
         if (!res.ok) throw new Error("Error al obtener ubicación del admin");
+
         const data = await res.json();
+        console.log("📍 Datos de ubicación recibidos:", data);
+
         if (data && data.length > 0) {
-          const info = data[0];
+          const info = data[0]; // Tomamos el primer elemento del array
+
           setForm((prev) => ({
             ...prev,
             estado: info.nombre_estado || "",
@@ -115,29 +60,19 @@ export default function GrupoForm({
             id_estado: info.id_estado,
             id_municipio: info.id_municipio,
             id_hospital: info.id_hospital,
+            hospital_id: info.id_hospital, // Importante para el submit
           }));
-          setEstados([
-            { id_estado: info.id_estado, nombre_estado: info.nombre_estado },
-          ]);
-          setMunicipios([
-            {
-              id_municipio: info.id_municipio,
-              nombre_municipio: info.nombre_municipio,
-            },
-          ]);
-          setHospitales([
-            {
-              id_hospital: info.id_hospital,
-              nombre_hospital: info.nombre_hospital,
-            },
-          ]);
         }
       } catch (error) {
-        console.error("Error al obtener ubicación del admin:", error);
+        console.error("❌ Error al obtener ubicación:", error);
+        alert("Error al cargar la ubicación inicial");
+      } finally {
+        setCargando(false);
       }
     };
-    fetchUbicacion();
-  }, []);
+
+    fetchLocationData();
+  }, []); // Solo se ejecuta al montar el componente
 
   // Efecto que escucha cambios en la ubicación
   useEffect(() => {
@@ -172,76 +107,77 @@ export default function GrupoForm({
     const { name, value, type, checked } = e.target;
     const val = type === "checkbox" ? checked : value;
 
-    if (name === "estado") {
-      setEstadoId(val);
-      setMunicipioId("");
-      setHospitales([]);
-      setForm((prev) => ({ ...prev, hospital_id: "" }));
-    } else if (name === "municipio") {
-      setMunicipioId(val);
-      setForm((prev) => ({ ...prev, hospital_id: "" }));
-    } else {
-      setForm({ ...form, [name]: val });
-      setTouched({ ...touched, [name]: true });
-      const error = validateField(name, val);
-      setErrors({ ...errors, [name]: error });
-    }
+    setForm({ ...form, [name]: val });
+    setTouched({ ...touched, [name]: true });
+    const error = validateField(name, val);
+    setErrors({ ...errors, [name]: error });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("📤 Enviando formulario con datos:", form);
 
-    const newErrors = {};
-    let isValid = true;
+    // Validaciones
+    if (!form.nombre?.trim() || !form.descripcion?.trim()) {
+      setErrors((prev) => ({
+        ...prev,
+        nombre: !form.nombre?.trim() ? "El nombre es obligatorio" : "",
+        descripcion: !form.descripcion?.trim()
+          ? "La descripción es obligatoria"
+          : "",
+      }));
+      return;
+    }
 
-    ["nombre", "descripcion", "hospital_id"].forEach((field) => {
-      const error = validateField(field, form[field]);
-      if (error) {
-        newErrors[field] = error;
-        isValid = false;
-      }
-    });
-
-    setErrors(newErrors);
-    setTouched({
-      nombre: true,
-      descripcion: true,
-      hospital_id: true,
-    });
-
-    if (!isValid) return;
-
-    const payload = {
-      nombre_grupo: form.nombre,
-      descripcion_grupo: form.descripcion,
-      id_hospital: form.hospital_id,
-    };
+    if (!form.id_hospital) {
+      alert("Error: No hay hospital asignado");
+      return;
+    }
 
     try {
       setCargando(true);
+      const payload = {
+        nombre_grupo: form.nombre.trim(),
+        descripcion_grupo: form.descripcion.trim(),
+        id_hospital: form.id_hospital,
+      };
+
+      console.log("Enviando datos al servidor:", payload);
+
       const res = await fetch(
         "https://geoapphospital.onrender.com/api/groups/create-groups",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify(payload),
         }
       );
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Error al guardar grupo");
 
-      console.log("Grupo guardado:", data);
+      if (!res.ok) {
+        throw new Error(data.message || "Error al crear el grupo");
+      }
 
-      setForm({ nombre: "", descripcion: "", hospital_id: "", activo: true });
-      setEstadoId("");
-      setMunicipioId("");
-      setHospitales([]);
+      alert("Grupo creado exitosamente");
+      console.log("Grupo creado:", data);
 
-      if (onGuardar) onGuardar(data);
-    } catch (err) {
-      console.error("Error al guardar:", err);
-      alert(err.message);
+      // Limpiar formulario
+      setForm((prev) => ({
+        ...prev,
+        nombre: "",
+        descripcion: "",
+        activo: true,
+      }));
+
+      if (onGuardar) {
+        onGuardar(data);
+      }
+    } catch (error) {
+      console.error("Error en la creación del grupo:", error);
+      alert(error.message || "Error al crear el grupo");
     } finally {
       setCargando(false);
     }
@@ -272,9 +208,6 @@ export default function GrupoForm({
           <p className="mt-1 text-xs text-gray-400">
             Estado asignado automáticamente desde la ubicación del administrador
           </p>
-          {errors.estado && touched.estado && (
-            <p className="mt-1 text-sm text-red-600">{errors.estado}</p>
-          )}
         </div>
 
         {/* Municipio */}
@@ -293,9 +226,6 @@ export default function GrupoForm({
             Municipio asignado automáticamente desde la ubicación del
             administrador
           </p>
-          {errors.municipio && touched.municipio && (
-            <p className="mt-1 text-sm text-red-600">{errors.municipio}</p>
-          )}
         </div>
 
         {/* Hospital */}
@@ -314,9 +244,6 @@ export default function GrupoForm({
             Hospital asignado automáticamente desde la ubicación del
             administrador
           </p>
-          {errors.hospital && touched.hospital && (
-            <p className="mt-1 text-sm text-red-600">{errors.hospital}</p>
-          )}
         </div>
 
         {/* Nombre del grupo */}
@@ -394,4 +321,6 @@ export default function GrupoForm({
       </form>
     </div>
   );
-}
+};
+
+export default GrupoForm;

@@ -25,76 +25,77 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
     municipio: "",
     hospital: "",
     grupo: "",
+    id_estado: null,
+    id_municipio: null,
+    id_hospital: null,
   });
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
-  const [estados, setEstados] = useState([]);
-  const [municipios, setMunicipios] = useState([]);
-  const [hospitales, setHospitales] = useState([]);
   const [grupos, setGrupos] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { currentLocation, locationVersion } = useLocation();
+  const [cargando, setCargando] = useState(false);
 
-  // Reemplazar el useEffect existente de ubicación con este nuevo
+  // Efecto para cargar la ubicación inicial
   useEffect(() => {
-    if (currentLocation) {
-      console.log(
-        "📍 Actualizando formulario empleados con nueva ubicación:",
-        currentLocation
-      );
-      setForm((prev) => ({
-        ...prev,
-        estado: currentLocation.nombre_estado || "",
-        municipio: currentLocation.nombre_municipio || "",
-        hospital: currentLocation.nombre_hospital || "",
-        id_estado: currentLocation.id_estado,
-        id_municipio: currentLocation.id_municipio,
-        id_hospital: currentLocation.id_hospital,
-      }));
+    const fetchLocationData = async () => {
+      const userId = localStorage.getItem("userId");
+      if (!userId) return;
 
-      // Actualizar los estados para los dropdowns
-      setEstados([
-        {
-          id_estado: currentLocation.id_estado,
-          nombre_estado: currentLocation.nombre_estado,
-        },
-      ]);
-      setMunicipios([
-        {
-          id_municipio: currentLocation.id_municipio,
-          nombre_municipio: currentLocation.nombre_municipio,
-        },
-      ]);
-      setHospitales([
-        {
-          id_hospital: currentLocation.id_hospital,
-          nombre_hospital: currentLocation.nombre_hospital,
-        },
-      ]);
-    }
-  }, [currentLocation, locationVersion]);
+      try {
+        setCargando(true);
+        console.log("🚀 Iniciando fetch de ubicación");
 
-  // Obtener grupos cuando cambia el id_hospital
-  useEffect(() => {
-    if (form.id_hospital) {
-      const fetchGrupos = async () => {
-        try {
-          const res = await fetch(
-            `https://geoapphospital.onrender.com/api/employees/grupos-by-hospital?id_hospital=${form.id_hospital}`
-          );
-          if (!res.ok) throw new Error("Error al obtener grupos");
-          const data = await res.json();
-          setGrupos(data);
-        } catch (error) {
-          console.error("Error al obtener grupos:", error);
-          setGrupos([]);
+        const res = await fetch(
+          `https://geoapphospital.onrender.com/api/superadmin/superadmin-hospital-ubi/${userId}`
+        );
+
+        if (!res.ok) throw new Error("Error al obtener ubicación del admin");
+        const data = await res.json();
+        console.log("📍 Datos de ubicación recibidos:", data);
+
+        if (data && data.length > 0) {
+          const info = data[0];
+
+          setForm((prev) => ({
+            ...prev,
+            estado: info.nombre_estado || "",
+            municipio: info.nombre_municipio || "",
+            hospital: info.nombre_hospital || "",
+            id_estado: info.id_estado,
+            id_municipio: info.id_municipio,
+            id_hospital: info.id_hospital,
+          }));
+
+          // Cargar grupos del hospital inmediatamente
+          if (info.id_hospital) {
+            fetchGrupos(info.id_hospital);
+          }
         }
-      };
-      fetchGrupos();
-    } else {
+      } catch (error) {
+        console.error("❌ Error al obtener ubicación:", error);
+        alert("Error al cargar la ubicación inicial");
+      } finally {
+        setCargando(false);
+      }
+    };
+
+    fetchLocationData();
+  }, []);
+
+  // Función para cargar grupos
+  const fetchGrupos = async (hospitalId) => {
+    try {
+      const res = await fetch(
+        `https://geoapphospital.onrender.com/api/employees/grupos-by-hospital?id_hospital=${hospitalId}`
+      );
+      if (!res.ok) throw new Error("Error al obtener grupos");
+      const data = await res.json();
+      setGrupos(data);
+    } catch (error) {
+      console.error("Error al obtener grupos:", error);
       setGrupos([]);
     }
-  }, [form.id_hospital]);
+  };
 
   const validateField = (name, value) => {
     let error = "";
@@ -239,30 +240,6 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
     const pass = generarPassword();
 
     try {
-      // Obtener el ID del estado seleccionado
-      const estadoSeleccionado = estados.find(
-        (e) => e.nombre_estado === form.estado
-      );
-      // Obtener el ID del municipio seleccionado
-      const municipioSeleccionado = municipios.find(
-        (m) => m.nombre_municipio === form.municipio
-      );
-      // Obtener el ID del hospital seleccionado
-      const hospitalSeleccionado = hospitales.find(
-        (h) => h.nombre_hospital === form.hospital
-      );
-
-      if (!estadoSeleccionado) {
-        throw new Error("Estado no encontrado");
-      }
-      if (!municipioSeleccionado) {
-        throw new Error("Municipio no encontrado");
-      }
-      if (!hospitalSeleccionado) {
-        throw new Error("Hospital no encontrado");
-      }
-
-      // Crear el objeto empleado con los datos del formulario
       const empleadoData = {
         nombre: form.nombres,
         ap_paterno: form.ap_paterno,
@@ -273,20 +250,18 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
         user,
         pass,
         role_name: "empleado",
-        id_estado: parseInt(estadoSeleccionado.id_estado),
-        id_municipio: parseInt(municipioSeleccionado.id_municipio),
-        id_hospital: parseInt(hospitalSeleccionado.id_hospital),
+        id_estado: form.id_estado,
+        id_municipio: form.id_municipio,
+        id_hospital: form.id_hospital,
         id_grupo: parseInt(form.grupo),
       };
-      console.log("Datos del empleado:", empleadoData);
 
-      // Llamar a la función de guardar del componente padre
       if (onGuardar) {
         await onGuardar(empleadoData);
       }
     } catch (error) {
       console.error("Error al crear empleado:", error);
-      alert("Hubo un error al crear el empleado.");
+      alert("Error al crear el empleado");
     } finally {
       setIsSubmitting(false);
     }
