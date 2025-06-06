@@ -2,6 +2,7 @@ import { useState } from "react";
 import NacionalDashboard from "./nacional/NacionalDashboard";
 import EstatalDashboard from "./estatal/EstatalDashboard";
 import MunicipalDashboard from "./municipal/MunicipalDashboard";
+import HospitalDashboard from "./hospital/HospitalDashboard";
 
 // Componente principal del dashboard de monitoreo
 const MonitoreoDashboard = () => {
@@ -46,6 +47,16 @@ const MonitoreoDashboard = () => {
           >
             Municipal
           </button>
+          <button
+            onClick={() => setSelectedTab("hospital")}
+            className={`px-4 py-2 text-sm font-medium ${
+              selectedTab === "hospital"
+                ? "text-emerald-600 border-b-2 border-emerald-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Hospital
+          </button>
           {/* Aquí puedes agregar más botones para otros dashboards en el futuro */}
         </div>
       </div>
@@ -56,6 +67,7 @@ const MonitoreoDashboard = () => {
       {selectedTab === "municipal" && (
         <MunicipalDashboard municipio={municipio} estado={estado} />
       )}
+      {selectedTab === "hospital" && <HospitalDashboard />}
       {/* Aquí puedes agregar más renderizados condicionales para otros dashboards */}
     </div>
   );
