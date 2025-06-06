@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Calendar,
   Users,
@@ -136,12 +136,119 @@ const HospitalDashboard = () => {
         )
       : 0;
 
-  // Estados para los filtros de ubicación
+  // Estados para los filtros de ubicación alineados con la estructura
   const [filters, setFilters] = useState({
-    state: "Quintana Roo",
-    municipality: "Benito Juárez",
-    hospital: "Hospital General Regional No. 17",
+    id_estado: "",
+    id_municipio: "",
+    id_hospital: "",
+    nombre_estado: "",
+    nombre_municipio: "",
+    nombre_hospital: "",
   });
+
+  const [estados, setEstados] = useState([]);
+  const [municipios, setMunicipios] = useState([]);
+  const [hospitales, setHospitales] = useState([]);
+
+  // Cargar estados
+  useEffect(() => {
+    const fetchEstados = async () => {
+      try {
+        const res = await fetch(
+          "https://geoapphospital.onrender.com/api/superadmin/estados"
+        );
+        const data = await res.json();
+        setEstados(data);
+      } catch (error) {
+        console.error("Error al obtener estados:", error);
+      }
+    };
+    fetchEstados();
+  }, []);
+
+  // Cargar municipios al seleccionar estado
+  useEffect(() => {
+    if (!filters.id_estado) {
+      setMunicipios([]);
+      return;
+    }
+
+    const fetchMunicipios = async () => {
+      try {
+        const res = await fetch(
+          `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${filters.id_estado}`
+        );
+        const data = await res.json();
+        setMunicipios(data);
+      } catch (error) {
+        console.error("Error al obtener municipios:", error);
+        setMunicipios([]);
+      }
+    };
+    fetchMunicipios();
+  }, [filters.id_estado]);
+
+  // Cargar hospitales al seleccionar municipio
+  useEffect(() => {
+    if (!filters.id_estado || !filters.id_municipio) {
+      setHospitales([]);
+      return;
+    }
+
+    const fetchHospitales = async () => {
+      try {
+        const res = await fetch(
+          `https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${filters.id_estado}&id_municipio=${filters.id_municipio}`
+        );
+        const data = await res.json();
+        setHospitales(data);
+      } catch (error) {
+        console.error("Error al obtener hospitales:", error);
+        setHospitales([]);
+      }
+    };
+    fetchHospitales();
+  }, [filters.id_estado, filters.id_municipio]);
+
+  // Manejadores de cambios para los filtros
+  const handleEstadoChange = (e) => {
+    const estado = estados.find(
+      (estado) => estado.id_estado === Number(e.target.value)
+    );
+    setFilters({
+      ...filters,
+      id_estado: estado?.id_estado || "",
+      nombre_estado: estado?.nombre_estado || "",
+      id_municipio: "",
+      nombre_municipio: "",
+      id_hospital: "",
+      nombre_hospital: "",
+    });
+  };
+
+  const handleMunicipioChange = (e) => {
+    const municipio = municipios.find(
+      (mun) => mun.id_municipio === Number(e.target.value)
+    );
+    setFilters({
+      ...filters,
+      id_municipio: municipio?.id_municipio || "",
+      nombre_municipio: municipio?.nombre_municipio || "",
+      id_hospital: "",
+      nombre_hospital: "",
+    });
+  };
+
+  const handleHospitalChange = (e) => {
+    const hospital = hospitales.find(
+      (hosp) => hosp.id_hospital === Number(e.target.value)
+    );
+    setFilters({
+      ...filters,
+      id_hospital: hospital?.id_hospital || "",
+      nombre_hospital: hospital?.nombre_hospital || "",
+    });
+  };
 
   // Datos dummy para las tarjetas
   const cardData = {
@@ -312,15 +419,16 @@ const HospitalDashboard = () => {
                       <MapPin className="h-4 w-4 text-indigo-500" />
                     </div>
                     <select
-                      value={filters.state}
-                      onChange={(e) =>
-                        setFilters({ ...filters, state: e.target.value })
-                      }
+                      value={filters.id_estado}
+                      onChange={handleEstadoChange}
                       className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
-                      <option value="Quintana Roo">Quintana Roo</option>
-                      <option value="Yucatán">Yucatán</option>
-                      <option value="Campeche">Campeche</option>
+                      <option value="">Seleccionar Estado</option>
+                      {estados.map((estado) => (
+                        <option key={estado.id_estado} value={estado.id_estado}>
+                          {estado.nombre_estado}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -335,15 +443,20 @@ const HospitalDashboard = () => {
                       <MapPin className="h-4 w-4 text-purple-500" />
                     </div>
                     <select
-                      value={filters.municipality}
-                      onChange={(e) =>
-                        setFilters({ ...filters, municipality: e.target.value })
-                      }
+                      value={filters.id_municipio}
+                      onChange={handleMunicipioChange}
+                      disabled={!filters.id_estado}
                       className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
                     >
-                      <option value="Benito Juárez">Benito Juárez</option>
-                      <option value="Solidaridad">Solidaridad</option>
-                      <option value="Tulum">Tulum</option>
+                      <option value="">Seleccionar Municipio</option>
+                      {municipios.map((municipio) => (
+                        <option
+                          key={municipio.id_municipio}
+                          value={municipio.id_municipio}
+                        >
+                          {municipio.nombre_municipio}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -358,21 +471,20 @@ const HospitalDashboard = () => {
                       <Building2 className="h-4 w-4 text-blue-500" />
                     </div>
                     <select
-                      value={filters.hospital}
-                      onChange={(e) =>
-                        setFilters({ ...filters, hospital: e.target.value })
-                      }
+                      value={filters.id_hospital}
+                      onChange={handleHospitalChange}
+                      disabled={!filters.id_municipio}
                       className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="Hospital General Regional No. 17">
-                        HGR No. 17
-                      </option>
-                      <option value="Hospital General Regional No. 18">
-                        HGR No. 18
-                      </option>
-                      <option value="Hospital General Regional No. 19">
-                        HGR No. 19
-                      </option>
+                      <option value="">Seleccionar Hospital</option>
+                      {hospitales.map((hospital) => (
+                        <option
+                          key={hospital.id_hospital}
+                          value={hospital.id_hospital}
+                        >
+                          {hospital.nombre_hospital}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -700,159 +812,233 @@ const HospitalDashboard = () => {
           </div>
 
           {/* Nueva sección de análisis detallado */}
-          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-8 mb-8 mt-12 border border-gray-100/50">
-            <h2 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-              Análisis Detallado
-            </h2>
-
-            {/* Filtros */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl p-6 border border-white/50 hover:shadow-2xl transition-all duration-300 mb-8 mt-12">
+            <div className="flex flex-col gap-6">
+              {/* Título principal */}
               <div className="flex items-center">
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
-                  <Users className="h-4 w-4 text-blue-500" />
+                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center mr-3">
+                  <TrendingUp className="h-5 w-5 text-white" />
                 </div>
-                <select className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option>Todos los grupos</option>
-                  <option>Limpieza</option>
-                  <option>Mantenimiento</option>
-                </select>
+                <h3 className="text-lg font-bold text-gray-800">
+                  Análisis Detallado
+                </h3>
               </div>
 
-              <div className="flex items-center">
-                <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center mr-2">
-                  <Users className="h-4 w-4 text-purple-500" />
+              {/* Primera fila: Período y filtros */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
+                {/* Selector de períodos para análisis detallado */}
+                <div className="lg:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Período
+                  </label>
+                  <select className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    <option value="">Selección rápida</option>
+                    <option value="7d">Últimos 7 días</option>
+                    <option value="15d">Últimos 15 días</option>
+                    <option value="30d">Últimos 30 días</option>
+                    <option value="60d">Últimos 60 días</option>
+                    <option value="90d">Últimos 90 días</option>
+                    <option value="3m">Último trimestre</option>
+                    <option value="6m">Últimos 6 meses</option>
+                    <option value="1y">Último año</option>
+                    <option value="custom">Personalizado</option>
+                  </select>
                 </div>
-                <select className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500">
-                  <option>Todos los empleados</option>
-                  {employeesData.map((emp) => (
-                    <option key={emp.id}>{emp.name}</option>
-                  ))}
-                </select>
-              </div>
 
-              <div className="flex items-center">
-                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center mr-2">
-                  <Calendar className="h-4 w-4 text-emerald-500" />
+                {/* Grupo */}
+                <div className="lg:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Grupo
+                  </label>
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
+                      <Users className="h-4 w-4 text-blue-500" />
+                    </div>
+                    <select className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <option>Todos los grupos</option>
+                      <option>Limpieza</option>
+                      <option>Mantenimiento</option>
+                      <option>Vigilancia</option>
+                      <option>Camilleros</option>
+                      <option>Enfermería</option>
+                    </select>
+                  </div>
                 </div>
-                <input
-                  type="date"
-                  className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
 
-              <div className="flex items-center">
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
-                  <Calendar className="h-4 w-4 text-blue-500" />
-                </div>
-                <input
-                  type="date"
-                  className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            {/* Tarjetas de información */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-6 border border-red-200/50 shadow-sm hover:shadow-md transition-all duration-300">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-red-600">
-                    Salidas Totales
-                  </h3>
-                  <TrendingUp className="h-4 w-4 text-red-400" />
-                </div>
-                <p className="text-2xl font-bold text-red-700">24 hrs</p>
-              </div>
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200/50 shadow-sm hover:shadow-md transition-all duration-300">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-purple-600">
-                    Horas Totales
-                  </h3>
-                  <TrendingUp className="h-4 w-4 text-purple-400" />
-                </div>
-                <p className="text-2xl font-bold text-purple-700">1,920 hrs</p>
-              </div>
-            </div>
-
-            {/* Contenedor para tabla y gráfica */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              {/* Tabla de empleados */}
-              <div className="bg-white rounded-lg shadow-sm w-full">
-                <div className="max-h-[500px] overflow-y-auto custom-scrollbar w-full">
-                  <table className="w-full table-fixed">
-                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0 z-10">
-                      <tr>
-                        <th className="w-1/4 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Nombre
-                        </th>
-                        <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Horario
-                        </th>
-                        <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Hrs Plan
-                        </th>
-                        <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Hrs Efec
-                        </th>
-                        <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Hrs Fuera
-                        </th>
-                        <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Hrs Just
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {employeesData.map((employee) => (
-                        <tr
-                          key={employee.id}
-                          className="hover:bg-gray-50/50 transition-colors duration-200"
-                        >
-                          <td className="px-4 py-4 text-sm font-medium text-gray-900 truncate">
-                            {employee.name}
-                          </td>
-                          <td className="px-4 py-4 text-sm text-gray-500">
-                            {employee.schedule}
-                          </td>
-                          <td className="px-4 py-4 text-sm text-gray-500">
-                            {employee.plannedHours}
-                          </td>
-                          <td className="px-4 py-4 text-sm text-emerald-600 font-medium">
-                            {employee.workedHours}
-                          </td>
-                          <td className="px-4 py-4 text-sm text-red-600 font-medium">
-                            {employee.outsideHours}
-                          </td>
-                          <td className="px-4 py-4 text-sm text-blue-600 font-medium">
-                            {employee.justifiedHours}
-                          </td>
-                        </tr>
+                {/* Empleado */}
+                <div className="lg:col-span-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Empleado
+                  </label>
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center mr-2">
+                      <Users className="h-4 w-4 text-purple-500" />
+                    </div>
+                    <select className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                      <option>Todos los empleados</option>
+                      {employeesData.map((emp) => (
+                        <option key={emp.id}>{emp.name}</option>
                       ))}
-                    </tbody>
-                  </table>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Fecha inicio */}
+                <div className="lg:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Fecha inicio
+                  </label>
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center mr-2">
+                      <Calendar className="h-4 w-4 text-emerald-500" />
+                    </div>
+                    <input
+                      type="date"
+                      className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Fecha fin */}
+                <div className="lg:col-span-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Fecha fin
+                  </label>
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
+                      <Calendar className="h-4 w-4 text-blue-500" />
+                    </div>
+                    <input
+                      type="date"
+                      className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Gráfica de horas por empleado */}
-              <div className="h-[500px]">
-                <ResponsiveContainer>
-                  <BarChart data={employeeHoursData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar
-                      dataKey="horasTrabajadas"
-                      name="Horas Trabajadas"
-                      fill="#10B981"
-                    />
-                    <Bar
-                      dataKey="horasAfuera"
-                      name="Horas Fuera"
-                      fill="#EF4444"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+              {/* Botones de acción */}
+              <div className="flex gap-2 justify-end">
+                <button className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 text-sm">
+                  Limpiar Filtros
+                </button>
+                <button className="px-3 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center text-sm">
+                  <Check className="h-4 w-4 mr-1" />
+                  Aplicar Filtros
+                </button>
+              </div>
+
+              {/* Tarjetas de información - Ahora debajo de los filtros */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-4 text-white flex flex-col shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
+                  <div className="flex items-center justify-between mb-2">
+                    <MapPin className="h-6 w-6 opacity-90" />
+                    <TrendingUp className="h-4 w-4 text-red-200" />
+                  </div>
+                  <span className="text-sm text-red-100">Salidas Totales</span>
+                  <span className="text-xl font-bold">24 hrs</span>
+                </div>
+                <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white flex flex-col shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
+                  <div className="flex items-center justify-between mb-2">
+                    <Clock className="h-6 w-6 opacity-90" />
+                    <TrendingUp className="h-4 w-4 text-purple-200" />
+                  </div>
+                  <span className="text-sm text-purple-100">Horas Totales</span>
+                  <span className="text-xl font-bold">1,920 hrs</span>
+                </div>
+              </div>
+
+              {/* Mensaje informativo */}
+              <div className="space-y-2">
+                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 flex items-center">
+                  <Check className="h-4 w-4 text-blue-500 mr-2" />
+                  <span className="text-sm text-blue-800">
+                    Mostrando datos para todos los empleados en el período
+                    seleccionado
+                  </span>
+                </div>
+              </div>
+
+              {/* Contenedor para tabla y gráfica */}
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">
+                {/* Tabla de empleados */}
+                <div className="bg-white rounded-lg shadow-sm w-full">
+                  <div className="max-h-[500px] overflow-y-auto custom-scrollbar w-full">
+                    <table className="w-full table-fixed">
+                      <thead className="bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0 z-10">
+                        <tr>
+                          <th className="w-1/4 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Nombre
+                          </th>
+                          <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Horario
+                          </th>
+                          <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Hrs Plan
+                          </th>
+                          <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Hrs Efec
+                          </th>
+                          <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Hrs Fuera
+                          </th>
+                          <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Hrs Just
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {employeesData.map((employee) => (
+                          <tr
+                            key={employee.id}
+                            className="hover:bg-gray-50/50 transition-colors duration-200"
+                          >
+                            <td className="px-4 py-4 text-sm font-medium text-gray-900 truncate">
+                              {employee.name}
+                            </td>
+                            <td className="px-4 py-4 text-sm text-gray-500">
+                              {employee.schedule}
+                            </td>
+                            <td className="px-4 py-4 text-sm text-gray-500">
+                              {employee.plannedHours}
+                            </td>
+                            <td className="px-4 py-4 text-sm text-emerald-600 font-medium">
+                              {employee.workedHours}
+                            </td>
+                            <td className="px-4 py-4 text-sm text-red-600 font-medium">
+                              {employee.outsideHours}
+                            </td>
+                            <td className="px-4 py-4 text-sm text-blue-600 font-medium">
+                              {employee.justifiedHours}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Gráfica de horas por empleado */}
+                <div className="h-[500px]">
+                  <ResponsiveContainer>
+                    <BarChart data={employeeHoursData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar
+                        dataKey="horasTrabajadas"
+                        name="Horas Trabajadas"
+                        fill="#10B981"
+                      />
+                      <Bar
+                        dataKey="horasAfuera"
+                        name="Horas Fuera"
+                        fill="#EF4444"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
           </div>
