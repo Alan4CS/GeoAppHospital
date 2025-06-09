@@ -91,6 +91,32 @@ const createClusterCustomIcon = cluster => {
   });
 };
 
+// Icono de cluster personalizado para empleados
+const createEmployeeClusterIcon = cluster => {
+  const count = cluster.getChildCount();
+  let size;
+  if (count < 10) size = 30;
+  else if (count < 100) size = 35;
+  else size = 40;
+
+  return L.divIcon({
+    html: `
+      <div style="background-color: rgba(16, 185, 129, 0.92); width: ${size}px; height: ${size}px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; position: relative;">
+        <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white' width='${size/2}px' height='${size/2}px'>
+          <circle cx='12' cy='8' r='4' />
+          <rect x='6' y='14' width='12' height='6' rx='3' />
+        </svg>
+        <span style="position: absolute; bottom: -6px; right: -6px; background-color: #059669; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border: 2px solid white;">
+          ${count}
+        </span>
+      </div>
+    `,
+    className: 'employee-cluster-icon',
+    iconSize: L.point(size, size),
+    iconAnchor: [size/2, size/2]
+  });
+};
+
 const connectedIcon = createCustomIcon("#4CAF50"); // Verde para conectados
 const outsideGeofenceIcon = createCustomIcon("#FF5722", "#FFF"); // Naranja para fuera de geocerca
 const inactiveIcon = createCustomIcon("#DC2626", "#FFF"); // Rojo para inactivos
@@ -542,72 +568,84 @@ const MonitoreoMap = () => {
 
   // Componente separado para los marcadores de empleados
   const EmployeeMarkers = memo(({ employees }) => {
-    return employees.map((employee) => {
-      // Determinar qué icono usar basado en el estado
-      let icon;
-      if (employee.status === "inactive") {
-        icon = inactiveIcon;
-      } else if (employee.outsideGeofence) {
-        icon = outsideGeofenceIcon;
-      } else {
-        icon = connectedIcon;
-      }
+    return (
+      <MarkerClusterGroup
+        chunkedLoading
+        maxClusterRadius={10} // Puedes ajustar este valor para controlar la distancia de agrupamiento
+        spiderfyOnMaxZoom={true}
+        showCoverageOnHover={false}
+        iconCreateFunction={createEmployeeClusterIcon}
+        maxZoom={18}
+        animate={false}
+      >
+        {employees.map((employee) => {
+          // Determinar qué icono usar basado en el estado
+          let icon;
+          if (employee.status === "inactive") {
+            icon = inactiveIcon;
+          } else if (employee.outsideGeofence) {
+            icon = outsideGeofenceIcon;
+          } else {
+            icon = connectedIcon;
+          }
 
-      return (
-        <Marker
-          key={employee.id}
-          position={employee.location}
-          icon={icon}
-          eventHandlers={{
-            click: () => handleEmployeeClick(employee.id)
-          }}
-        >
-          <Popup className="custom-popup">
-            <div className="text-sm p-1">
-              <div className="flex items-center mb-2">
-                <div className={`w-8 h-8 rounded-full ${getAvatarColor(employee.name)} text-white flex items-center justify-center font-medium mr-2 text-xs`}>
-                  {employee.avatar}
-                </div>
-                <div>
-                  <h3 className="font-medium text-base">{employee.name}</h3>
-                  <p className="text-gray-600 text-xs">{employee.position}</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <p className="text-gray-700">{employee.hospital}</p>
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center text-gray-600 text-xs">
-                    <FaClock className="mr-1" />
-                    <span>Última conexión: {format(employee.lastConnection, "d 'de' MMMM, HH:mm", { locale: es })}</span>
+          return (
+            <Marker
+              key={employee.id}
+              position={employee.location}
+              icon={icon}
+              eventHandlers={{
+                click: () => handleEmployeeClick(employee.id)
+              }}
+            >
+              <Popup className="custom-popup">
+                <div className="text-sm p-1">
+                  <div className="flex items-center mb-2">
+                    <div className={`w-8 h-8 rounded-full ${getAvatarColor(employee.name)} text-white flex items-center justify-center font-medium mr-2 text-xs`}>
+                      {employee.avatar}
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-base">{employee.name}</h3>
+                      <p className="text-gray-600 text-xs">{employee.position}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-gray-700">{employee.hospital}</p>
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center text-gray-600 text-xs">
+                        <FaClock className="mr-1" />
+                        <span>Última conexión: {format(employee.lastConnection, "d 'de' MMMM, HH:mm", { locale: es })}</span>
+                      </div>
+                    </div>
+                    {employee.status === "inactive" ? (
+                      <div className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-lg flex items-center">
+                        <FaExclamationTriangle className="mr-1" />
+                        <span>Usuario inactivo</span>
+                      </div>
+                    ) : employee.outsideGeofence ? (
+                      <div className="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-lg flex items-center">
+                        <FaExclamationTriangle className="mr-1" />
+                        <span>Fuera de geocerca</span>
+                      </div>
+                    ) : (
+                      <div className="px-2 py-1 bg-emerald-100 text-emerald-800 text-xs rounded-lg flex items-center">
+                        <FaMapMarkerAlt className="mr-1" />
+                        <span>Dentro de geocerca</span>
+                      </div>
+                    )}
+                    <div className="text-xs text-gray-500">
+                      <p>Coordenadas:</p>
+                      <p>Lat: {employee.location[0]?.toFixed(6)}</p>
+                      <p>Lng: {employee.location[1]?.toFixed(6)}</p>
+                    </div>
                   </div>
                 </div>
-                {employee.status === "inactive" ? (
-                  <div className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-lg flex items-center">
-                    <FaExclamationTriangle className="mr-1" />
-                    <span>Usuario inactivo</span>
-                  </div>
-                ) : employee.outsideGeofence ? (
-                  <div className="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-lg flex items-center">
-                    <FaExclamationTriangle className="mr-1" />
-                    <span>Fuera de geocerca</span>
-                  </div>
-                ) : (
-                  <div className="px-2 py-1 bg-emerald-100 text-emerald-800 text-xs rounded-lg flex items-center">
-                    <FaMapMarkerAlt className="mr-1" />
-                    <span>Dentro de geocerca</span>
-                  </div>
-                )}
-                <div className="text-xs text-gray-500">
-                  <p>Coordenadas:</p>
-                  <p>Lat: {employee.location[0]?.toFixed(6)}</p>
-                  <p>Lng: {employee.location[1]?.toFixed(6)}</p>
-                </div>
-              </div>
-            </div>
-          </Popup>
-        </Marker>
-      );
-    });
+              </Popup>
+            </Marker>
+          );
+        })}
+      </MarkerClusterGroup>
+    );
   });
   EmployeeMarkers.displayName = 'EmployeeMarkers';
 
@@ -969,7 +1007,6 @@ const MonitoreoMap = () => {
                 spiderfyOnMaxZoom={true}
                 showCoverageOnHover={false}
                 iconCreateFunction={createClusterCustomIcon}
-                disableClusteringAtZoom={16}
                 maxZoom={18}
                 animate={false}
               >
