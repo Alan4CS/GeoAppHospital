@@ -9,6 +9,7 @@ import {
   Check,
   TrendingUp,
   Building2,
+  X,
 } from "lucide-react";
 import {
   BarChart,
@@ -24,7 +25,22 @@ import {
   LabelList,
   Legend,
 } from "recharts";
-import { format, subDays, subMonths, subYears, isAfter } from "date-fns";
+import {
+  format,
+  subDays,
+  subMonths,
+  subYears,
+  isAfter,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  isSameDay,
+  addWeeks,
+  subWeeks,
+  differenceInDays,
+} from "date-fns";
+import { es } from "date-fns/locale";
+import "react-calendar/dist/Calendar.css";
 
 const customScrollbarStyles = `
   .custom-scrollbar::-webkit-scrollbar {
@@ -43,6 +59,682 @@ const customScrollbarStyles = `
   }
 `;
 
+// Genera datos simplificados para el calendario
+const generateEmployeeCalendarData = (employeeData, startDate, endDate) => {
+  const days = eachDayOfInterval({
+    start: new Date(startDate),
+    end: new Date(endDate),
+  });
+
+  const employee = employeeData;
+  if (!employee) {
+    return days.map((day) => ({
+      date: day,
+      totalHours: 0,
+      status: "error",
+      notes: "Empleado no encontrado",
+    }));
+  }
+
+  // Calcular promedios diarios (asumiendo 20 días laborales al mes)
+  const workDaysPerMonth = 20;
+  const dailyWorkedHours = employee.workedHours / workDaysPerMonth;
+  const dailyOutsideHours = employee.outsideHours / workDaysPerMonth;
+
+  return days.map((day) => {
+    const dayOfWeek = day.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+    if (isWeekend) {
+      return {
+        date: day,
+        totalHours: 0,
+        status: "weekend",
+        notes: "Fin de semana",
+      };
+    }
+
+    // Simplificado: solo 3 estados
+    const hasSignificantOutsideHours = dailyOutsideHours > 2;
+    const totalDailyHours =
+      dailyWorkedHours + (hasSignificantOutsideHours ? 0 : dailyOutsideHours);
+
+    if (hasSignificantOutsideHours || totalDailyHours < 4) {
+      return {
+        date: day,
+        totalHours: totalDailyHours,
+        status: "absence",
+        notes: "Ausencia o tiempo insuficiente",
+      };
+    }
+
+    return {
+      date: day,
+      totalHours: Math.round(totalDailyHours * 10) / 10,
+      status: "completed",
+      notes: "Horas cumplidas",
+    };
+  });
+};
+
+// Genera eventos de geocerca simulados para un día específico
+const generateGeofenceEvents = (date, employee) => {
+  const [scheduleStart] = employee.schedule.split(" - ");
+  const [startHour, startMinute] = scheduleStart.split(":").map(Number);
+
+  const events = [];
+  const baseDate = new Date(date);
+  baseDate.setHours(startHour, startMinute, 0, 0);
+
+  // Entrada inicial (check-in)
+  const checkInTime = new Date(baseDate);
+  events.push({
+    time: `${checkInTime.getHours().toString().padStart(2, "0")}:${checkInTime
+      .getMinutes()
+      .toString()
+      .padStart(2, "0")}`,
+    type: "entry",
+    location: "inside",
+    description: "Entrada inicial",
+  });
+
+  // Simular algunas salidas durante el día
+  const exitTime1 = new Date(checkInTime.getTime() + 2.5 * 60 * 60 * 1000); // 2.5 horas después
+  events.push({
+    time: `${exitTime1.getHours().toString().padStart(2, "0")}:${exitTime1
+      .getMinutes()
+      .toString()
+      .padStart(2, "0")}`,
+    type: "exit",
+    location: "outside",
+    description: "Salida temporal",
+  });
+
+  const entryTime1 = new Date(exitTime1.getTime() + 15 * 60 * 60 * 1000); // 15 minutos después
+  events.push({
+    time: `${entryTime1.getHours().toString().padStart(2, "0")}:${entryTime1
+      .getMinutes()
+      .toString()
+      .padStart(2, "0")}`,
+    type: "entry",
+    location: "inside",
+    description: "Regreso",
+  });
+
+  const exitTime2 = new Date(entryTime1.getTime() + 3 * 60 * 60 * 1000); // 3 horas después
+  events.push({
+    time: `${exitTime2.getHours().toString().padStart(2, "0")}:${exitTime2
+      .getMinutes()
+      .toString()
+      .padStart(2, "0")}`,
+    type: "exit",
+    location: "outside",
+    description: "Salida temporal",
+  });
+
+  const entryTime2 = new Date(exitTime2.getTime() + 30 * 60 * 60 * 1000); // 30 minutos después
+  events.push({
+    time: `${entryTime2.getHours().toString().padStart(2, "0")}:${entryTime2
+      .getMinutes()
+      .toString()
+      .padStart(2, "0")}`,
+    type: "entry",
+    location: "inside",
+    description: "Regreso",
+  });
+
+  // Salida final (check-out)
+  const checkOutTime = new Date(checkInTime.getTime() + 8 * 60 * 60 * 1000); // 8 horas después
+  events.push({
+    time: `${checkOutTime.getHours().toString().padStart(2, "0")}:${checkOutTime
+      .getMinutes()
+      .toString()
+      .padStart(2, "0")}`,
+    type: "exit",
+    location: "outside",
+    description: "Salida final",
+  });
+
+  return events.sort((a, b) => a.time.localeCompare(b.time));
+};
+
+// Genera datos mejorados por hora para un día específico
+const generateHourlyData = (dayData, employee) => {
+  if (!dayData || dayData.status !== "completed") {
+    return {
+      hours: [],
+      events: [],
+      metrics: { workedHours: 0, outsideHours: 0, totalHours: 0 },
+    };
+  }
+
+  const [scheduleStart, scheduleEnd] = employee.schedule.split(" - ");
+  const [startHour] = scheduleStart.split(":").map(Number);
+  const [endHour] = scheduleEnd.split(":").map(Number);
+
+  const events = generateGeofenceEvents(dayData.date, employee);
+  const hours = [];
+
+  // Calcular métricas reales
+  let workedHours = 0;
+  let outsideHours = 0;
+
+  for (let i = 0; i < endHour - startHour; i++) {
+    const hour = startHour + i;
+    const hourLabel = `${hour.toString().padStart(2, "0")}:00`;
+    const nextHourLabel = `${(hour + 1).toString().padStart(2, "0")}:00`;
+
+    // Determinar el estado durante esta hora basado en los eventos
+    let isInside = false;
+    let hasEntry = false;
+    let hasExit = false;
+
+    for (const event of events) {
+      if (event.time <= nextHourLabel) {
+        if (event.type === "entry") {
+          isInside = true;
+          if (event.time >= hourLabel) hasEntry = true;
+        } else if (event.type === "exit") {
+          isInside = false;
+          if (event.time >= hourLabel) hasExit = true;
+        }
+      }
+    }
+
+    if (isInside) {
+      workedHours += 1;
+    } else {
+      outsideHours += 1;
+    }
+
+    hours.push({
+      hour: hourLabel,
+      status: isInside ? "inside" : "outside",
+      hasEntry,
+      hasExit,
+      events: events.filter(
+        (e) => e.time >= hourLabel && e.time < nextHourLabel
+      ),
+    });
+  }
+
+  return {
+    hours,
+    events,
+    metrics: {
+      workedHours: Math.round(workedHours * 10) / 10,
+      outsideHours: Math.round(outsideHours * 10) / 10,
+      totalHours: Math.round((workedHours + outsideHours) * 10) / 10,
+    },
+  };
+};
+
+const EmployeeCalendarView = ({ employee, startDate, endDate }) => {
+  const [calendarData, setCalendarData] = useState([]);
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [hourlyData, setHourlyData] = useState([]);
+
+  // Calcular si debe mostrar navegación
+  const daysDiff = differenceInDays(new Date(endDate), new Date(startDate));
+  const showNavigation = daysDiff > 7;
+
+  // Calcular las semanas a mostrar basado en el rango de fechas
+  const startWeek = startOfWeek(new Date(startDate), { weekStartsOn: 1 });
+  const endWeek = endOfWeek(new Date(endDate), { weekStartsOn: 1 });
+  const totalWeeks = Math.ceil(differenceInDays(endWeek, startWeek) / 7);
+
+  const [currentWeekStart, setCurrentWeekStart] = useState(startWeek);
+
+  useEffect(() => {
+    const data = generateEmployeeCalendarData(employee, startDate, endDate);
+    setCalendarData(data);
+    setSelectedDay(null);
+    setHourlyData([]);
+  }, [employee, startDate, endDate]);
+
+  // Mostrar solo las semanas dentro del rango
+  const weeksToShow = Math.min(totalWeeks, 4); // Máximo 4 semanas
+  const allWeeks = [];
+
+  for (let i = 0; i < weeksToShow; i++) {
+    const weekStart = addWeeks(currentWeekStart, i);
+    const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+    const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
+    allWeeks.push({ weekStart, weekEnd, weekDays });
+  }
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "completed":
+        return "bg-emerald-100 border-emerald-300 text-emerald-800 hover:bg-emerald-200 cursor-pointer";
+      case "absence":
+        return "bg-red-100 border-red-300 text-red-800";
+      case "weekend":
+        return "bg-gray-100 border-gray-300 text-gray-600";
+      default:
+        return "bg-gray-100 border-gray-300 text-gray-600";
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case "completed":
+        return "✓";
+      case "absence":
+        return "✗";
+      case "weekend":
+        return "🏠";
+      default:
+        return "";
+    }
+  };
+
+  const getDayData = (day) => {
+    return calendarData.find((data) => isSameDay(data.date, day));
+  };
+
+  const handleDayClick = (dayData) => {
+    if (dayData && dayData.status === "completed") {
+      setSelectedDay(dayData);
+      const hourlyInfo = generateHourlyData(dayData, employee);
+      setHourlyData(hourlyInfo);
+    }
+  };
+
+  const goToPreviousWeek = () => {
+    const newStart = subWeeks(currentWeekStart, 1);
+    if (newStart >= startWeek) {
+      setCurrentWeekStart(newStart);
+    }
+  };
+
+  const goToNextWeek = () => {
+    const newStart = addWeeks(currentWeekStart, 1);
+    const maxStart = subWeeks(endWeek, weeksToShow - 1);
+    if (newStart <= maxStart) {
+      setCurrentWeekStart(newStart);
+    }
+  };
+
+  // Calcular totales solo para días laborales
+  const workDays = calendarData.filter((day) => day.status !== "weekend");
+  const totalHours = workDays.reduce(
+    (total, day) => total + (day.totalHours || 0),
+    0
+  );
+  const completedDays = workDays.filter(
+    (day) => day.status === "completed"
+  ).length;
+  const absenceDays = workDays.filter((day) => day.status === "absence").length;
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm p-6 w-full">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-xl font-bold text-gray-800">
+            Calendario de {employee.name}
+          </h3>
+          <p className="text-sm text-gray-600">
+            Horario: {employee.schedule} | Grupo: {employee.grupo}
+          </p>
+        </div>
+        {showNavigation && (
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-gray-600">
+              <span className="font-medium">Período:</span>{" "}
+              {format(new Date(startDate), "dd MMM", { locale: es })} -{" "}
+              {format(new Date(endDate), "dd MMM yyyy", { locale: es })}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={goToPreviousWeek}
+                disabled={currentWeekStart <= startWeek}
+                className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                ←
+              </button>
+              <button
+                onClick={goToNextWeek}
+                disabled={addWeeks(currentWeekStart, weeksToShow) >= endWeek}
+                className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                →
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Resumen simplificado */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="bg-emerald-50 rounded-lg p-4 text-center">
+          <div className="text-3xl font-bold text-emerald-600">
+            {Math.round(totalHours)}h
+          </div>
+          <div className="text-sm text-emerald-700">Total Horas</div>
+        </div>
+        <div className="bg-blue-50 rounded-lg p-4 text-center">
+          <div className="text-3xl font-bold text-blue-600">
+            {completedDays}
+          </div>
+          <div className="text-sm text-blue-700">Días Cumplidos</div>
+        </div>
+        <div className="bg-red-50 rounded-lg p-4 text-center">
+          <div className="text-3xl font-bold text-red-600">{absenceDays}</div>
+          <div className="text-sm text-red-700">Ausencias</div>
+        </div>
+      </div>
+
+      {/* Calendario simplificado */}
+      <div className="space-y-6">
+        {allWeeks.map((week, weekIndex) => {
+          // Filtrar días que están dentro del rango
+          const validDays = week.weekDays.filter(
+            (day) => day >= new Date(startDate) && day <= new Date(endDate)
+          );
+
+          if (validDays.length === 0) return null;
+
+          // Verificar si hay un día seleccionado en esta semana
+          const selectedDayInWeek =
+            selectedDay &&
+            week.weekDays.some((day) => isSameDay(selectedDay.date, day));
+
+          return (
+            <div key={weekIndex} className="border rounded-lg p-4">
+              <div className="text-sm font-medium text-gray-700 mb-3">
+                {format(week.weekStart, "dd MMM", { locale: es })} -{" "}
+                {format(week.weekEnd, "dd MMM yyyy", { locale: es })}
+              </div>
+
+              <div className="grid grid-cols-7 gap-2">
+                {/* Encabezados de días */}
+                {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(
+                  (day) => (
+                    <div
+                      key={day}
+                      className="text-center text-sm font-medium text-gray-600 py-2"
+                    >
+                      {day}
+                    </div>
+                  )
+                )}
+
+                {/* Días de la semana */}
+                {week.weekDays.map((day) => {
+                  const dayData = getDayData(day);
+                  const isInRange =
+                    day >= new Date(startDate) && day <= new Date(endDate);
+                  const isSelected =
+                    selectedDay && isSameDay(selectedDay.date, day);
+
+                  if (!isInRange) {
+                    return (
+                      <div
+                        key={day.toISOString()}
+                        className="min-h-[100px]"
+                      ></div>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={day.toISOString()}
+                      onClick={() => handleDayClick(dayData)}
+                      className={`min-h-[100px] border-2 rounded-lg p-3 transition-all duration-200 ${
+                        dayData
+                          ? getStatusColor(dayData.status)
+                          : "bg-gray-50 border-gray-200"
+                      } ${
+                        isSelected ? "ring-2 ring-blue-500 ring-offset-2" : ""
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">
+                          {format(day, "d")}
+                        </span>
+                        <span className="text-lg">
+                          {dayData ? getStatusIcon(dayData.status) : ""}
+                        </span>
+                      </div>
+
+                      {dayData && dayData.status === "completed" && (
+                        <div className="text-center">
+                          <div className="text-lg font-bold text-emerald-600">
+                            {dayData.totalHours}h
+                          </div>
+                          <div className="text-xs text-emerald-700">
+                            Click para detalles
+                          </div>
+                        </div>
+                      )}
+
+                      {dayData && dayData.status === "absence" && (
+                        <div className="text-center">
+                          <div className="text-sm font-medium text-red-600">
+                            Ausencia
+                          </div>
+                        </div>
+                      )}
+
+                      {dayData && dayData.status === "weekend" && (
+                        <div className="text-center">
+                          <div className="text-sm text-gray-500">
+                            Fin de semana
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Vista detallada del día seleccionado - aparece justo debajo de la semana correspondiente */}
+              {selectedDayInWeek &&
+                selectedDay &&
+                hourlyData.hours &&
+                hourlyData.hours.length > 0 && (
+                  <div className="mt-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-lg border border-blue-100 overflow-hidden">
+                    <div className="p-6">
+                      <div className="flex items-center justify-between mb-6">
+                        <div>
+                          <h4 className="text-xl font-bold text-gray-800">
+                            📅{" "}
+                            {format(selectedDay.date, "dd 'de' MMMM, yyyy", {
+                              locale: es,
+                            })}
+                          </h4>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Seguimiento detallado de geocerca
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="flex gap-3 text-xs">
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                              <span>Dentro</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                              <span>Fuera</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <span>Evento</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setSelectedDay(null);
+                              setHourlyData([]);
+                            }}
+                            className="p-1.5 rounded-lg hover:bg-blue-100 transition-colors"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Estadísticas del día - más compactas */}
+                      <div className="grid grid-cols-3 gap-3 mb-6">
+                        <div className="bg-emerald-100 rounded-lg p-3 text-center border border-emerald-200">
+                          <div className="text-xl font-bold text-emerald-600">
+                            {hourlyData.metrics.workedHours}h
+                          </div>
+                          <div className="text-xs text-emerald-700">
+                            Trabajadas
+                          </div>
+                        </div>
+                        <div className="bg-red-100 rounded-lg p-3 text-center border border-red-200">
+                          <div className="text-xl font-bold text-red-600">
+                            {hourlyData.metrics.outsideHours}h
+                          </div>
+                          <div className="text-xs text-red-700">Fuera</div>
+                        </div>
+                        <div className="bg-blue-100 rounded-lg p-3 text-center border border-blue-200">
+                          <div className="text-xl font-bold text-blue-600">
+                            {hourlyData.metrics.totalHours}h
+                          </div>
+                          <div className="text-xs text-blue-700">Total</div>
+                        </div>
+                      </div>
+
+                      {/* Línea de tiempo horizontal - más compacta */}
+                      <div className="relative bg-white rounded-lg p-4 border border-gray-200">
+                        {/* Línea base */}
+                        <div className="absolute top-1/2 left-4 right-4 h-1 bg-gray-300 rounded-full transform -translate-y-1/2"></div>
+
+                        {/* Horas */}
+                        <div className="relative flex justify-between items-center py-6">
+                          {hourlyData.hours.map((hourData, index) => {
+                            const isInside = hourData.status === "inside";
+
+                            return (
+                              <div
+                                key={hourData.hour}
+                                className="flex flex-col items-center relative"
+                              >
+                                {/* Marcador de hora */}
+                                <div
+                                  className={`w-6 h-6 rounded-full border-2 border-white shadow-md z-10 flex items-center justify-center ${
+                                    isInside ? "bg-emerald-500" : "bg-red-500"
+                                  }`}
+                                >
+                                  {/* Indicador de evento */}
+                                  {(hourData.hasEntry || hourData.hasExit) && (
+                                    <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-blue-500 rounded-full border border-white flex items-center justify-center">
+                                      <div className="w-1 h-1 bg-white rounded-full"></div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Etiqueta de hora */}
+                                <div className="mt-2 text-xs font-medium text-gray-700">
+                                  {hourData.hour}
+                                </div>
+
+                                {/* Eventos en esta hora */}
+                                {(hourData.hasEntry || hourData.hasExit) && (
+                                  <div className="mt-1 text-xs text-center space-y-0.5">
+                                    {hourData.hasEntry && (
+                                      <div className="text-emerald-600 font-medium bg-emerald-50 px-1 py-0.5 rounded text-xs">
+                                        ↓
+                                      </div>
+                                    )}
+                                    {hourData.hasExit && (
+                                      <div className="text-red-600 font-medium bg-red-50 px-1 py-0.5 rounded text-xs">
+                                        ↑
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Segmento de línea coloreado */}
+                                {index < hourlyData.hours.length - 1 && (
+                                  <div
+                                    className={`absolute top-1/2 left-3 h-1 rounded-full transform -translate-y-1/2 z-5 ${
+                                      isInside ? "bg-emerald-400" : "bg-red-400"
+                                    }`}
+                                    style={{
+                                      width: `calc(100% - 1.5rem)`,
+                                    }}
+                                  ></div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Resumen de eventos - más compacto */}
+                      <div className="mt-4 bg-gray-50 rounded-lg p-3">
+                        <h5 className="font-semibold text-gray-800 mb-2 text-sm">
+                          Eventos del día
+                        </h5>
+                        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 text-xs">
+                          {hourlyData.events.map((event, index) => (
+                            <div
+                              key={index}
+                              className={`flex items-center gap-1 p-2 rounded border ${
+                                event.type === "entry"
+                                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                  : "bg-red-50 text-red-800 border-red-200"
+                              }`}
+                            >
+                              <div
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  event.type === "entry"
+                                    ? "bg-emerald-500"
+                                    : "bg-red-500"
+                                }`}
+                              ></div>
+                              <div>
+                                <div className="font-medium">{event.time}</div>
+                                <div className="text-xs opacity-75">
+                                  {event.description}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Horario programado - más compacto */}
+                      <div className="mt-3 text-xs text-gray-600 text-center bg-blue-50 rounded-lg p-2">
+                        <strong>Horario:</strong> {employee.schedule} |{" "}
+                        <strong>Check-in:</strong>{" "}
+                        {hourlyData.events[0]?.time || "N/A"} |{" "}
+                        <strong>Check-out:</strong>{" "}
+                        {hourlyData.events[hourlyData.events.length - 1]
+                          ?.time || "N/A"}
+                      </div>
+                    </div>
+                  </div>
+                )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Leyenda simplificada */}
+      <div className="mt-6 flex flex-wrap gap-4 text-sm">
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-emerald-100 border border-emerald-300 rounded"></div>
+          <span>Horas cumplidas</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-red-100 border border-red-300 rounded"></div>
+          <span>Ausencia</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-gray-100 border border-gray-300 rounded"></div>
+          <span>Fin de semana</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const HospitalDashboard = () => {
   // Estados para los filtros avanzados de fecha
   const [dateRange, setDateRange] = useState({
@@ -57,6 +749,15 @@ const HospitalDashboard = () => {
     startDate: format(subDays(new Date(), 30), "yyyy-MM-dd"),
     endDate: format(new Date(), "yyyy-MM-dd"),
   });
+
+  // Estados para filtros detallados
+  const [selectedGrupo, setSelectedGrupo] = useState("");
+  const [selectedEmpleado, setSelectedEmpleado] = useState("");
+  const [fechaInicio, setFechaInicio] = useState(
+    format(subDays(new Date(), 30), "yyyy-MM-dd")
+  );
+  const [fechaFin, setFechaFin] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [empleadosFiltrados, setEmpleadosFiltrados] = useState([]);
 
   const datePresets = [
     { label: "Últimos 7 días", value: "7d", days: 7 },
@@ -149,6 +850,16 @@ const HospitalDashboard = () => {
   const [estados, setEstados] = useState([]);
   const [municipios, setMunicipios] = useState([]);
   const [hospitales, setHospitales] = useState([]);
+  const [grupos, setGrupos] = useState([
+    { id: 1, nombre: "Limpieza" },
+    { id: 2, nombre: "Mantenimiento" },
+    { id: 3, nombre: "Vigilancia" },
+    { id: 4, nombre: "Camilleros" },
+    { id: 5, nombre: "Enfermería" },
+  ]);
+
+  // Estados para los datos
+  const [empleados, setEmpleados] = useState([]);
 
   // Cargar estados
   useEffect(() => {
@@ -210,6 +921,74 @@ const HospitalDashboard = () => {
     fetchHospitales();
   }, [filters.id_estado, filters.id_municipio]);
 
+  // Cargar empleados al seleccionar hospital
+  useEffect(() => {
+    if (!filters.id_hospital) {
+      setEmpleados([]);
+      return;
+    }
+
+    const fetchEmpleados = async () => {
+      const empleadosSimulados = [
+        {
+          id: 1,
+          name: "Juan Pérez González",
+          schedule: "07:00 - 15:00",
+          plannedHours: 160,
+          workedHours: 155,
+          outsideHours: 8,
+          justifiedHours: 5,
+          grupo: "Limpieza",
+        },
+        {
+          id: 2,
+          name: "María Rodríguez López",
+          schedule: "08:00 - 16:00",
+          plannedHours: 160,
+          workedHours: 158,
+          outsideHours: 4,
+          justifiedHours: 2,
+          grupo: "Mantenimiento",
+        },
+        {
+          id: 3,
+          name: "Carlos Sánchez Martínez",
+          schedule: "09:00 - 17:00",
+          plannedHours: 160,
+          workedHours: 152,
+          outsideHours: 6,
+          justifiedHours: 8,
+          grupo: "Vigilancia",
+        },
+        {
+          id: 4,
+          name: "Ana García López",
+          schedule: "07:00 - 15:00",
+          plannedHours: 160,
+          workedHours: 156,
+          outsideHours: 3,
+          justifiedHours: 4,
+          grupo: "Camilleros",
+        },
+        {
+          id: 5,
+          name: "Luis Hernández Ruiz",
+          schedule: "08:00 - 16:00",
+          plannedHours: 160,
+          workedHours: 159,
+          outsideHours: 2,
+          justifiedHours: 1,
+          grupo: "Enfermería",
+        },
+      ];
+
+      setEmpleados(empleadosSimulados);
+      setEmpleadosFiltrados(empleadosSimulados);
+    };
+
+    fetchEmpleados();
+  }, [filters.id_hospital]);
+
   // Manejadores de cambios para los filtros
   const handleEstadoChange = (e) => {
     const estado = estados.find(
@@ -248,6 +1027,54 @@ const HospitalDashboard = () => {
       id_hospital: hospital?.id_hospital || "",
       nombre_hospital: hospital?.nombre_hospital || "",
     });
+  };
+
+  // Manejadores para los filtros detallados
+  const handleGrupoChange = (e) => {
+    setSelectedGrupo(e.target.value);
+    filtrarEmpleados(e.target.value, selectedEmpleado, fechaInicio, fechaFin);
+  };
+
+  const handleEmpleadoChange = (e) => {
+    setSelectedEmpleado(e.target.value);
+    filtrarEmpleados(selectedGrupo, e.target.value, fechaInicio, fechaFin);
+  };
+
+  const handleFechaInicioChange = (e) => {
+    setFechaInicio(e.target.value);
+    filtrarEmpleados(selectedGrupo, selectedEmpleado, e.target.value, fechaFin);
+  };
+
+  const handleFechaFinChange = (e) => {
+    setFechaFin(e.target.value);
+    filtrarEmpleados(
+      selectedGrupo,
+      selectedEmpleado,
+      fechaInicio,
+      e.target.value
+    );
+  };
+
+  const filtrarEmpleados = (grupo, empleado, inicio, fin) => {
+    let filtrados = [...empleados];
+
+    if (grupo) {
+      filtrados = filtrados.filter((emp) => emp.grupo === grupo);
+    }
+
+    if (empleado) {
+      filtrados = filtrados.filter((emp) => emp.id === Number(empleado));
+    }
+
+    setEmpleadosFiltrados(filtrados);
+  };
+
+  const limpiarFiltros = () => {
+    setSelectedGrupo("");
+    setSelectedEmpleado("");
+    setFechaInicio(format(subDays(new Date(), 30), "yyyy-MM-dd"));
+    setFechaFin(format(new Date(), "yyyy-MM-dd"));
+    setEmpleadosFiltrados(empleados);
   };
 
   // Datos dummy para las tarjetas
@@ -296,7 +1123,6 @@ const HospitalDashboard = () => {
       outsideHours: 4,
       justifiedHours: 2,
     },
-    // ...más empleados
   ];
 
   // Datos para la gráfica de horas por empleado
@@ -305,6 +1131,11 @@ const HospitalDashboard = () => {
     horasTrabajadas: emp.workedHours,
     horasAfuera: emp.outsideHours,
   }));
+
+  // Obtener el empleado seleccionado para mostrar el calendario
+  const selectedEmployeeData = selectedEmpleado
+    ? empleados.find((emp) => emp.id === Number(selectedEmpleado))
+    : null;
 
   return (
     <>
@@ -529,7 +1360,6 @@ const HospitalDashboard = () => {
 
           {/* KPI Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
-            {/* Tarjetas con la información */}
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white flex flex-col shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
               <div className="flex items-center justify-between mb-2">
                 <Users className="h-8 w-8 opacity-90" />
@@ -824,9 +1654,8 @@ const HospitalDashboard = () => {
                 </h3>
               </div>
 
-              {/* Primera fila: Período y filtros */}
+              {/* Filtros */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
-                {/* Selector de períodos para análisis detallado */}
                 <div className="lg:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Período
@@ -845,7 +1674,6 @@ const HospitalDashboard = () => {
                   </select>
                 </div>
 
-                {/* Grupo */}
                 <div className="lg:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Grupo
@@ -854,18 +1682,21 @@ const HospitalDashboard = () => {
                     <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
                       <Users className="h-4 w-4 text-blue-500" />
                     </div>
-                    <select className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                      <option>Todos los grupos</option>
-                      <option>Limpieza</option>
-                      <option>Mantenimiento</option>
-                      <option>Vigilancia</option>
-                      <option>Camilleros</option>
-                      <option>Enfermería</option>
+                    <select
+                      value={selectedGrupo}
+                      onChange={handleGrupoChange}
+                      className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Todos los grupos</option>
+                      {grupos.map((grupo) => (
+                        <option key={grupo.id} value={grupo.nombre}>
+                          {grupo.nombre}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
 
-                {/* Empleado */}
                 <div className="lg:col-span-3">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Empleado
@@ -874,16 +1705,25 @@ const HospitalDashboard = () => {
                     <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center mr-2">
                       <Users className="h-4 w-4 text-purple-500" />
                     </div>
-                    <select className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500">
-                      <option>Todos los empleados</option>
-                      {employeesData.map((emp) => (
-                        <option key={emp.id}>{emp.name}</option>
-                      ))}
+                    <select
+                      value={selectedEmpleado}
+                      onChange={handleEmpleadoChange}
+                      className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="">Todos los empleados</option>
+                      {empleados
+                        .filter(
+                          (emp) => !selectedGrupo || emp.grupo === selectedGrupo
+                        )
+                        .map((emp) => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.name}
+                          </option>
+                        ))}
                     </select>
                   </div>
                 </div>
 
-                {/* Fecha inicio */}
                 <div className="lg:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Fecha inicio
@@ -894,12 +1734,13 @@ const HospitalDashboard = () => {
                     </div>
                     <input
                       type="date"
+                      value={fechaInicio}
+                      onChange={handleFechaInicioChange}
                       className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
                 </div>
 
-                {/* Fecha fin */}
                 <div className="lg:col-span-3">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Fecha fin
@@ -910,6 +1751,8 @@ const HospitalDashboard = () => {
                     </div>
                     <input
                       type="date"
+                      value={fechaFin}
+                      onChange={handleFechaFinChange}
                       className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -918,16 +1761,29 @@ const HospitalDashboard = () => {
 
               {/* Botones de acción */}
               <div className="flex gap-2 justify-end">
-                <button className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 text-sm">
+                <button
+                  onClick={limpiarFiltros}
+                  className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 text-sm"
+                >
                   Limpiar Filtros
                 </button>
-                <button className="px-3 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center text-sm">
+                <button
+                  onClick={() =>
+                    filtrarEmpleados(
+                      selectedGrupo,
+                      selectedEmpleado,
+                      fechaInicio,
+                      fechaFin
+                    )
+                  }
+                  className="px-3 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center text-sm"
+                >
                   <Check className="h-4 w-4 mr-1" />
                   Aplicar Filtros
                 </button>
               </div>
 
-              {/* Tarjetas de información - Ahora debajo de los filtros */}
+              {/* Tarjetas de información */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
                 <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-4 text-white flex flex-col shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
                   <div className="flex items-center justify-between mb-2">
@@ -952,93 +1808,115 @@ const HospitalDashboard = () => {
                 <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 flex items-center">
                   <Check className="h-4 w-4 text-blue-500 mr-2" />
                   <span className="text-sm text-blue-800">
-                    Mostrando datos para todos los empleados en el período
-                    seleccionado
+                    Mostrando {empleadosFiltrados.length} empleado(s)
+                    {selectedGrupo ? ` del grupo ${selectedGrupo}` : ""}
+                    {selectedEmpleado
+                      ? " (filtrado por empleado específico)"
+                      : ""}
+                    en el período del{" "}
+                    {format(new Date(fechaInicio), "dd/MM/yyyy")}
+                    al {format(new Date(fechaFin), "dd/MM/yyyy")}
                   </span>
                 </div>
               </div>
 
-              {/* Contenedor para tabla y gráfica */}
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">
-                {/* Tabla de empleados */}
-                <div className="bg-white rounded-lg shadow-sm w-full">
-                  <div className="max-h-[500px] overflow-y-auto custom-scrollbar w-full">
-                    <table className="w-full table-fixed">
-                      <thead className="bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0 z-10">
-                        <tr>
-                          <th className="w-1/4 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Nombre
-                          </th>
-                          <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Horario
-                          </th>
-                          <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Hrs Plan
-                          </th>
-                          <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Hrs Efec
-                          </th>
-                          <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Hrs Fuera
-                          </th>
-                          <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Hrs Just
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {employeesData.map((employee) => (
-                          <tr
-                            key={employee.id}
-                            className="hover:bg-gray-50/50 transition-colors duration-200"
-                          >
-                            <td className="px-4 py-4 text-sm font-medium text-gray-900 truncate">
-                              {employee.name}
-                            </td>
-                            <td className="px-4 py-4 text-sm text-gray-500">
-                              {employee.schedule}
-                            </td>
-                            <td className="px-4 py-4 text-sm text-gray-500">
-                              {employee.plannedHours}
-                            </td>
-                            <td className="px-4 py-4 text-sm text-emerald-600 font-medium">
-                              {employee.workedHours}
-                            </td>
-                            <td className="px-4 py-4 text-sm text-red-600 font-medium">
-                              {employee.outsideHours}
-                            </td>
-                            <td className="px-4 py-4 text-sm text-blue-600 font-medium">
-                              {employee.justifiedHours}
-                            </td>
+              {/* Contenedor para tabla y gráfica o calendario */}
+              <div
+                className={
+                  selectedEmployeeData
+                    ? "space-y-6 mt-6"
+                    : "grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6"
+                }
+              >
+                {/* Tabla de empleados - solo mostrar si no hay empleado seleccionado */}
+                {!selectedEmployeeData && (
+                  <div className="bg-white rounded-lg shadow-sm w-full">
+                    <div className="max-h-[500px] overflow-y-auto custom-scrollbar w-full">
+                      <table className="w-full table-fixed">
+                        <thead className="bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0 z-10">
+                          <tr>
+                            <th className="w-1/4 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Nombre
+                            </th>
+                            <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Horario
+                            </th>
+                            <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Hrs Plan
+                            </th>
+                            <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Hrs Efec
+                            </th>
+                            <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Hrs Fuera
+                            </th>
+                            <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Hrs Just
+                            </th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {empleadosFiltrados.map((employee) => (
+                            <tr
+                              key={employee.id}
+                              className="hover:bg-gray-50/50 transition-colors duration-200"
+                            >
+                              <td className="px-4 py-4 text-sm font-medium text-gray-900 truncate">
+                                {employee.name}
+                              </td>
+                              <td className="px-4 py-4 text-sm text-gray-500">
+                                {employee.schedule}
+                              </td>
+                              <td className="px-4 py-4 text-sm text-gray-500">
+                                {employee.plannedHours}
+                              </td>
+                              <td className="px-4 py-4 text-sm text-emerald-600 font-medium">
+                                {employee.workedHours}
+                              </td>
+                              <td className="px-4 py-4 text-sm text-red-600 font-medium">
+                                {employee.outsideHours}
+                              </td>
+                              <td className="px-4 py-4 text-sm text-blue-600 font-medium">
+                                {employee.justifiedHours}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* Gráfica de horas por empleado */}
-                <div className="h-[500px]">
-                  <ResponsiveContainer>
-                    <BarChart data={employeeHoursData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Bar
-                        dataKey="horasTrabajadas"
-                        name="Horas Trabajadas"
-                        fill="#10B981"
-                      />
-                      <Bar
-                        dataKey="horasAfuera"
-                        name="Horas Fuera"
-                        fill="#EF4444"
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                {/* Vista condicional: Calendario para empleado individual o gráfica para múltiples */}
+                {selectedEmployeeData ? (
+                  <EmployeeCalendarView
+                    employee={selectedEmployeeData}
+                    startDate={fechaInicio}
+                    endDate={fechaFin}
+                  />
+                ) : (
+                  <div className="h-[500px]">
+                    <ResponsiveContainer>
+                      <BarChart data={employeeHoursData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Bar
+                          dataKey="horasTrabajadas"
+                          name="Horas Trabajadas"
+                          fill="#10B981"
+                        />
+                        <Bar
+                          dataKey="horasAfuera"
+                          name="Horas Fuera"
+                          fill="#EF4444"
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </div>
             </div>
           </div>
