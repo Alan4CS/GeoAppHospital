@@ -12,6 +12,7 @@ import {
   Hospital,
   Info,
 } from "lucide-react";
+import { useLocation } from "../../context/LocationContext";
 
 export default function CsvUploader({ onCancelar }) {
   const [csvData, setCsvData] = useState([]);
@@ -25,36 +26,43 @@ export default function CsvUploader({ onCancelar }) {
   const [selectedGrupo, setSelectedGrupo] = useState("");
   const [showInstructions, setShowInstructions] = useState(false);
   const [notificacion, setNotificacion] = useState(null);
+  const { currentLocation, locationVersion } = useLocation();
 
   // Obtener la ubicación del administrador al cargar el componente
   useEffect(() => {
     const fetchLocationData = async () => {
-      const userId = localStorage.getItem("userId");
-      if (!userId) return;
-
       try {
         setIsLoadingLocation(true);
-        const locationRes = await fetch(
-          `https://geoapphospital.onrender.com/api/superadmin/superadmin-hospital-ubi/${userId}`
-        );
 
-        if (!locationRes.ok) throw new Error("Error al obtener ubicación");
+        if (currentLocation) {
+          console.log("📍 Actualizando con nueva ubicación:", currentLocation);
+          setLocationData(currentLocation);
+          if (currentLocation.id_hospital) {
+            await fetchGrupos(currentLocation.id_hospital);
+          }
+        } else {
+          // Fallback a obtención manual solo si no hay contexto
+          const userId = localStorage.getItem("userId");
+          if (!userId) return;
 
-        const data = await locationRes.json();
-        if (!data?.[0]) {
-          throw new Error(
-            "No se encontró información de ubicación del administrador"
+          const response = await fetch(
+            `https://geoapphospital.onrender.com/api/superadmin/superadmin-hospital-ubi/${userId}`
           );
-        }
 
-        setLocationData(data[0]);
-        if (data[0].id_hospital) {
-          await fetchGrupos(data[0].id_hospital);
+          if (!response.ok) throw new Error("Error al obtener ubicación");
+
+          const data = await response.json();
+          if (data?.[0]) {
+            setLocationData(data[0]);
+            if (data[0].id_hospital) {
+              await fetchGrupos(data[0].id_hospital);
+            }
+          }
         }
       } catch (error) {
         console.error("Error al obtener ubicación:", error);
         setProcessingErrors([
-          "Error al obtener la ubicación del administrador: " + error.message,
+          "Error al obtener la ubicación: " + error.message,
         ]);
       } finally {
         setIsLoadingLocation(false);
@@ -62,7 +70,7 @@ export default function CsvUploader({ onCancelar }) {
     };
 
     fetchLocationData();
-  }, []);
+  }, [currentLocation, locationVersion]); // Agregamos locationVersion como dependencia
 
   // Obtener grupos al cambiar la ubicación
   useEffect(() => {
