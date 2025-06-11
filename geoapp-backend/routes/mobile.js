@@ -258,4 +258,54 @@ function puntoEnPoligono(point, polygon) {
     return inside;
 }
 
+/**
+ * POST /api/empleados/cambiar-password
+ * Cambia la contraseña si se verifica la identidad (nombre completo + usuario)
+ */
+router.post("/empleados/cambiar-password", async (req, res) => {
+    const { user, nombre, ap_paterno, ap_materno, nueva_contraseña } = req.body;
+
+    if (!user || !nombre || !ap_paterno || !ap_materno || !nueva_contraseña) {
+        return res.status(400).json({ error: "Todos los campos son obligatorios." });
+    }
+
+    try {
+        // Verificar si existe una coincidencia exacta
+        const result = await pool.query(
+            `SELECT u.id_user 
+             FROM user_data u
+             JOIN user_credentials uc ON u.id_user = uc.id_user
+             WHERE uc.user = $1 AND u.nombre = $2 AND u.ap_paterno = $3 AND u.ap_materno = $4`,
+            [user, nombre, ap_paterno, ap_materno]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(401).json({ error: "Datos inválidos para cambiar contraseña." });
+        }
+
+        const id_user = result.rows[0].id_user;
+
+        // Actualizar contraseña
+        await pool.query(
+            `UPDATE user_credentials SET pass = $1 WHERE id_user = $2`,
+            [nueva_contraseña, id_user]
+        );
+
+        // (Opcional) Invalidar sesiones si se usa almacenamiento de tokens
+
+        console.log(`🔐 Contraseña cambiada para el usuario ${id_user}`);
+        res.status(200).json({ 
+            mensaje: "Contraseña actualizada correctamente. Vuelve a iniciar sesión.",
+            reiniciar_sesion: true
+        });
+
+    } catch (error) {
+        console.error("❌ Error al cambiar contraseña:", error);
+        res.status(500).json({
+            error: "Error interno del servidor.",
+            details: isDevelopment ? error.message : undefined
+        });
+    }
+});
+
 export default router;
