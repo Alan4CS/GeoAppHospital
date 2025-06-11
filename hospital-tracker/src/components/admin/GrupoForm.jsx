@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ClipboardList, Check, Save, X } from "lucide-react";
+import {
+  ClipboardList,
+  Check,
+  Save,
+  X,
+  Building2,
+  MapPin,
+  Hospital,
+  User,
+} from "lucide-react";
 import { useLocation } from "../../context/LocationContext";
 
 const GrupoForm = ({
@@ -27,107 +36,97 @@ const GrupoForm = ({
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [cargando, setCargando] = useState(false);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
 
-  const { currentLocation, locationVersion } = useLocation();
+  const { currentLocation, locationVersion, updateLocation } = useLocation();
 
-  // Solo mantenemos el efecto de ubicación inicial
+  // Efecto para cargar y sincronizar la ubicación
   useEffect(() => {
-    const fetchLocationData = async () => {
-      const userId = localStorage.getItem("userId");
-      if (!userId) return;
-
-      try {
-        setCargando(true);
-        console.log("🚀 Iniciando fetch de ubicación");
-
-        const res = await fetch(
-          `https://geoapphospital.onrender.com/api/superadmin/superadmin-hospital-ubi/${userId}`
-        );
-
-        if (!res.ok) throw new Error("Error al obtener ubicación del admin");
-
-        const data = await res.json();
-        console.log("📍 Datos de ubicación recibidos:", data);
-
-        if (data && data.length > 0) {
-          const info = data[0]; // Tomamos el primer elemento del array
-
-          setForm((prev) => ({
-            ...prev,
-            estado: info.nombre_estado || "",
-            municipio: info.nombre_municipio || "",
-            hospital: info.nombre_hospital || "",
-            id_estado: info.id_estado,
-            id_municipio: info.id_municipio,
-            id_hospital: info.id_hospital,
-            hospital_id: info.id_hospital, // Importante para el submit
-          }));
+    const initializeLocation = async () => {
+      setIsLoadingLocation(true);
+      if (currentLocation) {
+        console.log("📍 Usando ubicación de contexto:", currentLocation);
+        updateFormLocation(currentLocation);
+      } else {
+        const userId = localStorage.getItem("userId");
+        if (userId) {
+          console.log("🚀 Solicitando ubicación para el usuario:", userId);
+          await updateLocation(userId);
         }
-      } catch (error) {
-        console.error("❌ Error al obtener ubicación:", error);
-        alert("Error al cargar la ubicación inicial");
-      } finally {
-        setCargando(false);
       }
+      setIsLoadingLocation(false);
     };
 
-    fetchLocationData();
-  }, []); // Solo se ejecuta al montar el componente
+    initializeLocation();
+  }, [currentLocation, locationVersion, updateLocation]);
 
-  // Efecto que escucha cambios en la ubicación
-  useEffect(() => {
-    if (currentLocation) {
-      console.log(
-        "📍 Actualizando formulario con nueva ubicación:",
-        currentLocation
-      );
-      setForm((prev) => ({
-        ...prev,
-        estado: currentLocation.nombre_estado || "",
-        municipio: currentLocation.nombre_municipio || "",
-        hospital: currentLocation.nombre_hospital || "",
-        id_estado: currentLocation.id_estado,
-        id_municipio: currentLocation.id_municipio,
-        id_hospital: currentLocation.id_hospital,
-      }));
-    }
-  }, [currentLocation, locationVersion]); // Agregamos locationVersion como dependencia
-
-  const validateField = (name, value) => {
-    let error = "";
-    if (!value) {
-      error = "Este campo es obligatorio";
-    } else if (name === "nombre" && value.length < 3) {
-      error = "El nombre debe tener al menos 3 caracteres";
-    }
-    return error;
+  // Actualizar formulario con información de ubicación
+  const updateFormLocation = (info) => {
+    setForm((prev) => ({
+      ...prev,
+      estado: info.nombre_estado || "",
+      municipio: info.nombre_municipio || "",
+      hospital: info.nombre_hospital || "",
+      id_estado: info.id_estado,
+      id_municipio: info.id_municipio,
+      id_hospital: info.id_hospital,
+      hospital_id: info.id_hospital, // Importante para el submit
+    }));
   };
 
+  // Reglas de validación
+  const validationRules = {
+    nombre: (value) => {
+      if (!value?.trim()) return "El nombre es obligatorio";
+      if (value.length < 3) return "El nombre debe tener al menos 3 caracteres";
+      return "";
+    },
+    descripcion: (value) =>
+      !value?.trim() ? "La descripción es obligatoria" : "",
+  };
+
+  // Validar campo individual
+  const validateField = (name, value) => {
+    const rule = validationRules[name];
+    return rule ? rule(value) : "";
+  };
+
+  // Manejar cambios en los campos
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     const val = type === "checkbox" ? checked : value;
 
-    setForm({ ...form, [name]: val });
-    setTouched({ ...touched, [name]: true });
+    setForm((prev) => ({ ...prev, [name]: val }));
+    setTouched((prev) => ({ ...prev, [name]: true }));
+
     const error = validateField(name, val);
-    setErrors({ ...errors, [name]: error });
+    setErrors((prev) => ({ ...prev, [name]: error }));
   };
 
+  // Manejar envío del formulario
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log("📤 Enviando formulario con datos:", form);
 
-    // Validaciones
-    if (!form.nombre?.trim() || !form.descripcion?.trim()) {
-      setErrors((prev) => ({
-        ...prev,
-        nombre: !form.nombre?.trim() ? "El nombre es obligatorio" : "",
-        descripcion: !form.descripcion?.trim()
-          ? "La descripción es obligatoria"
-          : "",
-      }));
-      return;
-    }
+    // Validar todos los campos
+    const requiredFields = ["nombre", "descripcion"];
+    const newErrors = {};
+    let isValid = true;
+
+    requiredFields.forEach((field) => {
+      const error = validateField(field, form[field]);
+      if (error) {
+        newErrors[field] = error;
+        isValid = false;
+      }
+    });
+
+    setErrors(newErrors);
+    setTouched(
+      requiredFields.reduce((acc, field) => ({ ...acc, [field]: true }), {})
+    );
+
+    if (!isValid) return;
 
     if (!form.id_hospital) {
       alert("Error: No hay hospital asignado");
@@ -183,6 +182,48 @@ const GrupoForm = ({
     }
   };
 
+  // Renderizar información de ubicación
+  const renderLocationInfo = () => {
+    if (isLoadingLocation) {
+      return (
+        <div className="animate-pulse space-y-3 p-4">
+          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+          <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+        </div>
+      );
+    }
+
+    if (!form.id_hospital) {
+      return (
+        <p className="text-sm text-red-600 p-4">
+          No se pudo obtener la información de ubicación. Asegúrate de que el
+          administrador tenga una ubicación asignada.
+        </p>
+      );
+    }
+
+    const locationItems = [
+      { icon: MapPin, label: "Estado", value: form.estado },
+      { icon: Building2, label: "Municipio", value: form.municipio },
+      { icon: Hospital, label: "Hospital", value: form.hospital },
+    ];
+
+    return (
+      <div className="space-y-3">
+        {locationItems.map(({ icon: Icon, label, value }) => (
+          <div key={label} className="flex items-center">
+            <Icon className="h-4 w-4 mr-2 text-emerald-600" />
+            <div>
+              <p className="text-xs text-gray-500">{label}</p>
+              <p className="font-medium">{value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-md overflow-hidden">
       <div className="p-6 border-b border-gray-200">
@@ -190,132 +231,120 @@ const GrupoForm = ({
           <ClipboardList className="h-5 w-5 mr-2 text-emerald-600" />
           {editando ? "Editar Grupo" : "Nuevo Grupo"}
         </h2>
+        <p className="text-gray-500 mt-1">
+          {editando
+            ? "Modifica la información del grupo existente"
+            : "Completa el formulario para crear un nuevo grupo en el sistema"}
+        </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-6 space-y-6">
-        {/* Estado */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Estado
-          </label>
-          <input
-            type="text"
-            value={form.estado}
-            readOnly
-            className="w-full px-4 py-2 border rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
-            tabIndex={-1}
-          />
-          <p className="mt-1 text-xs text-gray-400">
-            Estado asignado automáticamente desde la ubicación del administrador
-          </p>
-        </div>
+      <form onSubmit={handleSubmit} className="p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Ubicación e institución */}
+          <div className="md:col-span-2">
+            <h3 className="text-sm font-medium text-gray-700 flex items-center mb-4 pb-2 border-b">
+              <Building2 className="h-4 w-4 mr-2 text-emerald-600" />
+              Ubicación e Institución
+            </h3>
+            {renderLocationInfo()}
+          </div>
 
-        {/* Municipio */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Municipio
-          </label>
-          <input
-            type="text"
-            value={form.municipio}
-            readOnly
-            className="w-full px-4 py-2 border rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
-            tabIndex={-1}
-          />
-          <p className="mt-1 text-xs text-gray-400">
-            Municipio asignado automáticamente desde la ubicación del
-            administrador
-          </p>
-        </div>
+          {/* Información del grupo */}
+          <div className="md:col-span-2 mt-6">
+            <h3 className="text-sm font-medium text-gray-700 flex items-center mb-4 pb-2 border-b">
+              <ClipboardList className="h-4 w-4 mr-2 text-emerald-600" />
+              Información del Grupo
+            </h3>
+          </div>
 
-        {/* Hospital */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Hospital
-          </label>
-          <input
-            type="text"
-            value={form.hospital}
-            readOnly
-            className="w-full px-4 py-2 border rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
-            tabIndex={-1}
-          />
-          <p className="mt-1 text-xs text-gray-400">
-            Hospital asignado automáticamente desde la ubicación del
-            administrador
-          </p>
-        </div>
+          {/* Nombre del grupo */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nombre del grupo
+            </label>
+            <input
+              type="text"
+              name="nombre"
+              value={form.nombre}
+              onChange={handleChange}
+              className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                errors.nombre && touched.nombre
+                  ? "border-red-500"
+                  : "border-gray-300"
+              }`}
+              placeholder="Ingrese el nombre del grupo"
+              required
+            />
+            {errors.nombre && touched.nombre && (
+              <p className="mt-1 text-sm text-red-600">{errors.nombre}</p>
+            )}
+          </div>
 
-        {/* Nombre del grupo */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Nombre del grupo
-          </label>
-          <input
-            type="text"
-            name="nombre"
-            value={form.nombre}
-            onChange={handleChange}
-            className={`w-full border rounded px-4 py-2 ${
-              errors.nombre && touched.nombre ? "border-red-500" : ""
-            }`}
-          />
-          {errors.nombre && touched.nombre && (
-            <p className="text-red-600 text-sm mt-1">{errors.nombre}</p>
-          )}
-        </div>
+          {/* Descripción */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Descripción
+            </label>
+            <textarea
+              name="descripcion"
+              value={form.descripcion}
+              onChange={handleChange}
+              rows={3}
+              className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                errors.descripcion && touched.descripcion
+                  ? "border-red-500"
+                  : "border-gray-300"
+              }`}
+              placeholder="Describe las funciones o características del grupo"
+              required
+            />
+            {errors.descripcion && touched.descripcion && (
+              <p className="mt-1 text-sm text-red-600">{errors.descripcion}</p>
+            )}
+          </div>
 
-        {/* Descripción */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Descripción
-          </label>
-          <textarea
-            name="descripcion"
-            value={form.descripcion}
-            onChange={handleChange}
-            rows={3}
-            className={`w-full border rounded px-4 py-2 ${
-              errors.descripcion && touched.descripcion ? "border-red-500" : ""
-            }`}
-          ></textarea>
-          {errors.descripcion && touched.descripcion && (
-            <p className="text-red-600 text-sm mt-1">{errors.descripcion}</p>
-          )}
-        </div>
-
-        {/* Activo */}
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            name="activo"
-            checked={form.activo}
-            onChange={handleChange}
-            className="h-4 w-4 text-emerald-600 border-gray-300 rounded"
-          />
-          <label className="ml-2 text-sm text-gray-700">Grupo activo</label>
+          {/* Estado activo */}
+          <div className="md:col-span-2">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                name="activo"
+                checked={form.activo}
+                onChange={handleChange}
+                className="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+              />
+              <label className="ml-2 text-sm font-medium text-gray-700">
+                Grupo activo
+              </label>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Los grupos inactivos no aparecerán disponibles para asignación
+            </p>
+          </div>
         </div>
 
         {/* Botones */}
-        <div className="flex justify-end space-x-4">
+        <div className="flex justify-end space-x-3 mt-8">
           <button
             type="button"
             onClick={onCancelar}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded"
+            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center"
             disabled={cargando}
           >
-            <X className="h-4 w-4 inline mr-1" /> Cancelar
+            <X className="h-4 w-4 mr-2" />
+            Cancelar
           </button>
           <button
             type="submit"
             disabled={cargando}
-            className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700"
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center"
           >
+            <Save className="h-4 w-4 mr-2" />
             {cargando
               ? "Guardando..."
               : editando
-              ? "Actualizar grupo"
-              : "Crear grupo"}
+              ? "Actualizar Grupo"
+              : "Crear Grupo"}
           </button>
         </div>
       </form>
