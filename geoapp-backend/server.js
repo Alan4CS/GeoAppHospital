@@ -10,6 +10,7 @@ import hospitaladmin from "./routes/hospitaladmin.js";
 import groups from "./routes/groups.js";
 import empleados from "./routes/empleados.js";
 import mobileRoutes from "./routes/mobile.js";
+import emailRoutes from "./routes/email.js";
 
 dotenv.config();
 const app = express();
@@ -25,6 +26,7 @@ app.use("/api/hospitaladmin", hospitaladmin);
 app.use("/api/groups", groups);
 app.use("/api/employees", empleados);
 app.use("/api/mobile", mobileRoutes);
+app.use("/api/email", emailRoutes);
 
 // Usa el puerto asignado por Render
 const PORT = process.env.PORT || 4000;
