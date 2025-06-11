@@ -136,15 +136,14 @@ router.post("/empleados/login", async (req, res) => {
  * Actualiza la ubicación del usuario y verifica si está dentro de la geocerca
  */
 router.post("/ubicaciones", authenticateToken, async (req, res) => {
-    const { latitud, longitud } = req.body;
+    const { latitud, longitud, tipo_registro } = req.body;
     const id_user = req.user.id_user;
 
-    if (latitud == null || longitud == null) {
-        return res.status(400).json({ error: "Latitud y longitud son obligatorios." });
+    if (latitud == null || longitud == null || (tipo_registro !== 0 && tipo_registro !== 1)) {
+        return res.status(400).json({ error: "Latitud, longitud y tipo_registro (0 o 1) son obligatorios." });
     }
 
     try {
-        // 1. Obtener la geocerca del hospital del usuario
         const hospitalQuery = await pool.query(
             `SELECT 
                 h.radio_geo,
@@ -160,25 +159,22 @@ router.post("/ubicaciones", authenticateToken, async (req, res) => {
 
         if (hospitalQuery.rowCount > 0) {
             const hospital = hospitalQuery.rows[0];
-            
+
             if (hospital.radio_geo) {
                 try {
-                    // Convertir el GeoJSON de la geocerca
                     const geocerca = JSON.parse(hospital.radio_geo.replace(/'/g, '"'));
-                    
-                    // TODO: Aquí se debe implementar la lógica para verificar si el punto está dentro del polígono
-                    // Por ahora, usaremos una verificación simple de distancia si es un círculo
+
                     if (geocerca.type === 'Circle') {
                         const distancia = calcularDistancia(
-                            latitud, 
-                            longitud, 
-                            hospital.latitud_hospital, 
+                            latitud,
+                            longitud,
+                            hospital.latitud_hospital,
                             hospital.longitud_hospital
                         );
                         dentro_geocerca = distancia <= geocerca.radius;
                     } else if (geocerca.type === 'Polygon') {
                         dentro_geocerca = puntoEnPoligono(
-                            [longitud, latitud], 
+                            [longitud, latitud],
                             geocerca.coordinates[0]
                         );
                     }
@@ -188,36 +184,39 @@ router.post("/ubicaciones", authenticateToken, async (req, res) => {
             }
         }
 
-        // 2. Actualizar o insertar la ubicación
+        // Actualizar o insertar registro con tipo_registro numérico
         const result = await pool.query(
             `UPDATE registro_ubicaciones
              SET latitud = $2,
                  longitud = $3,
                  fecha_hora = NOW(),
-                 dentro_geocerca = $4
+                 dentro_geocerca = $4,
+                 tipo_registro = $5
              WHERE id_user = $1
              RETURNING *`,
-            [id_user, latitud, longitud, dentro_geocerca]
+            [id_user, latitud, longitud, dentro_geocerca, tipo_registro]
         );
 
         if (result.rowCount === 0) {
             await pool.query(
                 `INSERT INTO registro_ubicaciones 
-                 (id_user, latitud, longitud, fecha_hora, dentro_geocerca) 
-                 VALUES ($1, $2, $3, NOW(), $4)
+                 (id_user, latitud, longitud, fecha_hora, dentro_geocerca, tipo_registro)
+                 VALUES ($1, $2, $3, NOW(), $4, $5)
                  RETURNING *`,
-                [id_user, latitud, longitud, dentro_geocerca]
+                [id_user, latitud, longitud, dentro_geocerca, tipo_registro]
             );
-            console.log(`✅ Se insertó una nueva ubicación para el usuario ${id_user}`);
+            console.log(`✅ Se insertó nueva ubicación para el usuario ${id_user}`);
         } else {
             console.log(`✅ Se actualizó la ubicación del usuario ${id_user}`);
         }
 
-        res.status(200).json({ 
+        res.status(200).json({
             mensaje: "Ubicación actualizada correctamente.",
             dentro_geocerca,
+            tipo_registro,
             fecha_hora: new Date()
         });
+
     } catch (error) {
         console.error("❌ Error al actualizar ubicación:", error);
         res.status(500).json({
@@ -257,5 +256,55 @@ function puntoEnPoligono(point, polygon) {
     }
     return inside;
 }
+
+/**
+ * POST /api/empleados/cambiar-password
+ * Cambia la contraseña si se verifica la identidad (nombre completo + usuario)
+ */
+router.post("/empleados/cambiar-password", async (req, res) => {
+    const { user, nombre, ap_paterno, ap_materno, nueva_contraseña } = req.body;
+
+    if (!user || !nombre || !ap_paterno || !ap_materno || !nueva_contraseña) {
+        return res.status(400).json({ error: "Todos los campos son obligatorios." });
+    }
+
+    try {
+        // Verificar si existe una coincidencia exacta
+        const result = await pool.query(
+            `SELECT u.id_user 
+             FROM user_data u
+             JOIN user_credentials uc ON u.id_user = uc.id_user
+             WHERE uc.user = $1 AND u.nombre = $2 AND u.ap_paterno = $3 AND u.ap_materno = $4`,
+            [user, nombre, ap_paterno, ap_materno]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(401).json({ error: "Datos inválidos para cambiar contraseña." });
+        }
+
+        const id_user = result.rows[0].id_user;
+
+        // Actualizar contraseña
+        await pool.query(
+            `UPDATE user_credentials SET pass = $1 WHERE id_user = $2`,
+            [nueva_contraseña, id_user]
+        );
+
+        // (Opcional) Invalidar sesiones si se usa almacenamiento de tokens
+
+        console.log(`🔐 Contraseña cambiada para el usuario ${id_user}`);
+        res.status(200).json({ 
+            mensaje: "Contraseña actualizada correctamente. Vuelve a iniciar sesión.",
+            reiniciar_sesion: true
+        });
+
+    } catch (error) {
+        console.error("❌ Error al cambiar contraseña:", error);
+        res.status(500).json({
+            error: "Error interno del servidor.",
+            details: isDevelopment ? error.message : undefined
+        });
+    }
+});
 
 export default router;
