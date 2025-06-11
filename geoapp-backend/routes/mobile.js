@@ -136,11 +136,11 @@ router.post("/empleados/login", async (req, res) => {
  * Actualiza la ubicación del usuario y verifica si está dentro de la geocerca
  */
 router.post("/ubicaciones", authenticateToken, async (req, res) => {
-    const { latitud, longitud } = req.body;
+    const { latitud, longitud, tipo_ubicacion } = req.body;
     const id_user = req.user.id_user;
 
-    if (latitud == null || longitud == null) {
-        return res.status(400).json({ error: "Latitud y longitud son obligatorios." });
+    if (latitud == null || longitud == null || !tipo_ubicacion) {
+        return res.status(400).json({ error: "Latitud, longitud y tipo_ubicacion son obligatorios." });
     }
 
     try {
@@ -166,8 +166,6 @@ router.post("/ubicaciones", authenticateToken, async (req, res) => {
                     // Convertir el GeoJSON de la geocerca
                     const geocerca = JSON.parse(hospital.radio_geo.replace(/'/g, '"'));
                     
-                    // TODO: Aquí se debe implementar la lógica para verificar si el punto está dentro del polígono
-                    // Por ahora, usaremos una verificación simple de distancia si es un círculo
                     if (geocerca.type === 'Circle') {
                         const distancia = calcularDistancia(
                             latitud, 
@@ -188,25 +186,26 @@ router.post("/ubicaciones", authenticateToken, async (req, res) => {
             }
         }
 
-        // 2. Actualizar o insertar la ubicación
+        // 2. Actualizar o insertar la ubicación con tipo_ubicacion
         const result = await pool.query(
             `UPDATE registro_ubicaciones
              SET latitud = $2,
                  longitud = $3,
                  fecha_hora = NOW(),
-                 dentro_geocerca = $4
+                 dentro_geocerca = $4,
+                 tipo_ubicacion = $5
              WHERE id_user = $1
              RETURNING *`,
-            [id_user, latitud, longitud, dentro_geocerca]
+            [id_user, latitud, longitud, dentro_geocerca, tipo_ubicacion]
         );
 
         if (result.rowCount === 0) {
             await pool.query(
                 `INSERT INTO registro_ubicaciones 
-                 (id_user, latitud, longitud, fecha_hora, dentro_geocerca) 
-                 VALUES ($1, $2, $3, NOW(), $4)
+                 (id_user, latitud, longitud, fecha_hora, dentro_geocerca, tipo_ubicacion) 
+                 VALUES ($1, $2, $3, NOW(), $4, $5)
                  RETURNING *`,
-                [id_user, latitud, longitud, dentro_geocerca]
+                [id_user, latitud, longitud, dentro_geocerca, tipo_ubicacion]
             );
             console.log(`✅ Se insertó una nueva ubicación para el usuario ${id_user}`);
         } else {
@@ -216,6 +215,7 @@ router.post("/ubicaciones", authenticateToken, async (req, res) => {
         res.status(200).json({ 
             mensaje: "Ubicación actualizada correctamente.",
             dentro_geocerca,
+            tipo_ubicacion,
             fecha_hora: new Date()
         });
     } catch (error) {
