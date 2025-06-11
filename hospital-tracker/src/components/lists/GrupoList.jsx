@@ -190,7 +190,7 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
 
     try {
       const response = await fetch(
-        `https://geoapphospital.onrender.com/api/groups/delete-groups/${grupoEliminar.id}`,
+        `https://geoapphospital.onrender.com/api/groups/delete-groups/${grupoEliminar.id_group}`,
         {
           method: "POST",
           headers: {

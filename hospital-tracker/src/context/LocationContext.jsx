@@ -14,7 +14,7 @@ export function LocationProvider({ children }) {
       const data = await res.json();
       if (data && data.length > 0) {
         setCurrentLocation(data[0]);
-        setLocationVersion((prev) => prev + 1);
+        setLocationVersion((prev) => prev + 1); // Incrementar versión para forzar actualizaciones
       }
     } catch (error) {
       console.error("Error fetching location:", error);
@@ -23,7 +23,11 @@ export function LocationProvider({ children }) {
 
   return (
     <LocationContext.Provider
-      value={{ currentLocation, updateLocation, locationVersion }}
+      value={{
+        currentLocation,
+        updateLocation,
+        locationVersion,
+      }}
     >
       {children}
     </LocationContext.Provider>

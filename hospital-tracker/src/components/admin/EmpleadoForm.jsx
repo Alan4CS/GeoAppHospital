@@ -33,56 +33,128 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
   const [touched, setTouched] = useState({});
   const [grupos, setGrupos] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [cargando, setCargando] = useState(false);
+  const { currentLocation, locationVersion, updateLocation } = useLocation();
+  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
 
-  // Efecto para cargar la ubicación inicial
+  // Configuración de campos del formulario
+  const formFields = [
+    {
+      name: "nombres",
+      label: "Nombres",
+      placeholder: "Ingrese los nombres",
+      type: "text",
+    },
+    {
+      name: "ap_paterno",
+      label: "Apellido paterno",
+      placeholder: "Ingrese el apellido paterno",
+      type: "text",
+    },
+    {
+      name: "ap_materno",
+      label: "Apellido materno",
+      placeholder: "Ingrese el apellido materno",
+      type: "text",
+    },
+    {
+      name: "CURP",
+      label: "CURP",
+      placeholder: "Ej. GOMC920101HDFLNS09",
+      icon: <ClipboardCheck className="h-4 w-4 mr-1 text-blue-600" />,
+      extraInfo: "Formato: 4 letras, 6 números, H/M, 5 letras, 2 alfanuméricos",
+      maxLength: 18,
+      type: "text",
+    },
+    {
+      name: "correo_electronico",
+      label: "Correo electrónico",
+      placeholder: "Ej. ejemplo@gmail.com",
+      icon: <Mail className="h-4 w-4 mr-1 text-blue-600" />,
+      extraInfo: "Formato: usuario@gmail.com",
+      maxLength: 100,
+      type: "email",
+    },
+    {
+      name: "telefono",
+      label: "Número de teléfono",
+      placeholder: "10 dígitos",
+      icon: <Phone className="h-4 w-4 mr-1 text-blue-600" />,
+      maxLength: 10,
+      type: "tel",
+    },
+  ];
+
+  // Reglas de validación
+  const validationRules = {
+    nombres: (value) => (!value ? "El nombre es obligatorio" : ""),
+    ap_paterno: (value) => (!value ? "El apellido paterno es obligatorio" : ""),
+    ap_materno: (value) => (!value ? "El apellido materno es obligatorio" : ""),
+    CURP: (value) => {
+      if (!value) return "El CURP es obligatorio";
+      if (!/^[A-Z&Ñ]{4}[0-9]{6}[HM][A-Z]{5}[A-Z0-9]{2}$/.test(value))
+        return "El CURP debe tener el formato correcto";
+      return "";
+    },
+    correo_electronico: (value) => {
+      if (!value) return "El correo electrónico es obligatorio";
+      if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value))
+        return "El correo electrónico debe tener el formato correcto";
+      return "";
+    },
+    telefono: (value) => {
+      if (!value) return "El teléfono es obligatorio";
+      if (!/^\d{10}$/.test(value)) return "El teléfono debe tener 10 dígitos";
+      return "";
+    },
+    estado: (value) => (!value ? "El estado es obligatorio" : ""),
+    municipio: (value) => (!value ? "El municipio es obligatorio" : ""),
+    hospital: (value) => (!value ? "El hospital es obligatorio" : ""),
+    grupo: (value) => (!value ? "El grupo es obligatorio" : ""),
+  };
+
+  // Inicializar ubicación
   useEffect(() => {
-    const fetchLocationData = async () => {
-      const userId = localStorage.getItem("userId");
-      if (!userId) return;
-
-      try {
-        setCargando(true);
-        console.log("🚀 Iniciando fetch de ubicación");
-
-        const res = await fetch(
-          `https://geoapphospital.onrender.com/api/superadmin/superadmin-hospital-ubi/${userId}`
-        );
-
-        if (!res.ok) throw new Error("Error al obtener ubicación del admin");
-        const data = await res.json();
-        console.log("📍 Datos de ubicación recibidos:", data);
-
-        if (data && data.length > 0) {
-          const info = data[0];
-
-          setForm((prev) => ({
-            ...prev,
-            estado: info.nombre_estado || "",
-            municipio: info.nombre_municipio || "",
-            hospital: info.nombre_hospital || "",
-            id_estado: info.id_estado,
-            id_municipio: info.id_municipio,
-            id_hospital: info.id_hospital,
-          }));
-
-          // Cargar grupos del hospital inmediatamente
-          if (info.id_hospital) {
-            fetchGrupos(info.id_hospital);
-          }
+    const initializeLocation = async () => {
+      setIsLoadingLocation(true);
+      if (currentLocation) {
+        console.log("📍 Usando ubicación de contexto:", currentLocation);
+        updateFormLocation(currentLocation);
+      } else {
+        const userId = localStorage.getItem("userId");
+        if (userId) {
+          console.log("🚀 Solicitando ubicación para el usuario:", userId);
+          await updateLocation(userId);
         }
-      } catch (error) {
-        console.error("❌ Error al obtener ubicación:", error);
-        alert("Error al cargar la ubicación inicial");
-      } finally {
-        setCargando(false);
       }
+      setIsLoadingLocation(false);
     };
 
-    fetchLocationData();
-  }, []);
+    initializeLocation();
+  }, [currentLocation, locationVersion, updateLocation]);
 
-  // Función para cargar grupos
+  // Cargar grupos cuando cambia el hospital
+  useEffect(() => {
+    if (form.id_hospital) {
+      fetchGrupos(form.id_hospital);
+    } else {
+      setGrupos([]);
+    }
+  }, [form.id_hospital]);
+
+  // Actualizar formulario con información de ubicación
+  const updateFormLocation = (info) => {
+    setForm((prev) => ({
+      ...prev,
+      estado: info.nombre_estado || "",
+      municipio: info.nombre_municipio || "",
+      hospital: info.nombre_hospital || "",
+      id_estado: info.id_estado,
+      id_municipio: info.id_municipio,
+      id_hospital: info.id_hospital,
+    }));
+  };
+
+  // Cargar grupos del hospital
   const fetchGrupos = async (hospitalId) => {
     try {
       const res = await fetch(
@@ -97,111 +169,67 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
     }
   };
 
+  // Validar campo individual
   const validateField = (name, value) => {
-    let error = "";
-    switch (name) {
-      case "nombres":
-        if (!value) error = "El nombre es obligatorio";
-        break;
-      case "ap_paterno":
-        if (!value) error = "El apellido paterno es obligatorio";
-        break;
-      case "ap_materno":
-        if (!value) error = "El apellido materno es obligatorio";
-        break;
-      case "CURP":
-        if (!value) error = "El CURP es obligatorio";
-        else if (!/^[A-Z&Ñ]{4}[0-9]{6}[HM][A-Z]{5}[A-Z0-9]{2}$/.test(value))
-          error = "El CURP debe tener el formato correcto (AAAA######AAA)";
-        break;
-
-      case "correo_electronico":
-        if (!value) error = "El correo electrónico es obligatorio";
-        else if (
-          !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)
-        )
-          error = "El correo electrónico debe tener el formato correcto";
-        break;
-
-      case "telefono":
-        if (!value) error = "El teléfono es obligatorio";
-        else if (!/^\d{10}$/.test(value))
-          error = "El teléfono debe tener 10 dígitos";
-        break;
-      case "estado":
-        if (!value) error = "El estado es obligatorio";
-        break;
-      case "municipio":
-        if (!value) error = "El municipio es obligatorio";
-        break;
-      case "hospital":
-        if (!value) error = "El hospital es obligatorio";
-        break;
-      case "grupo":
-        if (!value) error = "El grupo es obligatorio";
-        break;
-    }
-    return error;
+    const rule = validationRules[name];
+    return rule ? rule(value) : "";
   };
 
+  // Formatear valor según el tipo de campo
+  const formatValue = (name, value) => {
+    if (name === "CURP") return value.toUpperCase();
+    if (["municipio", "hospital", "grupo"].includes(name)) {
+      return value ? parseInt(value, 10) : "";
+    }
+    return value;
+  };
+
+  // Manejar cambios en los campos
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value } = e.target;
+    const formattedValue = formatValue(name, value);
 
-    // Para la CURP, convertir a mayúsculas automáticamente
-    let formattedValue;
-    if (name === "CURP") {
-      formattedValue = value.toUpperCase();
-    } else if (
-      name === "municipio" ||
-      name === "hospital" ||
-      name === "grupo"
-    ) {
-      // Convertir a número entero para IDs
-      formattedValue = value ? parseInt(value, 10) : "";
-    } else {
-      formattedValue = value;
-    }
+    setForm((prev) => ({ ...prev, [name]: formattedValue }));
+    setTouched((prev) => ({ ...prev, [name]: true }));
 
-    setForm({ ...form, [name]: formattedValue });
-
-    // Marcar el campo como tocado
-    setTouched({ ...touched, [name]: true });
-
-    // Validar el campo
     const error = validateField(name, formattedValue);
-    setErrors({ ...errors, [name]: error });
+    setErrors((prev) => ({ ...prev, [name]: error }));
   };
 
+  // Manejar pérdida de foco
   const handleBlur = (e) => {
     const { name, value } = e.target;
-    setTouched({ ...touched, [name]: true });
+    setTouched((prev) => ({ ...prev, [name]: true }));
     const error = validateField(name, value);
-    setErrors({ ...errors, [name]: error });
+    setErrors((prev) => ({ ...prev, [name]: error }));
   };
 
+  // Generar credenciales de usuario
+  const generateCredentials = () => {
+    const user =
+      form.nombres.trim().charAt(0).toLowerCase() +
+      form.ap_paterno.trim().toLowerCase().replace(/\s+/g, "");
+
+    const chars =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    const pass = Array.from({ length: 10 }, () =>
+      chars.charAt(Math.floor(Math.random() * chars.length))
+    ).join("");
+
+    return { user, pass };
+  };
+
+  // Manejar envío del formulario
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (isSubmitting) return;
     setIsSubmitting(true);
 
-    // Validar todos los campos antes de enviar
+    // Validar todos los campos
+    const requiredFields = Object.keys(validationRules);
     const newErrors = {};
     let isValid = true;
-
-    // Validar campos obligatorios
-    const requiredFields = [
-      "nombres",
-      "ap_paterno",
-      "ap_materno",
-      "CURP",
-      "correo_electronico",
-      "telefono",
-      "estado",
-      "municipio",
-      "hospital",
-      "grupo",
-    ];
 
     requiredFields.forEach((field) => {
       const error = validateField(field, form[field]);
@@ -221,25 +249,9 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
       return;
     }
 
-    // Generar nombre de usuario: primera letra del nombre + apellido paterno (sin espacios, en minúsculas)
-    const user =
-      form.nombres.trim().charAt(0).toLowerCase() +
-      form.ap_paterno.trim().toLowerCase().replace(/\s+/g, "");
-
-    // Generar contraseña aleatoria
-    const generarPassword = () => {
-      const chars =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-      let password = "";
-      for (let i = 0; i < 10; i++) {
-        password += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      return password;
-    };
-
-    const pass = generarPassword();
-
     try {
+      const { user, pass } = generateCredentials();
+
       const empleadoData = {
         nombre: form.nombres,
         ap_paterno: form.ap_paterno,
@@ -267,6 +279,48 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
     }
   };
 
+  // Renderizar información de ubicación
+  const renderLocationInfo = () => {
+    if (isLoadingLocation) {
+      return (
+        <div className="animate-pulse space-y-3 p-4">
+          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+          <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+        </div>
+      );
+    }
+
+    if (!form.id_hospital) {
+      return (
+        <p className="text-sm text-red-600 p-4">
+          No se pudo obtener la información de ubicación. Asegúrate de que el
+          administrador tenga una ubicación asignada.
+        </p>
+      );
+    }
+
+    const locationItems = [
+      { icon: MapPin, label: "Estado", value: form.estado },
+      { icon: Building2, label: "Municipio", value: form.municipio },
+      { icon: Hospital, label: "Hospital", value: form.hospital },
+    ];
+
+    return (
+      <div className="space-y-3">
+        {locationItems.map(({ icon: Icon, label, value }) => (
+          <div key={label} className="flex items-center">
+            <Icon className="h-4 w-4 mr-2 text-blue-600" />
+            <div>
+              <p className="text-xs text-gray-500">{label}</p>
+              <p className="font-medium">{value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-md overflow-hidden">
       <div className="p-6 border-b border-gray-200">
@@ -281,167 +335,19 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
 
       <form onSubmit={handleSubmit} className="p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Información personal */}
-          <div className="md:col-span-2">
-            <h3 className="text-sm font-medium text-gray-700 flex items-center mb-0 pb-0 border-b">
-              <User className="h-4 w-4 mr-2 text-blue-600" />
-              Información Personal
-            </h3>
-          </div>
-
-          {/* Campos de texto */}
-          {[
-            {
-              name: "nombres",
-              label: "Nombres",
-              placeholder: "Ingrese los nombres",
-            },
-            {
-              name: "ap_paterno",
-              label: "Apellido paterno",
-              placeholder: "Ingrese el apellido paterno",
-            },
-            {
-              name: "ap_materno",
-              label: "Apellido materno",
-              placeholder: "Ingrese el apellido materno",
-            },
-            {
-              name: "CURP",
-              label: "CURP",
-              placeholder: "Ej. GOMC920101HDFLNS09",
-              icon: <ClipboardCheck className="h-4 w-4 mr-1 text-blue-600" />,
-              extraInfo:
-                "Formato: 4 letras, 6 números, H/M, 5 letras, 2 alfanuméricos",
-              maxLength: 18,
-            },
-            {
-              name: "correo_electronico",
-              label: "Correo electrónico",
-              placeholder: "Ej. ejemplo@gmail.com",
-              icon: <Mail className="h-4 w-4 mr-1 text-blue-600" />,
-              extraInfo: "Formato: usuario@gmail.com",
-              maxLength: 100,
-            },
-            {
-              name: "telefono",
-              label: "Número de teléfono",
-              placeholder: "10 dígitos",
-              icon: <Phone className="h-4 w-4 mr-1 text-blue-600" />,
-              maxLength: 10,
-            },
-          ].map(({ name, label, placeholder, icon, extraInfo, maxLength }) => (
-            <div key={name}>
-              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                {icon}
-                {label}
-              </label>
-              <input
-                type={name === "telefono" ? "tel" : "text"}
-                name={name}
-                value={form[name]}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                  errors[name] && touched[name]
-                    ? "border-red-500"
-                    : "border-gray-300"
-                }`}
-                placeholder={placeholder}
-                maxLength={maxLength || undefined}
-                required
-              />
-              {errors[name] && touched[name] && (
-                <p className="mt-1 text-sm text-red-600">{errors[name]}</p>
-              )}
-              {!errors[name] && extraInfo && (
-                <p className="mt-1 text-xs text-gray-500">{extraInfo}</p>
-              )}
-            </div>
-          ))}
-
           {/* Ubicación e institución */}
-          <div className="md:col-span-2 mt-4">
-            <h3 className="text-sm font-medium text-gray-700 flex items-center mb-0 pb-0 border-b">
+          <div className="md:col-span-2">
+            <h3 className="text-sm font-medium text-gray-700 flex items-center mb-4 pb-2 border-b">
               <Building2 className="h-4 w-4 mr-2 text-blue-600" />
               Ubicación e Institución
             </h3>
+            {renderLocationInfo()}
           </div>
-
-          {/* Select de estados */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <MapPin className="h-4 w-4 mr-1 inline text-blue-600" />
-              Estado
-            </label>
-            <input
-              type="text"
-              value={form.estado}
-              readOnly
-              className="w-full px-4 py-2 border rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
-              tabIndex={-1}
-            />
-            <p className="mt-1 text-xs text-gray-400">
-              Estado asignado automáticamente desde la ubicación del
-              administrador
-            </p>
-            {errors.estado && touched.estado && (
-              <p className="mt-1 text-sm text-red-600">{errors.estado}</p>
-            )}
-          </div>
-
-          {/* Select de municipios */}
-          {form.estado && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                <Building2 className="h-4 w-4 mr-1 inline text-blue-600" />
-                Municipio
-              </label>
-              <input
-                type="text"
-                value={form.municipio}
-                readOnly
-                className="w-full px-4 py-2 border rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
-                tabIndex={-1}
-              />
-              <p className="mt-1 text-xs text-gray-400">
-                Municipio asignado automáticamente desde la ubicación del
-                administrador
-              </p>
-              {errors.municipio && touched.municipio && (
-                <p className="mt-1 text-sm text-red-600">{errors.municipio}</p>
-              )}
-            </div>
-          )}
-
-          {/* Select de hospitales */}
-          {form.municipio && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                <Hospital className="h-4 w-4 mr-1 inline text-blue-600" />
-                Hospital
-              </label>
-              <input
-                type="text"
-                value={form.hospital}
-                readOnly
-                className="w-full px-4 py-2 border rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
-                tabIndex={-1}
-              />
-              <p className="mt-1 text-xs text-gray-400">
-                Hospital asignado automáticamente desde la ubicación del
-                administrador
-              </p>
-              {errors.hospital && touched.hospital && (
-                <p className="mt-1 text-sm text-red-600">{errors.hospital}</p>
-              )}
-            </div>
-          )}
 
           {/* Select de grupos */}
           {form.hospital && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Grupo
               </label>
               <select
@@ -468,34 +374,63 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
               )}
             </div>
           )}
-        </div>
 
-        {/* Info de acceso */}
-        <div className="mt-8 bg-gray-50 p-4 rounded-lg border border-gray-200">
-          <h3 className="text-sm font-medium text-gray-700 flex items-center mb-2">
-            <Key className="h-4 w-4 mr-1 text-blue-600" />
-            Información de acceso
-          </h3>
-          <p className="text-sm text-gray-600 mb-2">
-            Se generará automáticamente un nombre de usuario y contraseña para
-            el empleado.
-          </p>
-          <ul className="text-xs text-gray-500 space-y-1">
-            <li>
-              • Usuario: Primera letra del nombre + apellido paterno (sin
-              espacios)
-            </li>
-            <li>• Contraseña: Generada aleatoriamente (10 caracteres)</li>
-            <li>• Rol: Empleado</li>
-          </ul>
+          {/* Información personal */}
+          <div className="md:col-span-2 mt-6">
+            <h3 className="text-sm font-medium text-gray-700 flex items-center mb-4 pb-2 border-b">
+              <User className="h-4 w-4 mr-2 text-blue-600" />
+              Información Personal
+            </h3>
+          </div>
+
+          {/* Campos de información personal */}
+          {formFields.map(
+            ({
+              name,
+              label,
+              placeholder,
+              icon,
+              extraInfo,
+              maxLength,
+              type,
+            }) => (
+              <div key={name}>
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                  {icon}
+                  {label}
+                </label>
+                <input
+                  type={type}
+                  name={name}
+                  value={form[name]}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    errors[name] && touched[name]
+                      ? "border-red-500"
+                      : "border-gray-300"
+                  }`}
+                  placeholder={placeholder}
+                  maxLength={maxLength}
+                  required
+                />
+                {extraInfo && (
+                  <p className="mt-1 text-xs text-gray-500">{extraInfo}</p>
+                )}
+                {errors[name] && touched[name] && (
+                  <p className="mt-1 text-sm text-red-600">{errors[name]}</p>
+                )}
+              </div>
+            )
+          )}
         </div>
 
         {/* Botones */}
-        <div className="mt-8 flex justify-end space-x-4">
+        <div className="flex justify-end space-x-3 mt-8">
           <button
             type="button"
             onClick={onCancelar}
-            className="flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center"
           >
             <X className="h-4 w-4 mr-2" />
             Cancelar
@@ -503,14 +438,10 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
           <button
             type="submit"
             disabled={isSubmitting}
-            className={`flex items-center px-4 py-2 rounded-md shadow-sm text-sm font-medium text-white ${
-              isSubmitting
-                ? "bg-blue-400 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700"
-            }`}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center"
           >
             <Save className="h-4 w-4 mr-2" />
-            Guardar Empleado
+            {isSubmitting ? "Guardando..." : "Guardar"}
           </button>
         </div>
       </form>
