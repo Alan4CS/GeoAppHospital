@@ -136,15 +136,14 @@ router.post("/empleados/login", async (req, res) => {
  * Actualiza la ubicación del usuario y verifica si está dentro de la geocerca
  */
 router.post("/ubicaciones", authenticateToken, async (req, res) => {
-    const { latitud, longitud, tipo_ubicacion } = req.body;
+    const { latitud, longitud, tipo_registro } = req.body;
     const id_user = req.user.id_user;
 
-    if (latitud == null || longitud == null || !tipo_ubicacion) {
-        return res.status(400).json({ error: "Latitud, longitud y tipo_ubicacion son obligatorios." });
+    if (latitud == null || longitud == null || (tipo_registro !== 0 && tipo_registro !== 1)) {
+        return res.status(400).json({ error: "Latitud, longitud y tipo_registro (0 o 1) son obligatorios." });
     }
 
     try {
-        // 1. Obtener la geocerca del hospital del usuario
         const hospitalQuery = await pool.query(
             `SELECT 
                 h.radio_geo,
@@ -160,23 +159,22 @@ router.post("/ubicaciones", authenticateToken, async (req, res) => {
 
         if (hospitalQuery.rowCount > 0) {
             const hospital = hospitalQuery.rows[0];
-            
+
             if (hospital.radio_geo) {
                 try {
-                    // Convertir el GeoJSON de la geocerca
                     const geocerca = JSON.parse(hospital.radio_geo.replace(/'/g, '"'));
-                    
+
                     if (geocerca.type === 'Circle') {
                         const distancia = calcularDistancia(
-                            latitud, 
-                            longitud, 
-                            hospital.latitud_hospital, 
+                            latitud,
+                            longitud,
+                            hospital.latitud_hospital,
                             hospital.longitud_hospital
                         );
                         dentro_geocerca = distancia <= geocerca.radius;
                     } else if (geocerca.type === 'Polygon') {
                         dentro_geocerca = puntoEnPoligono(
-                            [longitud, latitud], 
+                            [longitud, latitud],
                             geocerca.coordinates[0]
                         );
                     }
@@ -186,38 +184,39 @@ router.post("/ubicaciones", authenticateToken, async (req, res) => {
             }
         }
 
-        // 2. Actualizar o insertar la ubicación con tipo_ubicacion
+        // Actualizar o insertar registro con tipo_registro numérico
         const result = await pool.query(
             `UPDATE registro_ubicaciones
              SET latitud = $2,
                  longitud = $3,
                  fecha_hora = NOW(),
                  dentro_geocerca = $4,
-                 tipo_ubicacion = $5
+                 tipo_registro = $5
              WHERE id_user = $1
              RETURNING *`,
-            [id_user, latitud, longitud, dentro_geocerca, tipo_ubicacion]
+            [id_user, latitud, longitud, dentro_geocerca, tipo_registro]
         );
 
         if (result.rowCount === 0) {
             await pool.query(
                 `INSERT INTO registro_ubicaciones 
-                 (id_user, latitud, longitud, fecha_hora, dentro_geocerca, tipo_ubicacion) 
+                 (id_user, latitud, longitud, fecha_hora, dentro_geocerca, tipo_registro)
                  VALUES ($1, $2, $3, NOW(), $4, $5)
                  RETURNING *`,
-                [id_user, latitud, longitud, dentro_geocerca, tipo_ubicacion]
+                [id_user, latitud, longitud, dentro_geocerca, tipo_registro]
             );
-            console.log(`✅ Se insertó una nueva ubicación para el usuario ${id_user}`);
+            console.log(`✅ Se insertó nueva ubicación para el usuario ${id_user}`);
         } else {
             console.log(`✅ Se actualizó la ubicación del usuario ${id_user}`);
         }
 
-        res.status(200).json({ 
+        res.status(200).json({
             mensaje: "Ubicación actualizada correctamente.",
             dentro_geocerca,
-            tipo_ubicacion,
+            tipo_registro,
             fecha_hora: new Date()
         });
+
     } catch (error) {
         console.error("❌ Error al actualizar ubicación:", error);
         res.status(500).json({
