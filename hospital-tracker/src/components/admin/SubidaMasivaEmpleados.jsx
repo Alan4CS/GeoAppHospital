@@ -13,6 +13,7 @@ import {
   Info,
 } from "lucide-react";
 import { useLocation } from "../../context/LocationContext";
+import sendCredentialsEmail from "../../helpers/emailHelper";
 
 export default function CsvUploader({ onCancelar }) {
   const [csvData, setCsvData] = useState([]);
@@ -359,6 +360,16 @@ export default function CsvUploader({ onCancelar }) {
             errorData.message ||
               `Error al crear empleado: ${response.statusText}`
           );
+        }
+
+        // Send credentials email
+        try {
+          await sendCredentialsEmail(empleadoData);
+          console.log("✉️ Credenciales enviadas por email para:", empleadoData.nombre);
+        } catch (emailError) {
+          console.error("❌ Error al enviar email:", emailError);
+          // Add to errors array but don't stop processing
+          errors.push(`Error al enviar email a ${empleadoData.nombre}: ${emailError.message}`);
         }
       } catch (error) {
         errors.push(

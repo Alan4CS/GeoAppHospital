@@ -11,7 +11,10 @@ import {
   Hospital,
   Phone,
   Mail,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
+import sendCredentialsEmail from '../../helpers/emailHelper';
 
 export default function EmpleadoForm({ onGuardar, onCancelar }) {
   const [form, setForm] = useState({
@@ -33,6 +36,9 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
   const [touched, setTouched] = useState({});
   const [grupos, setGrupos] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [notificacion, setNotificacion] = useState(null);
   const { currentLocation, locationVersion, updateLocation } = useLocation();
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
 
@@ -219,39 +225,124 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
     return { user, pass };
   };
 
+  // Añadir función resetForm
+  const resetForm = () => {
+    setForm({
+      nombres: "",
+      ap_paterno: "",
+      ap_materno: "",
+      CURP: "",
+      correo_electronico: "",
+      telefono: "",
+      estado: "",
+      municipio: "",
+      hospital: "",
+      grupo: "",
+      id_estado: null,
+      id_municipio: null,
+      id_hospital: null,
+    });
+    setErrors({});
+    setTouched({});
+  };
+
+  // Agregar componente NotificacionToast
+  const NotificacionToast = ({ notificacion, onCerrar }) => {
+    const [progreso, setProgreso] = useState(100);
+
+    useEffect(() => {
+      if (!notificacion) return;
+
+      const intervalo = setInterval(() => {
+        setProgreso((prev) => {
+          const nuevo = prev - 100 / (notificacion.duracion / 100);
+          if (nuevo <= 0) {
+            clearInterval(intervalo);
+            return 0;
+          }
+          return nuevo;
+        });
+      }, 100);
+
+      return () => clearInterval(intervalo);
+    }, [notificacion]);
+
+    if (!notificacion) return null;
+
+    const esExito = notificacion.tipo === "exito";
+
+    return (
+      <div className="fixed top-4 right-4 z-[9999] max-w-md w-full">
+        <div className={`rounded-lg shadow-lg border-l-4 p-4 ${
+          esExito ? "bg-white border-green-500 text-green-800" : "bg-white border-red-500 text-red-800"
+        } transform transition-all duration-300 ease-in-out`}>
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              {esExito ? (
+                <CheckCircle2 className="h-5 w-5 text-green-500" />
+              ) : (
+                <AlertCircle className="h-5 w-5 text-red-500" />
+              )}
+            </div>
+            <div className="ml-3 flex-1">
+              <h3 className={`text-sm font-medium ${esExito ? "text-green-800" : "text-red-800"}`}>
+                {notificacion.titulo}
+              </h3>
+              <p className={`mt-1 text-sm ${esExito ? "text-green-700" : "text-red-700"}`}>
+                {notificacion.mensaje}
+              </p>
+            </div>
+            <div className="ml-4 flex-shrink-0">
+              <button onClick={onCerrar} className={`inline-flex rounded-md p-1.5 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                esExito ? "text-green-500 hover:bg-green-100 focus:ring-green-600" : "text-red-500 hover:bg-red-100 focus:ring-red-600"
+              }`}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+          <div className={`mt-2 w-full bg-gray-200 rounded-full h-1 ${esExito ? "bg-green-100" : "bg-red-100"}`}>
+            <div className={`h-1 rounded-full transition-all duration-100 ease-linear ${esExito ? "bg-green-500" : "bg-red-500"}`}
+              style={{ width: `${progreso}%` }} />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Manejar envío del formulario
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (isSubmitting) return;
-    setIsSubmitting(true);
-
-    // Validar todos los campos
-    const requiredFields = Object.keys(validationRules);
-    const newErrors = {};
-    let isValid = true;
-
-    requiredFields.forEach((field) => {
-      const error = validateField(field, form[field]);
-      if (error) {
-        newErrors[field] = error;
-        isValid = false;
-      }
-    });
-
-    setErrors(newErrors);
-    setTouched(
-      requiredFields.reduce((acc, field) => ({ ...acc, [field]: true }), {})
-    );
-
-    if (!isValid) {
-      setIsSubmitting(false);
-      return;
-    }
+    setLoading(true);
+    setError(null);
 
     try {
+      // Validaciones
+      const requiredFields = Object.keys(validationRules);
+      const newErrors = {};
+      let isValid = true;
+
+      requiredFields.forEach((field) => {
+        const error = validateField(field, form[field]);
+        if (error) {
+          newErrors[field] = error;
+          isValid = false;
+        }
+      });
+
+      setErrors(newErrors);
+      setTouched(
+        requiredFields.reduce((acc, field) => ({ ...acc, [field]: true }), {})
+      );
+
+      if (!isValid) {
+        setLoading(false);
+        return;
+      }
+
+      // Generar credenciales
       const { user, pass } = generateCredentials();
 
+      // Preparar y enviar datos al componente padre
       const empleadoData = {
         nombre: form.nombres,
         ap_paterno: form.ap_paterno,
@@ -268,14 +359,25 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
         id_grupo: parseInt(form.grupo),
       };
 
-      if (onGuardar) {
-        await onGuardar(empleadoData);
-      }
+      await onGuardar(empleadoData);
+      setNotificacion({
+        tipo: "exito",
+        titulo: "¡Empleado creado exitosamente!",
+        mensaje: "El empleado ha sido registrado y se han enviado sus credenciales por email.",
+        duracion: 5000,
+      });
+      resetForm();
+
     } catch (error) {
-      console.error("Error al crear empleado:", error);
-      alert("Error al crear el empleado");
+      console.error('❌ Error:', error);
+      setNotificacion({
+        tipo: "error",
+        titulo: "Error al crear empleado",
+        mensaje: error.message || "Ocurrió un error inesperado",
+        duracion: 5000,
+      });
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
 
@@ -322,129 +424,135 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-md overflow-hidden">
-      <div className="p-6 border-b border-gray-200">
-        <h2 className="text-xl font-semibold text-gray-800 flex items-center">
-          <User className="h-5 w-5 mr-2 text-blue-600" />
-          Nuevo Empleado
-        </h2>
-        <p className="text-gray-500 mt-1">
-          Completa el formulario para registrar un nuevo empleado en el sistema
-        </p>
-      </div>
+    <>
+      <NotificacionToast 
+        notificacion={notificacion} 
+        onCerrar={() => setNotificacion(null)} 
+      />
+      <div className="bg-white rounded-xl shadow-md overflow-hidden">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-xl font-semibold text-gray-800 flex items-center">
+            <User className="h-5 w-5 mr-2 text-blue-600" />
+            Nuevo Empleado
+          </h2>
+          <p className="text-gray-500 mt-1">
+            Completa el formulario para registrar un nuevo empleado en el sistema
+          </p>
+        </div>
 
-      <form onSubmit={handleSubmit} className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Ubicación e institución */}
-          <div className="md:col-span-2">
-            <h3 className="text-sm font-medium text-gray-700 flex items-center mb-4 pb-2 border-b">
-              <Building2 className="h-4 w-4 mr-2 text-blue-600" />
-              Ubicación e Institución
-            </h3>
-            {renderLocationInfo()}
-          </div>
-
-          {/* Select de grupos */}
-          {form.hospital && (
+        <form onSubmit={handleSubmit} className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Ubicación e institución */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Grupo
-              </label>
-              <select
-                name="grupo"
-                value={form.grupo}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                  errors.grupo && touched.grupo
-                    ? "border-red-500"
-                    : "border-gray-300"
-                }`}
-                required
-              >
-                <option value="">Selecciona un grupo</option>
-                {grupos.map((grupo) => (
-                  <option key={grupo.id_group} value={grupo.id_group}>
-                    {grupo.nombre_grupo}
-                  </option>
-                ))}
-              </select>
-              {errors.grupo && touched.grupo && (
-                <p className="mt-1 text-sm text-red-600">{errors.grupo}</p>
-              )}
+              <h3 className="text-sm font-medium text-gray-700 flex items-center mb-4 pb-2 border-b">
+                <Building2 className="h-4 w-4 mr-2 text-blue-600" />
+                Ubicación e Institución
+              </h3>
+              {renderLocationInfo()}
             </div>
-          )}
 
-          {/* Información personal */}
-          <div className="md:col-span-2 mt-6">
-            <h3 className="text-sm font-medium text-gray-700 flex items-center mb-4 pb-2 border-b">
-              <User className="h-4 w-4 mr-2 text-blue-600" />
-              Información Personal
-            </h3>
-          </div>
-
-          {/* Campos de información personal */}
-          {formFields.map(
-            ({
-              name,
-              label,
-              placeholder,
-              icon,
-              extraInfo,
-              maxLength,
-              type,
-            }) => (
-              <div key={name}>
-                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                  {icon}
-                  {label}
+            {/* Select de grupos */}
+            {form.hospital && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Grupo
                 </label>
-                <input
-                  type={type}
-                  name={name}
-                  value={form[name]}
+                <select
+                  name="grupo"
+                  value={form.grupo}
                   onChange={handleChange}
                   onBlur={handleBlur}
                   className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors[name] && touched[name]
+                    errors.grupo && touched.grupo
                       ? "border-red-500"
                       : "border-gray-300"
                   }`}
-                  placeholder={placeholder}
-                  maxLength={maxLength}
                   required
-                />
-                {extraInfo && (
-                  <p className="mt-1 text-xs text-gray-500">{extraInfo}</p>
-                )}
-                {errors[name] && touched[name] && (
-                  <p className="mt-1 text-sm text-red-600">{errors[name]}</p>
+                >
+                  <option value="">Selecciona un grupo</option>
+                  {grupos.map((grupo) => (
+                    <option key={grupo.id_group} value={grupo.id_group}>
+                      {grupo.nombre_grupo}
+                    </option>
+                  ))}
+                </select>
+                {errors.grupo && touched.grupo && (
+                  <p className="mt-1 text-sm text-red-600">{errors.grupo}</p>
                 )}
               </div>
-            )
-          )}
-        </div>
+            )}
 
-        {/* Botones */}
-        <div className="flex justify-end space-x-3 mt-8">
-          <button
-            type="button"
-            onClick={onCancelar}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center"
-          >
-            <X className="h-4 w-4 mr-2" />
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center"
-          >
-            <Save className="h-4 w-4 mr-2" />
-            {isSubmitting ? "Guardando..." : "Guardar"}
-          </button>
-        </div>
-      </form>
-    </div>
+            {/* Información personal */}
+            <div className="md:col-span-2 mt-6">
+              <h3 className="text-sm font-medium text-gray-700 flex items-center mb-4 pb-2 border-b">
+                <User className="h-4 w-4 mr-2 text-blue-600" />
+                Información Personal
+              </h3>
+            </div>
+
+            {/* Campos de información personal */}
+            {formFields.map(
+              ({
+                name,
+                label,
+                placeholder,
+                icon,
+                extraInfo,
+                maxLength,
+                type,
+              }) => (
+                <div key={name}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                    {icon}
+                    {label}
+                  </label>
+                  <input
+                    type={type}
+                    name={name}
+                    value={form[name]}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    className={`w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      errors[name] && touched[name]
+                        ? "border-red-500"
+                        : "border-gray-300"
+                    }`}
+                    placeholder={placeholder}
+                    maxLength={maxLength}
+                    required
+                  />
+                  {extraInfo && (
+                    <p className="mt-1 text-xs text-gray-500">{extraInfo}</p>
+                  )}
+                  {errors[name] && touched[name] && (
+                    <p className="mt-1 text-sm text-red-600">{errors[name]}</p>
+                  )}
+                </div>
+              )
+            )}
+          </div>
+
+          {/* Botones */}
+          <div className="flex justify-end space-x-3 mt-8">
+            <button
+              type="button"
+              onClick={onCancelar}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center"
+            >
+              <X className="h-4 w-4 mr-2" />
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {isSubmitting ? "Guardando..." : "Guardar"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </>
   );
 }

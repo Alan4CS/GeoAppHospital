@@ -25,6 +25,7 @@ import AdministradorList from "../components/lists/AdministradorList";
 import GrupoList from "../components/lists/GrupoList";
 import EmpleadoList from "../components/lists/EmpleadoList";
 import { set } from "lodash";
+import sendCredentialsEmail from '../helpers/emailHelper';
 
 export default function SuperadminGeoApp() {
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
@@ -429,39 +430,34 @@ export default function SuperadminGeoApp() {
   };
 
   // Modificar handleGuardarEmpleado para usar fetchEmpleados
-  const handleGuardarEmpleado = async (nuevoEmpleado) => {
+  const handleGuardarEmpleado = async (empleadoData) => {
     try {
-      const response = await fetch(
-        "https://geoapphospital.onrender.com/api/employees/create-empleado",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(nuevoEmpleado),
-        }
-      );
-
-      if (!response.ok) throw new Error("Fallo al crear el empleado");
-
-      const data = await response.json();
-
-      setCredencialesGeneradas({
-        titulo: "Empleado creado con éxito",
-        usuario: nuevoEmpleado.user,
-        contraseña: nuevoEmpleado.pass,
-        tipo: "empleado",
+      console.log('📝 Creando empleado...');
+      const response = await fetch("https://geoapphospital.onrender.com/api/employees/create-empleado", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(empleadoData)
       });
-      setMostrarCredenciales(true);
 
-      // Actualizar la lista de empleados
-      await fetchEmpleados();
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Error al crear empleado");
+      }
 
-      resetearFormularios();
-      setActiveTab("empleados");
+      console.log('✉️ Enviando credenciales por email...');
+      await sendCredentialsEmail({
+        nombre: empleadoData.nombre,
+        ap_paterno: empleadoData.ap_paterno,
+        correo_electronico: empleadoData.correo_electronico,
+        user: empleadoData.user,
+        pass: empleadoData.pass
+      });
+
+      fetchEmpleados();
+      setMostrarFormEmpleado(false);
     } catch (error) {
-      console.error("❌ Error al crear empleado:", error);
-      alert("❌ Error al crear el empleado.");
+      console.error('❌ Error al crear empleado:', error);
+      throw error;
     }
   };
 
@@ -684,14 +680,9 @@ export default function SuperadminGeoApp() {
 
           {/* FORMULARIO EMPLEADO */}
           {mostrarFormEmpleado && (
-            <EmpleadoForm
-              hospitales={hospitales}
-              grupos={grupos}
+            <EmpleadoForm 
               onGuardar={handleGuardarEmpleado}
-              onCancelar={() => {
-                resetearFormularios();
-                setActiveTab("empleados");
-              }}
+              onCancelar={() => setMostrarFormEmpleado(false)} 
             />
           )}
 
