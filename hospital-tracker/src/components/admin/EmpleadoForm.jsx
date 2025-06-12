@@ -227,6 +227,17 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
 
   // Añadir función resetForm
   const resetForm = () => {
+    // Guardar la información de ubicación actual
+    const ubicacionActual = {
+      estado: form.estado,
+      municipio: form.municipio,
+      hospital: form.hospital,
+      id_estado: form.id_estado,
+      id_municipio: form.id_municipio,
+      id_hospital: form.id_hospital,
+    };
+
+    // Resetear el formulario pero mantener la ubicación
     setForm({
       nombres: "",
       ap_paterno: "",
@@ -234,14 +245,12 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
       CURP: "",
       correo_electronico: "",
       telefono: "",
-      estado: "",
-      municipio: "",
-      hospital: "",
       grupo: "",
-      id_estado: null,
-      id_municipio: null,
-      id_hospital: null,
+      // Mantener la información de ubicación
+      ...ubicacionActual
     });
+
+    // Limpiar errores y estados touched
     setErrors({});
     setTouched({});
   };
@@ -363,10 +372,10 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
       setNotificacion({
         tipo: "exito",
         titulo: "¡Empleado creado exitosamente!",
-        mensaje: "El empleado ha sido registrado y se han enviado sus credenciales por email.",
+        mensaje: "El empleado ha sido registrado y se han enviado sus credenciales por email. Puedes crear otro empleado.",
         duracion: 5000,
       });
-      resetForm();
+      resetForm(); // Ahora preservará la información de ubicación
 
     } catch (error) {
       console.error('❌ Error:', error);

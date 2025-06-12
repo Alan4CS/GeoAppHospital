@@ -453,8 +453,11 @@ export default function SuperadminGeoApp() {
         pass: empleadoData.pass
       });
 
+      // Solo actualizamos la lista sin cerrar el formulario
       fetchEmpleados();
-      setMostrarFormEmpleado(false);
+      // Removemos esta línea:
+      // setMostrarFormEmpleado(false);
+
     } catch (error) {
       console.error('❌ Error al crear empleado:', error);
       throw error;
