@@ -109,7 +109,7 @@ export default function SuperadminSidebar({
       }}
     >
       {sidebarOpen && (
-        <style jsx>{`
+        <style>{`
           div::-webkit-scrollbar {
             width: 6px;
           }
