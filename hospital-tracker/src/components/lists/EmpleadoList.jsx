@@ -42,8 +42,11 @@ const EmpleadoList = ({
     ap_materno: "",
     telefono: "",
     grupo: "",
+    hospital: "",
+    
   });
   const [grupos, setGrupos] = useState([]);
+  const [hospitales, setHospitales] = useState([]); // Nuevo estado para hospitales
 
   // Sincronizar con empleadosIniciales cuando cambien
   useEffect(() => {
@@ -218,9 +221,28 @@ const EmpleadoList = ({
       ap_materno: empleado.ap_materno || "",
       telefono: empleado.telefono || "",
       grupo: empleado.nombre_grupo || "",
+      hospital: empleado.hospital || "",
     });
 
-    // Cargar grupos disponibles
+    // Cargar hospitales SOLO del municipio del empleado usando el nuevo endpoint
+    try {
+      if (empleado.id_municipio) {
+        const url = `https://geoapphospital.onrender.com/api/superadmin/hospitales-by-municipio?id_municipio=${empleado.id_municipio}`;
+        const hospitalesResponse = await fetch(url);
+        if (hospitalesResponse.ok) {
+          const hospitalesData = await hospitalesResponse.json();
+          setHospitales(hospitalesData);
+        } else {
+          setHospitales([]);
+        }
+      } else {
+        setHospitales([]);
+      }
+    } catch (error) {
+      setHospitales([]);
+    }
+
+    // Cargar grupos disponibles para el hospital actual
     try {
       if (empleado.id_hospital) {
         const gruposResponse = await fetch(
@@ -232,11 +254,37 @@ const EmpleadoList = ({
         }
       }
     } catch (error) {
-      console.error("Error al cargar grupos:", error);
       setGrupos([]);
     }
 
     setMostrarModalEditar(true);
+  };
+
+  // Cuando cambia el hospital en el formulario, recargar grupos
+  const handleHospitalChange = async (e) => {
+    const hospitalSeleccionado = e.target.value;
+    setFormData((prev) => ({ ...prev, hospital: hospitalSeleccionado, grupo: "" }));
+    // Buscar el id_hospital
+    const hospitalObj = hospitales.find(
+      (h) => h.nombre_hospital === hospitalSeleccionado
+    );
+    if (hospitalObj) {
+      try {
+        const gruposResponse = await fetch(
+          `https://geoapphospital.onrender.com/api/employees/grupos-by-hospital?id_hospital=${hospitalObj.id_hospital}`
+        );
+        if (gruposResponse.ok) {
+          const gruposData = await gruposResponse.json();
+          setGrupos(gruposData);
+        } else {
+          setGrupos([]);
+        }
+      } catch (error) {
+        setGrupos([]);
+      }
+    } else {
+      setGrupos([]);
+    }
   };
 
   const handleEliminar = (empleado) => {
@@ -290,6 +338,11 @@ const EmpleadoList = ({
     setLoading(true);
 
     try {
+      // Buscar el hospital y grupo seleccionados
+      const hospitalSeleccionado = hospitales.find(
+        (h) => h.nombre_hospital === formData.hospital
+      );
+      const id_hospital = hospitalSeleccionado?.id_hospital || empleadoEditando.id_hospital;
       const grupoSeleccionado = grupos.find(
         (g) => g.nombre_grupo === formData.grupo
       );
@@ -304,7 +357,7 @@ const EmpleadoList = ({
         telefono: formData.telefono.trim(),
         id_estado: empleadoEditando.id_estado,
         id_municipio: empleadoEditando.id_municipio,
-        id_hospital: empleadoEditando.id_hospital,
+        id_hospital: id_hospital,
         id_group: id_group,
       };
 
@@ -336,7 +389,6 @@ const EmpleadoList = ({
 
       handleCerrarModalEditar();
     } catch (error) {
-      console.error("Error al actualizar empleado:", error);
       mostrarNotificacion(
         "error",
         "Error al actualizar empleado",
@@ -702,49 +754,86 @@ const EmpleadoList = ({
               </button>
             </div>
 
-            <form onSubmit={handleSubmitEditar} className="space-y-6">
+<form onSubmit={handleSubmitEditar} className="space-y-6">
               {/* Información no editable */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Información de referencia (No editable)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      CURP (No editable)
+                    <label className="block text-xs font-medium text-slate-600 mb-1">
+                      CURP
                     </label>
-                    <p className="text-sm text-gray-600 font-mono">
+                    <p className="text-sm text-slate-800 font-mono bg-white px-2 py-1 rounded border">
                       {empleadoEditando?.curp_user}
                     </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Hospital
-                    </label>
-                    <p className="text-sm text-gray-600">
-                      {empleadoEditando?.hospital}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Grupo
-                    </label>
-                    <p className="text-sm text-gray-600">
-                      {empleadoEditando?.nombre_grupo}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-slate-600 mb-1">
                       Estado
                     </label>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-slate-800 bg-white px-2 py-1 rounded border">
                       {empleadoEditando?.estado}
                     </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-slate-600 mb-1">
                       Municipio
                     </label>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-slate-800 bg-white px-2 py-1 rounded border">
                       {empleadoEditando?.municipio}
                     </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Campos editables - Asignación */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-amber-800 mb-4 flex items-center">
+                  <Hospital className="h-4 w-4 mr-2" />
+                  Asignación de Hospital y Grupo
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-amber-800 mb-2">
+                      <Hospital className="h-4 w-4 inline mr-1" />
+                      Hospital *
+                    </label>
+                    <select
+                      name="hospital"
+                      value={formData.hospital}
+                      onChange={handleHospitalChange}
+                      className="w-full px-3 py-2 border border-amber-300 rounded-lg shadow-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                      required
+                    >
+                      <option value="">Selecciona un hospital</option>
+                      {hospitales.map((h) => (
+                        <option key={h.id_hospital} value={h.nombre_hospital}>
+                          {h.nombre_hospital}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-amber-800 mb-2">
+                      <User className="h-4 w-4 inline mr-1" />
+                      Grupo
+                    </label>
+                    <select
+                      name="grupo"
+                      value={formData.grupo}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-amber-300 rounded-lg shadow-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                    >
+                      <option value="">Selecciona un grupo</option>
+                      {grupos.map((grupo) => (
+                        <option key={grupo.id_group} value={grupo.nombre_grupo}>
+                          {grupo.nombre_grupo}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>
@@ -815,26 +904,6 @@ const EmpleadoList = ({
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                     placeholder="Número de teléfono"
                   />
-                </div>
-
-                {/* Grupo */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Grupo
-                  </label>
-                  <select
-                    name="grupo"
-                    value={formData.grupo}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 border-gray-300"
-                  >
-                    <option value="">Selecciona un grupo</option>
-                    {grupos.map((grupo) => (
-                      <option key={grupo.id_group} value={grupo.nombre_grupo}>
-                        {grupo.nombre_grupo}
-                      </option>
-                    ))}
-                  </select>
                 </div>
               </div>
 
