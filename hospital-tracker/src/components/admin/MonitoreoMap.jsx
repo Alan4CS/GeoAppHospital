@@ -340,23 +340,58 @@ const MonitoreoMap = () => {
     }
   };
 
+  // Controlar actualización solo si la pantalla está visible
+  const monitoringIntervalRef = useRef(null);
+
+  // Función para iniciar el intervalo de monitoreo
+  const startMonitoringInterval = () => {
+    if (monitoringIntervalRef.current) return;
+    monitoringIntervalRef.current = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchMonitoringData();
+      }
+    }, 300000); // 5 minutos
+  };
+
+  // Función para detener el intervalo de monitoreo
+  const stopMonitoringInterval = () => {
+    if (monitoringIntervalRef.current) {
+      clearInterval(monitoringIntervalRef.current);
+      monitoringIntervalRef.current = null;
+    }
+  };
+
+  // Efecto para manejar visibilidad de la pestaña
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchMonitoringData();
+        startMonitoringInterval();
+      } else {
+        stopMonitoringInterval();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    // Iniciar si la pestaña ya está visible
+    if (document.visibilityState === 'visible') {
+      startMonitoringInterval();
+    }
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      stopMonitoringInterval();
+    };
+  }, []);
+
   // Cargar datos al montar el componente
   useEffect(() => {
     fetchStates();
     fetchHospitalsData();
     fetchMonitoringData();
-
-    // Configurar actualización automática cada 10 minutos
-    const monitoringInterval = setInterval(fetchMonitoringData, 600000);
     const hospitalsInterval = setInterval(fetchHospitalsData, 3600000); // Actualizar hospitales cada hora
-
-    // Establecer la vista inicial de México
     if (mapRef.current) {
       mapRef.current.setView([23.6345, -102.5528], 5);
     }
-
     return () => {
-      clearInterval(monitoringInterval);
       clearInterval(hospitalsInterval);
     };
   }, []);

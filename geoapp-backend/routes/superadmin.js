@@ -459,5 +459,25 @@ router.get("/superadmin-hospitals-by-municipio", async (req, res) => {
   }
 });
 
+// GET /api/superadmin/hospitales-by-municipio?id_municipio=123
+router.get("/hospitales-by-municipio", async (req, res) => {
+  const { id_municipio } = req.query;
+  if (!id_municipio) {
+    return res.status(400).json({ error: "Falta el parámetro id_municipio" });
+  }
+  try {
+    const result = await pool.query(
+      `SELECT h.nombre_hospital
+      FROM hospitals h
+      WHERE h.id_municipio = $1
+      ORDER BY h.id_hospital`,
+      [id_municipio]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error al obtener hospitales por municipio:", error);
+    res.status(500).json({ error: "Error al consultar hospitales por municipio" });
+  }
+});
 
 export default router;
