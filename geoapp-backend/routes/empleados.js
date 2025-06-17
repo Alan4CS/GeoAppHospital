@@ -182,9 +182,12 @@ router.get("/monitoreo", async (req, res) => {
         r.longitud,
         r.fecha_hora,
         r.dentro_geocerca,
-        r.tipo_registro
+        r.tipo_registro,
+        h.id_hospital,
+        h.nombre_hospital
       FROM registro_ubicaciones r
       JOIN user_data u ON r.id_user = u.id_user
+      LEFT JOIN hospitals h ON u.id_hospital = h.id_hospital
       ORDER BY r.id_user, r.fecha_hora DESC
     `);
 

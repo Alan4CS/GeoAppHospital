@@ -10,24 +10,9 @@ import {
 import MarkerClusterGroup from 'react-leaflet-markercluster';
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import {
-  FaUserCheck,
-  FaUserTimes,
-  FaExclamationTriangle,
-  FaChevronLeft,
-  FaChevronRight,
-  FaInfoCircle,
-  FaClock,
-  FaMapMarkerAlt,
-  FaFilter,
-  FaSearch,
-  FaMapMarkedAlt,
-  FaSpinner,
-  FaSync,
-  FaHospital,
-  FaLayerGroup,
-  FaBuilding,
-  FaChevronUp,
+import { FaUserCheck, FaUserTimes, FaExclamationTriangle, FaChevronLeft, FaChevronRight,
+  FaInfoCircle, FaClock, FaMapMarkerAlt, FaFilter, FaSearch, FaMapMarkedAlt, FaSpinner,
+  FaSync, FaHospital, FaLayerGroup, FaBuilding, FaChevronUp, FaUser,
 } from "react-icons/fa";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -134,6 +119,7 @@ const MonitoreoMap = () => {
   const [showGeofences, setShowGeofences] = useState(true);
   const [showHospitals, setShowHospitals] = useState(true);
   const [employees, setEmployees] = useState([]);
+  const [totalEmployees, setTotalEmployees] = useState(0);
   const [hospitals, setHospitals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingHospitals, setLoadingHospitals] = useState(true);
@@ -275,25 +261,16 @@ const MonitoreoMap = () => {
           emp.ap_paterno?.charAt(0) || ""
         }`;
 
-        // Determinar el estado del empleado
-        let status;
-        if (emp.tipo_registro === 0) {
-          status = "inactive";
-        } else if (emp.tipo_registro === 1) {
-          status = "connected";
-        } else {
-          status = "disconnected";
-        }
-
         return {
           id: emp.id_user,
           name: `${emp.nombre} ${emp.ap_paterno} ${emp.ap_materno}`.trim(),
           firstName: emp.nombre,
           lastName: `${emp.ap_paterno} ${emp.ap_materno}`.trim(),
           position: "Empleado",
-          hospital: "Hospital Asignado",
-          status: status,
-          outsideGeofence: !emp.dentro_geocerca,
+          hospital: emp.nombre_hospital || "Sin hospital asignado",
+          hospitalId: emp.id_hospital,
+          tipo_registro: emp.tipo_registro,
+          dentro_geocerca: emp.dentro_geocerca,
           location: [emp.latitud, emp.longitud],
           lastConnection: new Date(emp.fecha_hora),
           avatar: avatar,
@@ -304,6 +281,31 @@ const MonitoreoMap = () => {
 
       setEmployees(transformedEmployees);
       setLastUpdate(new Date());
+
+      // Calcular estadísticas por hospital
+      const statsByHospital = transformedEmployees.reduce((acc, emp) => {
+        const hospitalId = emp.hospitalId;
+        if (!acc[hospitalId]) {
+          acc[hospitalId] = {
+            nombre: emp.hospital,
+            total: 0,
+            activos: 0,
+            inactivos: 0,
+            dentroGeocerca: 0,
+            fueraGeocerca: 0
+          };
+        }
+        
+        acc[hospitalId].total++;
+        if (emp.tipo_registro === 1) acc[hospitalId].activos++;
+        if (emp.tipo_registro === 0) acc[hospitalId].inactivos++;
+        if (emp.dentro_geocerca) acc[hospitalId].dentroGeocerca++;
+        if (!emp.dentro_geocerca) acc[hospitalId].fueraGeocerca++;
+        
+        return acc;
+      }, {});
+
+      setHospitalStats(statsByHospital);
     } catch (err) {
       console.error("Error al obtener datos de monitoreo:", err);
       setError(err.message);
@@ -318,6 +320,37 @@ const MonitoreoMap = () => {
     const diffMs = now - lastConnection;
     const diffHours = diffMs / (1000 * 60 * 60);
     return Math.max(0, Math.min(24, diffHours)); // Máximo 24 horas
+  };
+
+  // Función para obtener el total de empleados registrados y contar por hospital
+  const fetchTotalEmployees = async () => {
+    try {
+      const response = await fetch(
+        "https://geoapphospital.onrender.com/api/employees/get-empleados"
+      );
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      setTotalEmployees(data.length);
+
+      // Contar empleados por hospital
+      const employeesByHospital = data.reduce((acc, emp) => {
+        const hospitalId = emp.id_hospital;
+        if (!acc[hospitalId]) {
+          acc[hospitalId] = 0;
+        }
+        acc[hospitalId]++;
+        return acc;
+      }, {});
+
+      // Actualizar el estado de empleados por hospital
+      setEmployeesByHospital(employeesByHospital);
+    } catch (err) {
+      console.error("Error al obtener total de empleados:", err);
+    }
   };
 
   // Función para actualizar la vista del mapa
@@ -387,6 +420,7 @@ const MonitoreoMap = () => {
     fetchStates();
     fetchHospitalsData();
     fetchMonitoringData();
+    fetchTotalEmployees();
     const hospitalsInterval = setInterval(fetchHospitalsData, 3600000); // Actualizar hospitales cada hora
     if (mapRef.current) {
       mapRef.current.setView([23.6345, -102.5528], 5);
@@ -419,13 +453,13 @@ const MonitoreoMap = () => {
 
   // Calcular KPIs
   const connectedCount = employees.filter(
-    (emp) => emp.status === "connected"
+    (emp) => emp.tipo_registro === 1
   ).length;
   const disconnectedCount = employees.filter(
-    (emp) => emp.status === "disconnected"
+    (emp) => emp.tipo_registro === 0
   ).length;
   const outsideGeofenceCount = employees.filter(
-    (emp) => emp.outsideGeofence
+    (emp) => !emp.dentro_geocerca
   ).length;
 
   // Función para manejar el cambio de estado
@@ -601,6 +635,12 @@ const MonitoreoMap = () => {
     }));
   }, [showHospitals, getHospitalsStatus.hospitals]);
 
+  // Agregar estado para empleados por hospital
+  const [employeesByHospital, setEmployeesByHospital] = useState({});
+
+  // Agregar estado para estadísticas por hospital
+  const [hospitalStats, setHospitalStats] = useState({});
+
   // Componente separado para los marcadores de empleados
   const EmployeeMarkers = memo(({ employees }) => {
     return (
@@ -616,9 +656,9 @@ const MonitoreoMap = () => {
         {employees.map((employee) => {
           // Determinar qué icono usar basado en el estado
           let icon;
-          if (employee.status === "inactive") {
+          if (employee.tipo_registro === 0) {
             icon = inactiveIcon;
-          } else if (employee.outsideGeofence) {
+          } else if (!employee.dentro_geocerca) {
             icon = outsideGeofenceIcon;
           } else {
             icon = connectedIcon;
@@ -645,27 +685,30 @@ const MonitoreoMap = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <p className="text-gray-700">{employee.hospital}</p>
+                    <div className="flex items-center text-gray-700">
+                      <FaHospital className="mr-1 text-blue-600" />
+                      <span className="text-sm">{employee.hospital}</span>
+                    </div>
                     <div className="flex justify-between items-center">
                       <div className="flex items-center text-gray-600 text-xs">
                         <FaClock className="mr-1" />
                         <span>Última conexión: {format(employee.lastConnection, "d 'de' MMMM, HH:mm", { locale: es })}</span>
                       </div>
                     </div>
-                    {employee.status === "inactive" ? (
+                    {employee.tipo_registro === 0 ? (
                       <div className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-lg flex items-center">
                         <FaExclamationTriangle className="mr-1" />
                         <span>Usuario inactivo</span>
                       </div>
-                    ) : employee.outsideGeofence ? (
+                    ) : !employee.dentro_geocerca ? (
                       <div className="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-lg flex items-center">
                         <FaExclamationTriangle className="mr-1" />
-                        <span>Fuera de geocerca</span>
+                        <span>Fuera de geocerca de {employee.hospital}</span>
                       </div>
                     ) : (
                       <div className="px-2 py-1 bg-emerald-100 text-emerald-800 text-xs rounded-lg flex items-center">
                         <FaMapMarkerAlt className="mr-1" />
-                        <span>Dentro de geocerca</span>
+                        <span>Dentro de geocerca de {employee.hospital}</span>
                       </div>
                     )}
                     <div className="text-xs text-gray-500">
@@ -722,6 +765,13 @@ const MonitoreoMap = () => {
                   <div className="text-gray-700 text-sm">
                     <p className="font-medium">{hospital.estado}</p>
                     <p className="text-xs mt-1">{hospital.direccion_hospital}</p>
+                  </div>
+                  <div className="bg-blue-50 text-blue-800 px-2 py-1 rounded-lg text-xs flex items-center justify-between">
+                    <div className="flex items-center">
+                      <FaUser className="mr-1" />
+                      <span>Empleados asignados:</span>
+                    </div>
+                    <span className="font-semibold">{employeesByHospital[hospital.id_hospital] || 0}</span>
                   </div>
                   {hospital.radio_geo && (
                     <div className="bg-blue-50 text-blue-800 px-2 py-1 rounded-lg text-xs flex items-center">
@@ -800,14 +850,19 @@ const MonitoreoMap = () => {
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] bg-gray-50 overflow-hidden">
       {/* KPIs con espaciado reducido */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 px-4 pt-2 pb-3 max-w-[1800px] mx-auto w-[95%]">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-3 px-4 pt-2 pb-3 max-w-[1800px] mx-auto w-[95%]">
         <div className="flex items-center p-3 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
           <div className="p-2.5 bg-emerald-50 rounded-full mr-3">
             <FaUserCheck className="text-emerald-600 text-lg" />
           </div>
           <div>
-            <h3 className="text-sm font-medium text-gray-500">Conectados</h3>
+            <h3 className="text-sm font-medium text-gray-500">Empleados Activos</h3>
             <p className="text-xl font-bold text-gray-800">{connectedCount}</p>
+            {selectedHospital && hospitalStats[selectedHospital] && (
+              <p className="text-xs text-emerald-600 mt-0.5">
+                {hospitalStats[selectedHospital].activos} en {hospitalStats[selectedHospital].nombre}
+              </p>
+            )}
           </div>
         </div>
 
@@ -816,8 +871,13 @@ const MonitoreoMap = () => {
             <FaUserTimes className="text-gray-600 text-lg" />
           </div>
           <div>
-            <h3 className="text-sm font-medium text-gray-500">Desconectados</h3>
+            <h3 className="text-sm font-medium text-gray-500">Empleados Inactivos</h3>
             <p className="text-xl font-bold text-gray-800">{disconnectedCount}</p>
+            {selectedHospital && hospitalStats[selectedHospital] && (
+              <p className="text-xs text-gray-600 mt-0.5">
+                {hospitalStats[selectedHospital].inactivos} en {hospitalStats[selectedHospital].nombre}
+              </p>
+            )}
           </div>
         </div>
 
@@ -828,6 +888,11 @@ const MonitoreoMap = () => {
           <div>
             <h3 className="text-sm font-medium text-gray-500">Fuera de Geocerca</h3>
             <p className="text-xl font-bold text-gray-800">{outsideGeofenceCount}</p>
+            {selectedHospital && hospitalStats[selectedHospital] && (
+              <p className="text-xs text-orange-600 mt-0.5">
+                {hospitalStats[selectedHospital].fueraGeocerca} en {hospitalStats[selectedHospital].nombre}
+              </p>
+            )}
           </div>
         </div>
 
@@ -838,9 +903,28 @@ const MonitoreoMap = () => {
           <div>
             <h3 className="text-sm font-medium text-gray-500">Hospitales</h3>
             <p className="text-xl font-bold text-gray-800">{hospitals.length}</p>
-            {selectedState && (
+            {selectedState ? (
               <p className="text-xs text-blue-600 mt-0.5">
                 {filteredHospitals.length} filtrados en {selectedState}
+              </p>
+            ) : (
+              <p className="text-xs text-blue-600 mt-0.5">
+                Promedio: {hospitals.length > 0 ? Math.round(totalEmployees / hospitals.length) : 0} emp/hospital
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center p-3 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
+          <div className="p-2.5 bg-purple-50 rounded-full mr-3">
+            <FaUser className="text-purple-600 text-lg" />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-gray-500">Total Empleados</h3>
+            <p className="text-xl font-bold text-gray-800">{totalEmployees}</p>
+            {selectedHospital && hospitalStats[selectedHospital] && (
+              <p className="text-xs text-purple-600 mt-0.5">
+                {hospitalStats[selectedHospital].total} en {hospitalStats[selectedHospital].nombre}
               </p>
             )}
           </div>
