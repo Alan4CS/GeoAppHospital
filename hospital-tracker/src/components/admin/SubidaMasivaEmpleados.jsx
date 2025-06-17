@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useLocation } from "../../context/LocationContext";
 import sendCredentialsEmail from "../../helpers/emailHelper";
+import * as XLSX from "xlsx";
 
 export default function CsvUploader({ onCancelar }) {
   const [csvData, setCsvData] = useState([]);
@@ -25,7 +26,6 @@ export default function CsvUploader({ onCancelar }) {
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const [grupos, setGrupos] = useState([]);
   const [selectedGrupo, setSelectedGrupo] = useState("");
-  const [showInstructions, setShowInstructions] = useState(false);
   const [notificacion, setNotificacion] = useState(null);
   const { currentLocation, locationVersion } = useLocation();
 
@@ -245,155 +245,185 @@ export default function CsvUploader({ onCancelar }) {
 
   const processEmployees = async () => {
     if (csvData.length <= 1) return;
-    if (!selectedGrupo) {
-      setProcessingErrors([
-        "Por favor selecciona un grupo antes de procesar los empleados",
-      ]);
-      return;
-    }
-
     setIsProcessing(true);
     setProcessingErrors([]);
     setProcessedRows({ total: csvData.length - 1, current: 0 });
-
-    // Obtener ubicación del administrador actual
-    const userId = localStorage.getItem("userId");
-    let locationData;
-
-    try {
-      const locationRes = await fetch(
-        `https://geoapphospital.onrender.com/api/superadmin/superadmin-hospital-ubi/${userId}`
-      );
-
-      if (!locationRes.ok) throw new Error("Error al obtener ubicación");
-
-      locationData = await locationRes.json();
-      if (!locationData?.[0]) {
-        throw new Error(
-          "No se encontró información de ubicación del administrador"
-        );
-      }
-
-      const location = locationData[0];
-      // Validar que existan todos los ID de ubicación necesarios
-      if (
-        !location.id_estado ||
-        !location.id_municipio ||
-        !location.id_hospital
-      ) {
-        throw new Error(
-          "Faltan datos de ubicación (estado, municipio, hospital) del administrador"
-        );
-      }
-    } catch (error) {
-      setIsProcessing(false);
-      setProcessingErrors([
-        "Error al obtener la ubicación del administrador: " + error.message,
-      ]);
-      return;
-    }
 
     const errors = [];
     const data = csvData.slice(1); // Skip headers
     const validatedData = [];
 
+    // Validar encabezados esperados para plantilla con nombres
+    const headers = csvData[0].map((h) => h.trim().toUpperCase());
+    const expectedHeaders = [
+      "ESTADO",
+      "MUNICIPIO",
+      "HOSPITAL",
+      "GRUPO",
+      "NOMBRE",
+      "APELLIDO PATERNO",
+      "APELLIDO MATERNO",
+      "CURP",
+      "TELEFONO",
+      "CORREO"
+    ];
+    const validHeaders = expectedHeaders.every(
+      (header, idx) => headers[idx] && headers[idx].toUpperCase() === header
+    );
+    if (!validHeaders) {
+      setProcessingErrors([
+        "El archivo no tiene los encabezados correctos. Descargue la plantilla para ver el formato requerido."
+      ]);
+      setIsProcessing(false);
+      return;
+    }
+
     // Primera fase: Validación de todos los registros
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       setProcessedRows((prev) => ({ ...prev, current: i + 1 }));
-
-      // Validar el registro actual
-      const rowErrors = validateCsvRow(row);
+      // Validar campos obligatorios
+      const [estado, municipio, hospital, grupo, nombre, ap_paterno, ap_materno, curp, telefono, correo] = row.map((cell) => cell?.trim?.() || "");
+      const rowErrors = [];
+      if (!estado) rowErrors.push("ESTADO es requerido");
+      if (!municipio) rowErrors.push("MUNICIPIO es requerido");
+      if (!hospital) rowErrors.push("HOSPITAL es requerido");
+      if (!grupo) rowErrors.push("GRUPO es requerido");
+      if (!nombre) rowErrors.push("Nombre es requerido");
+      if (!ap_paterno) rowErrors.push("Apellido paterno es requerido");
+      if (!ap_materno) rowErrors.push("Apellido materno es requerido");
+      if (!curp) rowErrors.push("CURP es requerido");
+      else if (!/^[A-Z&Ñ]{4}[0-9]{6}[HM][A-Z]{5}[A-Z0-9]{2}$/.test(curp.toUpperCase())) rowErrors.push("CURP inválido (formato: AAAA######AAA)");
+      if (!telefono) rowErrors.push("Teléfono es requerido");
+      else if (!/^\d{10}$/.test(telefono)) rowErrors.push("Teléfono debe tener 10 dígitos");
+      if (!correo) rowErrors.push("Correo electrónico es requerido");
+      else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(correo)) rowErrors.push("Correo electrónico inválido");
       if (rowErrors.length > 0) {
         errors.push(`Fila ${i + 2}: ${rowErrors.join(", ")}`);
         continue;
       }
-
-      // Si el registro es válido, preparar los datos
-      const [nombre, ap_paterno, ap_materno, curp, telefono, correo] = row.map(
-        (cell) => cell.trim()
-      );
-      const { user, pass } = generateCredentials(nombre, ap_paterno);
-
+      // Generar usuario y contraseña
+      const user = nombre.charAt(0).toLowerCase() + ap_paterno.toLowerCase().replace(/\s+/g, "");
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+      let pass = "";
+      for (let j = 0; j < 10; j++) pass += chars.charAt(Math.floor(Math.random() * chars.length));
       validatedData.push({
+        estado,
+        municipio,
+        hospital,
+        grupo,
         nombre,
         ap_paterno,
         ap_materno,
         CURP: curp.toUpperCase(),
         correo_electronico: correo,
-        telefono: parseInt(telefono),
+        telefono: telefono,
         user,
         pass,
-        role_name: "empleado",
-        id_estado: locationData[0].id_estado,
-        id_municipio: locationData[0].id_municipio,
-        id_hospital: locationData[0].id_hospital,
-        id_grupo: parseInt(selectedGrupo),
+        role_name: "empleado"
       });
     }
-
-    // Si hay errores de validación, mostrarlos y detener el proceso
     if (errors.length > 0) {
       setProcessingErrors(errors);
       setIsProcessing(false);
       return;
     }
-
-    // Segunda fase: Crear empleados (solo si no hubo errores de validación)
+    // Segunda fase: Crear empleados usando endpoint con nombres
     for (let i = 0; i < validatedData.length; i++) {
       const empleadoData = validatedData[i];
       setProcessedRows((prev) => ({ ...prev, current: i + 1 }));
-
       try {
         const response = await fetch(
-          "https://geoapphospital.onrender.com/api/employees/create-empleado",
+          "https://geoapphospital.onrender.com/api/employees/create-empleado-nombres",
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(empleadoData),
+            body: JSON.stringify(empleadoData)
           }
         );
-
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(
-            errorData.message ||
-              `Error al crear empleado: ${response.statusText}`
-          );
+          throw new Error(errorData.message || `Error al crear empleado: ${response.statusText}`);
         }
-
-        // Send credentials email
+        // Enviar email de credenciales
         try {
           await sendCredentialsEmail(empleadoData);
-          console.log("✉️ Credenciales enviadas por email para:", empleadoData.nombre);
         } catch (emailError) {
-          console.error("❌ Error al enviar email:", emailError);
-          // Add to errors array but don't stop processing
           errors.push(`Error al enviar email a ${empleadoData.nombre}: ${emailError.message}`);
         }
       } catch (error) {
-        errors.push(
-          `Fila ${i + 2} - ${empleadoData.nombre} ${empleadoData.ap_paterno}: ${
-            error.message
-          }`
-        );
+        errors.push(`Fila ${i + 2} - ${empleadoData.nombre} ${empleadoData.ap_paterno}: ${error.message}`);
       }
     }
     setIsProcessing(false);
     if (errors.length > 0) {
       setProcessingErrors(errors);
     } else {
-      // Limpiar el formulario para una nueva carga
       setCsvData([]);
       setFileName("");
       setProcessedRows({ total: 0, current: 0 });
-
       setNotificacion({
         tipo: "exito",
         titulo: "¡Proceso completado!",
-        mensaje:
-          "Todos los empleados fueron procesados exitosamente. Puedes cargar más empleados o cerrar el formulario.",
-        duracion: 8000,
+        mensaje: "Todos los empleados fueron procesados exitosamente. Puedes cargar más empleados o cerrar el formulario.",
+        duracion: 8000
+      });
+    }
+  };
+
+  // Descargar glosario de hospitales en Excel
+  const descargarGlosarioHospitales = async () => {
+    try {
+      const res = await fetch("https://geoapphospital.onrender.com/api/groups/get-groups");
+      if (!res.ok) throw new Error("Error al obtener datos de hospitales");
+      const data = await res.json();
+      const rows = data.map((item) => ({
+        ESTADO: item.nombre_estado,
+        MUNICIPIO: item.nombre_municipio,
+        HOSPITAL: item.nombre_hospital,
+        GRUPO: item.nombre_grupo
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "GlosarioHospitales");
+      XLSX.writeFile(wb, "glosario_hospitales.xlsx");
+    } catch (error) {
+      setNotificacion({
+        tipo: "error",
+        titulo: "Error al descargar glosario",
+        mensaje: error.message || "No se pudo generar el archivo",
+        duracion: 5000,
+      });
+    }
+  };
+
+  // Descargar plantilla de empleados en Excel
+  const descargarPlantillaEmpleados = async () => {
+    try {
+      const rows = [
+        {
+          ESTADO: "Ejemplo Estado",
+          MUNICIPIO: "Ejemplo Municipio",
+          HOSPITAL: "Ejemplo Hospital",
+          GRUPO: "Ejemplo Grupo",
+          Nombre: "Nombre Ejemplo",
+          "Apellido Paterno": "Apellido Paterno Ejemplo",
+          "Apellido Materno": "Apellido Materno Ejemplo",
+          CURP: "PELJ800101HDFXXX01",
+          Telefono: "Telefono Ejemplo",
+          Correo: "Correo Ejemplo"
+        }
+      ];
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "PlantillaEmpleados");
+      XLSX.writeFile(wb, "plantilla_empleados.xlsx");
+    } catch (error) {
+      setNotificacion({
+        tipo: "error",
+        titulo: "Error al descargar plantilla",
+        mensaje: error.message || "No se pudo generar la plantilla",
+        duracion: 5000,
       });
     }
   };
@@ -494,7 +524,6 @@ export default function CsvUploader({ onCancelar }) {
         notificacion={notificacion}
         onCerrar={() => setNotificacion(null)}
       />
-
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-800 flex items-center">
@@ -503,131 +532,47 @@ export default function CsvUploader({ onCancelar }) {
           </h2>
           <div className="text-gray-500 mt-1">
             <p>
-              Importa múltiples empleados usando un archivo CSV.{" "}
-              <button
-                onClick={() => setShowInstructions(!showInstructions)}
-                className="inline-flex items-center text-blue-600 hover:text-blue-700 focus:outline-none"
-              >
-                <AlertCircle className="h-4 w-4 mr-1" />
-                {showInstructions
-                  ? "Ocultar instrucciones"
-                  : "Ver instrucciones"}
-              </button>
+              Importa múltiples empleados usando un archivo CSV.
             </p>
-
-            {showInstructions && (
-              <div className="mt-3 space-y-2">
-                <div className="bg-blue-50 p-3 rounded-lg text-sm">
-                  <p className="font-medium text-blue-800 mb-1">
-                    Instrucciones importantes:
-                  </p>
-                  <ol className="list-decimal list-inside space-y-1 text-blue-700">
-                    <li>Descarga la plantilla CSV</li>
-                    <li>
-                      Abre el archivo con un editor de texto (como Notepad) o
-                      Excel
-                    </li>
-                    <li>
-                      Si usas Excel:
-                      <ul className="list-disc list-inside ml-4 mt-1">
-                        <li>
-                          Al abrir el archivo, selecciona "No convertir" cuando
-                          Excel muestre la advertencia
-                        </li>
-                        <li>
-                          O formatea manualmente la columna de teléfono como
-                          texto antes de ingresar datos
-                        </li>
-                      </ul>
-                    </li>
-                    <li>Ingresa los datos siguiendo el formato del ejemplo</li>
-                    <li>Guarda el archivo manteniendo el formato CSV</li>
-                  </ol>
-                </div>
+            {/* Instrucciones siempre visibles */}
+            <div className="mt-3 space-y-2">
+              <div className="bg-blue-50 p-3 rounded-lg text-sm">
+                <p className="font-medium text-blue-800 mb-1">
+                  Instrucciones importantes:
+                </p>
+                <ol className="list-decimal list-inside space-y-1 text-blue-700">
+                  <li>Descarga la <b>plantilla de empleados</b> y el <b>glosario de hospitales</b> usando los botones de abajo.</li>
+                  <li>Abre la plantilla de empleados con Excel o Google Sheets.</li>
+                  <li>Utiliza el glosario para copiar correctamente los valores de ESTADO, MUNICIPIO, HOSPITAL y GRUPO en la plantilla.</li>
+                  <li>Llena la plantilla solo con las columnas: ESTADO, MUNICIPIO, HOSPITAL y GRUPO.</li>
+                  <li>Guarda el archivo como Excel (.xlsx).</li>
+                  <li>Sube el archivo usando el formulario de abajo.</li>
+                </ol>
+              </div>
+              {/* Botones de descarga debajo de las instrucciones */}
+              <div className="flex flex-col md:flex-row gap-2 justify-start">
                 <button
-                  onClick={downloadTemplate}
-                  className="flex items-center px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors w-fit"
+                  type="button"
+                  onClick={descargarPlantillaEmpleados}
+                  className="flex items-center px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors w-fit bg-white"
                 >
                   <FileDown className="h-4 w-4 mr-2" />
-                  Descargar Plantilla CSV
+                  Descargar plantilla de empleados
+                </button>
+                <button
+                  type="button"
+                  onClick={descargarGlosarioHospitales}
+                  className="flex items-center px-4 py-2 border border-green-600 text-green-600 rounded-lg hover:bg-green-50 transition-colors w-fit bg-white"
+                >
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Descargar glosario de hospitales
                 </button>
               </div>
-            )}
+            </div>
           </div>
         </div>
 
         <div className="p-6">
-          {/* Información de ubicación */}
-          <div className="md:col-span-2 mb-6">
-            <h3 className="text-sm font-medium text-gray-700 flex items-center mb-4 pb-2 border-b">
-              <Building2 className="h-4 w-4 mr-2 text-blue-600" />
-              Ubicación e Institución
-            </h3>
-            {isLoadingLocation ? (
-              <div className="animate-pulse space-y-3">
-                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-              </div>
-            ) : locationData ? (
-              <div className="space-y-3">
-                <div className="flex items-center">
-                  <MapPin className="h-4 w-4 mr-2 text-blue-600" />
-                  <div>
-                    <p className="text-xs text-gray-500">Estado</p>
-                    <p className="font-medium">{locationData.nombre_estado}</p>
-                  </div>
-                </div>
-                <div className="flex items-center">
-                  <Building2 className="h-4 w-4 mr-2 text-blue-600" />
-                  <div>
-                    <p className="text-xs text-gray-500">Municipio</p>
-                    <p className="font-medium">
-                      {locationData.nombre_municipio}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center">
-                  <Hospital className="h-4 w-4 mr-2 text-blue-600" />
-                  <div>
-                    <p className="text-xs text-gray-500">Hospital</p>
-                    <p className="font-medium">
-                      {locationData.nombre_hospital}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start pt-2">
-                  <div className="w-full">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Grupo asignado
-                    </label>
-                    <select
-                      value={selectedGrupo}
-                      onChange={(e) => setSelectedGrupo(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Selecciona un grupo</option>
-                      {grupos.map((grupo) => (
-                        <option key={grupo.id_group} value={grupo.id_group}>
-                          {grupo.nombre_grupo}
-                        </option>
-                      ))}
-                    </select>
-                    {grupos.length === 0 && (
-                      <p className="mt-1 text-xs text-red-600">
-                        No hay grupos disponibles en el hospital
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-red-600">
-                No se pudo obtener la información de ubicación
-              </p>
-            )}
-          </div>
-
           <div className="flex flex-col space-y-4">
             {/* Botón de descarga de plantilla */}
 

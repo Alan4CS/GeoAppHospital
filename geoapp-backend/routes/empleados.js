@@ -182,9 +182,12 @@ router.get("/monitoreo", async (req, res) => {
         r.longitud,
         r.fecha_hora,
         r.dentro_geocerca,
-        r.tipo_registro
+        r.tipo_registro,
+        h.id_hospital,
+        h.nombre_hospital
       FROM registro_ubicaciones r
       JOIN user_data u ON r.id_user = u.id_user
+      LEFT JOIN hospitals h ON u.id_hospital = h.id_hospital
       ORDER BY r.id_user, r.fecha_hora DESC
     `);
 
@@ -282,6 +285,111 @@ router.post("/delete-employee/:id_user", async (req, res) => {
     await client.query("ROLLBACK");
     console.error("❌ Error al eliminar el empleado:", error);
     res.status(500).json({ error: "Error al eliminar el empleado para el hospital" });
+  } finally {
+    client.release();
+  }
+});
+
+/**
+ * Endpoint para crear un empleado usando los NOMBRES de estado, municipio, hospital y grupo.
+ * Busca los IDs correspondientes y realiza el registro igual que /create-empleado.
+ * Espera en el body: nombre, ap_paterno, ap_materno, CURP, correo_electronico, telefono, user, pass, role_name, estado, municipio, hospital, grupo
+ */
+router.post("/create-empleado-nombres", async (req, res) => {
+  const {
+    nombre,
+    ap_paterno,
+    ap_materno,
+    CURP,
+    correo_electronico,
+    telefono,
+    user,
+    pass,
+    role_name,
+    estado,
+    municipio,
+    hospital,
+    grupo
+  } = req.body;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Buscar IDs a partir de los nombres
+    const estadoResult = await client.query(
+      `SELECT id_estado FROM estados WHERE nombre_estado = $1`,
+      [estado]
+    );
+    if (estadoResult.rowCount === 0) throw new Error("Estado no encontrado");
+    const id_estado = estadoResult.rows[0].id_estado;
+
+    const municipioResult = await client.query(
+      `SELECT id_municipio FROM municipios WHERE nombre_municipio = $1 AND estado_id = $2`,
+      [municipio, id_estado]
+    );
+    if (municipioResult.rowCount === 0) throw new Error("Municipio no encontrado");
+    const id_municipio = municipioResult.rows[0].id_municipio;
+
+    const hospitalResult = await client.query(
+      `SELECT id_hospital FROM hospitals WHERE nombre_hospital = $1 AND estado_id = $2 AND id_municipio = $3`,
+      [hospital, id_estado, id_municipio]
+    );
+    if (hospitalResult.rowCount === 0) throw new Error("Hospital no encontrado");
+    const id_hospital = hospitalResult.rows[0].id_hospital;
+
+    const grupoResult = await client.query(
+      `SELECT id_group FROM groups WHERE nombre_grupo = $1 AND id_hospital = $2`,
+      [grupo, id_hospital]
+    );
+    if (grupoResult.rowCount === 0) throw new Error("Grupo no encontrado");
+    const id_grupo = grupoResult.rows[0].id_group;
+
+    // Insertar en user_data
+    const userDataResult = await client.query(
+      `INSERT INTO user_data (nombre, ap_paterno, ap_materno, curp_user, correo_electronico, telefono, id_estado, id_municipio, id_hospital, id_group)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING id_user`,
+      [nombre, ap_paterno, ap_materno, CURP, correo_electronico, telefono, id_estado, id_municipio, id_hospital, id_grupo]
+    );
+    const newUserId = userDataResult.rows[0].id_user;
+
+    // Insertar en user_credentials
+    await client.query(
+      `INSERT INTO user_credentials (id_user, "user", pass)
+       VALUES ($1, $2, $3)`,
+      [newUserId, user, pass]
+    );
+
+    // Obtener id_role
+    const roleResult = await client.query(
+      `SELECT id_role FROM roles WHERE role_name = $1`,
+      [role_name]
+    );
+    if (roleResult.rowCount === 0) throw new Error("Rol no encontrado");
+    const roleId = roleResult.rows[0].id_role;
+
+    // Insertar en user_roles con id_hospital
+    await client.query(
+      `INSERT INTO user_roles (id_user, id_role, id_hospital)
+       VALUES ($1, $2, $3)`,
+      [newUserId, roleId, id_hospital]
+    );
+
+    // Insertar en group_users
+    await client.query(
+      `INSERT INTO group_users (id_group, id_user)
+       VALUES ($1, $2)`,
+      [id_grupo, newUserId]
+    );
+
+    await client.query("COMMIT");
+    res.status(201).json({ message: "Empleado creado con éxito (por nombres)" });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("❌ Error al crear empleado por nombres:", error);
+    res.status(500).json({ error: error.message || "Error al crear el empleado por nombres" });
   } finally {
     client.release();
   }
