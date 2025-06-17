@@ -138,75 +138,87 @@ export default function CsvUploader({ onCancelar }) {
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
-    // Si no hay archivo seleccionado (usuario canceló), simplemente retornar
     if (!file) return;
 
-    // Limpiar estado previo
     setProcessingErrors([]);
     setCsvData([]);
     setFileName("");
     setProcessedRows({ total: 0, current: 0 });
 
-    if (!file.name.match(/\.(csv|xls|xlsx)$/i)) {
+    if (!file.name.match(/\.(xlsx)$/i)) {
       setProcessingErrors([
-        "Por favor, seleccione un archivo CSV o Excel válido",
+        "Por favor, seleccione un archivo Excel (.xlsx) válido",
       ]);
       return;
     }
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const text = event.target.result;
-      let rows;
-
-      // Si es un archivo Excel (detectamos por el inicio del contenido)
-      if (text.startsWith("<?xml") || text.includes("spreadsheet")) {
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(text, "text/xml");
-        rows = Array.from(xmlDoc.getElementsByTagName("Row")).map((row) =>
-          Array.from(row.getElementsByTagName("Data")).map((cell) =>
-            cell.textContent.trim()
-          )
-        );
-      } else {
-        // Procesar como CSV
-        rows = text
-          .split("\n")
-          .map((row) => row.trim())
-          .filter(Boolean)
-          .map((row) =>
-            row.split(",").map((cell) => cell.trim().replace(/^"|"$/g, ""))
-          );
+      const data = new Uint8Array(event.target.result);
+      let workbook;
+      try {
+        workbook = XLSX.read(data, { type: "array" });
+      } catch (err) {
+        setProcessingErrors(["No se pudo leer el archivo Excel: " + err.message]);
+        return;
       }
 
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      
+      // Configurar opciones para mantener los valores como strings y no procesar fechas
+      const rows = XLSX.utils.sheet_to_json(worksheet, { 
+        header: 1,
+        raw: false,
+        defval: "",
+        blankrows: false
+      });
+
+      console.log("Datos leídos del Excel:", rows); // Para debug
+
       // Validar encabezados
-      const headers = rows[0];
+      const headers = rows[0].map(h => String(h || "").trim());
       const expectedHeaders = [
+        "ESTADO",
+        "MUNICIPIO",
+        "HOSPITAL",
+        "GRUPO",
         "Nombre",
         "Apellido Paterno",
         "Apellido Materno",
         "CURP",
         "Telefono",
-        "Correo",
+        "Correo"
       ];
+
+      console.log("Headers encontrados:", headers); // Para debug
+
       const validHeaders = expectedHeaders.every(
-        (header, index) =>
-          headers[index]?.toLowerCase() === header.toLowerCase()
+        (header, index) => headers[index]?.toUpperCase() === header.toUpperCase()
       );
 
       if (!validHeaders) {
-        alert(
+        setProcessingErrors([
           "El archivo no tiene los encabezados correctos. Descargue la plantilla para ver el formato requerido."
-        );
+        ]);
         return;
       }
 
-      setCsvData(rows);
+      // Asegurarse de que todas las filas tengan el mismo número de columnas
+      const processedRows = rows.map(row => {
+        if (row.length < expectedHeaders.length) {
+          return [...row, ...Array(expectedHeaders.length - row.length).fill("")];
+        }
+        return row;
+      });
+
+      console.log("Filas procesadas:", processedRows); // Para debug
+
+      setCsvData(processedRows);
       setFileName(file.name);
-      setProcessingErrors([]);
-      setProcessedRows({ total: rows.length - 1, current: 0 }); // -1 para excluir encabezados
+      setProcessedRows({ total: processedRows.length - 1, current: 0 });
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   };
   const downloadTemplate = () => {
     const headers =
@@ -333,6 +345,16 @@ export default function CsvUploader({ onCancelar }) {
       const empleadoData = validatedData[i];
       setProcessedRows((prev) => ({ ...prev, current: i + 1 }));
       try {
+        console.log(`📤 Enviando datos para ${empleadoData.nombre}:`, {
+          estado: empleadoData.estado,
+          municipio: empleadoData.municipio,
+          hospital: empleadoData.hospital,
+          grupo: empleadoData.grupo,
+          nombre: empleadoData.nombre,
+          CURP: empleadoData.CURP,
+          role_name: empleadoData.role_name
+        });
+
         const response = await fetch(
           "https://geoapphospital.onrender.com/api/employees/create-empleado-nombres",
           {
@@ -341,17 +363,26 @@ export default function CsvUploader({ onCancelar }) {
             body: JSON.stringify(empleadoData)
           }
         );
+
+        const responseData = await response.json();
+        
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || `Error al crear empleado: ${response.statusText}`);
+          console.error(`❌ Error del backend para ${empleadoData.nombre}:`, responseData);
+          throw new Error(responseData.error || `Error al crear empleado: ${response.statusText}`);
+        } else {
+          console.log(`✅ Empleado ${empleadoData.nombre} creado exitosamente:`, responseData);
         }
-        // Enviar email de credenciales
+
+        // Enviar email de credenciales solo si el empleado se creó correctamente
         try {
           await sendCredentialsEmail(empleadoData);
+          console.log(`📧 Email enviado a ${empleadoData.nombre}`);
         } catch (emailError) {
+          console.error(`📧❌ Error al enviar email a ${empleadoData.nombre}:`, emailError);
           errors.push(`Error al enviar email a ${empleadoData.nombre}: ${emailError.message}`);
         }
       } catch (error) {
+        console.error(`❌ Error procesando ${empleadoData.nombre}:`, error);
         errors.push(`Fila ${i + 2} - ${empleadoData.nombre} ${empleadoData.ap_paterno}: ${error.message}`);
       }
     }
@@ -584,7 +615,7 @@ export default function CsvUploader({ onCancelar }) {
               </label>
               <input
                 type="file"
-                accept=".csv"
+                accept=".xlsx"
                 onChange={handleFileUpload}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm cursor-pointer focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
               />

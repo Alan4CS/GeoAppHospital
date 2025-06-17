@@ -323,17 +323,15 @@ router.post("/create-empleado-nombres", async (req, res) => {
       [estado]
     );
     if (estadoResult.rowCount === 0) throw new Error("Estado no encontrado");
-    const id_estado = estadoResult.rows[0].id_estado;
-
-    const municipioResult = await client.query(
-      `SELECT id_municipio FROM municipios WHERE nombre_municipio = $1 AND estado_id = $2`,
+    const id_estado = estadoResult.rows[0].id_estado;    const municipioResult = await client.query(
+      `SELECT id_municipio FROM municipios WHERE nombre_municipio = $1 AND id_estado = $2`,
       [municipio, id_estado]
     );
-    if (municipioResult.rowCount === 0) throw new Error("Municipio no encontrado");
+    if (municipioResult.rowCount === 0) throw new Error(`Municipio "${municipio}" no encontrado en el estado especificado`);
     const id_municipio = municipioResult.rows[0].id_municipio;
 
     const hospitalResult = await client.query(
-      `SELECT id_hospital FROM hospitals WHERE nombre_hospital = $1 AND estado_id = $2 AND id_municipio = $3`,
+      `SELECT id_hospital FROM hospitals WHERE nombre_hospital = $1 AND id_estado = $2 AND id_municipio = $3`,
       [hospital, id_estado, id_municipio]
     );
     if (hospitalResult.rowCount === 0) throw new Error("Hospital no encontrado");
