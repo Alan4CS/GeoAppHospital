@@ -12,7 +12,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { FaUserCheck, FaUserTimes, FaExclamationTriangle, FaChevronLeft, FaChevronRight,
   FaInfoCircle, FaClock, FaMapMarkerAlt, FaFilter, FaSearch, FaMapMarkedAlt, FaSpinner,
-  FaSync, FaHospital, FaLayerGroup, FaBuilding, FaChevronUp, FaUser,
+  FaSync, FaHospital, FaLayerGroup, FaBuilding, FaChevronUp, FaUser, FaExpandAlt, FaMobileAlt,
 } from "react-icons/fa";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -674,48 +674,67 @@ const MonitoreoMap = () => {
               }}
             >
               <Popup className="custom-popup">
-                <div className="text-sm p-1">
-                  <div className="flex items-center mb-2">
+                <div className="popup-hospital-card popup-employee-card">
+                  {/* Botón cerrar arriba a la derecha */}
+                  <button
+                    className="popup-close"
+                    onClick={e => {
+                      e.stopPropagation();
+                      const popup = e.target.closest('.leaflet-popup');
+                      if (popup) {
+                        const closeBtn = popup.querySelector('.leaflet-popup-close-button');
+                        if (closeBtn) closeBtn.click();
+                      }
+                    }}
+                    title="Cerrar"
+                  >
+                    ×
+                  </button>
+                  {/* Header */}
+                  <div className="popup-header">
                     <div className={`w-8 h-8 rounded-full ${getAvatarColor(employee.name)} text-white flex items-center justify-center font-medium mr-2 text-xs`}>
                       {employee.avatar}
                     </div>
                     <div>
-                      <h3 className="font-medium text-base">{employee.name}</h3>
-                      <p className="text-gray-600 text-xs">{employee.position}</p>
+                      <h3 className="popup-title">{employee.name}</h3>
+                      <p className="popup-type">{employee.position}</p>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center text-gray-700">
-                      <FaHospital className="mr-1 text-blue-600" />
-                      <span className="text-sm">{employee.hospital}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center text-gray-600 text-xs">
-                        <FaClock className="mr-1" />
-                        <span>Última conexión: {format(employee.lastConnection, "d 'de' MMMM, HH:mm", { locale: es })}</span>
-                      </div>
-                    </div>
-                    {employee.tipo_registro === 0 ? (
-                      <div className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-lg flex items-center">
-                        <FaExclamationTriangle className="mr-1" />
-                        <span>Usuario inactivo</span>
-                      </div>
-                    ) : !employee.dentro_geocerca ? (
-                      <div className="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-lg flex items-center">
-                        <FaExclamationTriangle className="mr-1" />
-                        <span>Fuera de geocerca de {employee.hospital}</span>
-                      </div>
-                    ) : (
-                      <div className="px-2 py-1 bg-emerald-100 text-emerald-800 text-xs rounded-lg flex items-center">
-                        <FaMapMarkerAlt className="mr-1" />
-                        <span>Dentro de geocerca de {employee.hospital}</span>
+                  {/* Info general */}
+                  <div className="popup-info">
+                    <span className="popup-state"><FaHospital className="mr-1 text-blue-600 inline" />{employee.hospital}</span>
+                    <span className="popup-address"><FaClock className="mr-1 inline" />Última conexión: {format(employee.lastConnection, "d 'de' MMMM, HH:mm", { locale: es })}</span>
+                  </div>
+                  {/* Estado de registro y geocerca */}
+                  <div className="popup-stats">
+                    {employee.tipo_registro === 1 && (
+                      <div className="popup-stats-row text-emerald-700">
+                        <FaUserCheck className="popup-icon" /> Usuario activo
                       </div>
                     )}
-                    <div className="text-xs text-gray-500">
-                      <p>Coordenadas:</p>
-                      <p>Lat: {employee.location[0]?.toFixed(6)}</p>
-                      <p>Lng: {employee.location[1]?.toFixed(6)}</p>
-                    </div>
+                    {employee.tipo_registro === 0 && (
+                      <div className="popup-stats-row text-red-700">
+                        <FaExclamationTriangle className="popup-icon" /> Usuario inactivo
+                      </div>
+                    )}
+                    {employee.dentro_geocerca === true && (
+                      <div className="popup-stats-row text-emerald-700">
+                        <FaMapMarkerAlt className="popup-icon" />
+                        <span>Dentro de geocerca</span>
+                      </div>
+                    )}
+                    {employee.dentro_geocerca === false && (
+                      <div className="popup-stats-row text-orange-700">
+                        <FaExclamationTriangle className="popup-icon" />
+                        <span>Fuera de geocerca</span>
+                      </div>
+                    )}
+                  </div>
+                  {/* Coordenadas */}
+                  <div className="popup-coords">
+                    <span>Coordenadas:</span>
+                    <span>Lat: {employee.location[0]?.toFixed(6)}</span>
+                    <span>Lng: {employee.location[1]?.toFixed(6)}</span>
                   </div>
                 </div>
               </Popup>
@@ -747,46 +766,81 @@ const MonitoreoMap = () => {
             }}
           >
             <Popup className="custom-popup">
-              <div className="text-sm p-1">
-                <div className="flex items-center mb-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center mr-2">
-                    <FaHospital className="text-lg" />
-                  </div>
+              <div className="popup-hospital-card">
+                {/* Botón cerrar arriba a la derecha */}
+                <button
+                  className="popup-close"
+                  onClick={e => {
+                    e.stopPropagation();
+                    const popup = e.target.closest('.leaflet-popup');
+                    if (popup) {
+                      const closeBtn = popup.querySelector('.leaflet-popup-close-button');
+                      if (closeBtn) closeBtn.click();
+                    }
+                  }}
+                  title="Cerrar"
+                >
+                  ×
+                </button>
+                {/* Header */}
+                <div className="popup-header">
                   <div>
-                    <h3 className="font-medium text-base text-blue-700">
-                      {hospital.nombre_hospital}
-                    </h3>
-                    <p className="text-gray-600 text-xs">
-                      {hospital.tipo_hospital || "Hospital"}
-                    </p>
+                    <h3 className="popup-title">{hospital.nombre_hospital}</h3>
+                    <p className="popup-type">{hospital.tipo_hospital || "Hospital"}</p>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <div className="text-gray-700 text-sm">
-                    <p className="font-medium">{hospital.estado}</p>
-                    <p className="text-xs mt-1">{hospital.direccion_hospital}</p>
+                {/* Info general */}
+                <div className="popup-info">
+                  <span className="popup-state">{hospital.estado}</span>
+                  <span className="popup-address">{hospital.direccion_hospital}</span>
+                </div>
+                {/* Estadísticas */}
+                <div className="popup-stats">
+                  <div className="popup-stats-row">
+                    <FaUser className="popup-icon" />
+                    <span>Total asignados:</span>
+                    <span className="popup-bold">{employeesByHospital[hospital.id_hospital] || 0}</span>
                   </div>
-                  <div className="bg-blue-50 text-blue-800 px-2 py-1 rounded-lg text-xs flex items-center justify-between">
-                    <div className="flex items-center">
-                      <FaUser className="mr-1" />
-                      <span>Empleados asignados:</span>
-                    </div>
-                    <span className="font-semibold">{employeesByHospital[hospital.id_hospital] || 0}</span>
+                  <div className="popup-stats-row">
+                    <FaMobileAlt className="popup-icon" />
+                    <span>Con app:</span>
+                    <span>{hospitalStats[hospital.id_hospital]?.activos + hospitalStats[hospital.id_hospital]?.inactivos || 0}</span>
                   </div>
-                  {hospital.radio_geo && (
-                    <div className="bg-blue-50 text-blue-800 px-2 py-1 rounded-lg text-xs flex items-center">
-                      <FaLayerGroup className="mr-1" />
-                      <span>Geocerca activa</span>
-                    </div>
-                  )}
-                  <div className="text-xs text-gray-500">
-                    <p>Coordenadas:</p>
-                    <p>Lat: {hospital.latitud_hospital?.toFixed(6)}</p>
-                    <p>Lng: {hospital.longitud_hospital?.toFixed(6)}</p>
+                  <div className="popup-stats-subrow">
+                    <span className="popup-dot popup-dot-green" /> Activos: {hospitalStats[hospital.id_hospital]?.activos || 0}
                   </div>
+                  <div className="popup-stats-subrow">
+                    <span className="popup-dot popup-dot-red" /> Inactivos: {hospitalStats[hospital.id_hospital]?.inactivos || 0}
+                  </div>
+                </div>
+                {/* Ubicación */}
+                <div className="popup-location">
+                  <div className="popup-stats-row">
+                    <FaMapMarkerAlt className="popup-icon" />
+                    <span>Ubicación actual:</span>
+                  </div>
+                  <div className="popup-stats-subrow">
+                    <span className="popup-dot popup-dot-green" /> Dentro de geocerca: {hospitalStats[hospital.id_hospital]?.dentroGeocerca || 0}
+                  </div>
+                  <div className="popup-stats-subrow">
+                    <span className="popup-dot popup-dot-red" /> Fuera de geocerca: {hospitalStats[hospital.id_hospital]?.fueraGeocerca || 0}
+                  </div>
+                </div>
+                {/* Geocerca */}
+                {hospital.radio_geo && (
+                  <div className="popup-geofence">
+                    <FaLayerGroup className="popup-icon" /> Geocerca activa
+                  </div>
+                )}
+                {/* Coordenadas */}
+                <div className="popup-coords">
+                  <span>Coordenadas:</span>
+                  <span>Lat: {hospital.latitud_hospital?.toFixed(6)}</span>
+                  <span>Lng: {hospital.longitud_hospital?.toFixed(6)}</span>
                 </div>
               </div>
             </Popup>
+
           </Marker>
         ))}
       </MarkerClusterGroup>
@@ -1120,17 +1174,7 @@ const MonitoreoMap = () => {
 
             {/* Optimizar clusters */}
             {showHospitals && (
-              <MarkerClusterGroup
-                chunkedLoading={true}
-                maxClusterRadius={60}
-                spiderfyOnMaxZoom={true}
-                showCoverageOnHover={false}
-                iconCreateFunction={createClusterCustomIcon}
-                maxZoom={18}
-                animate={false}
-              >
-                <HospitalMarkers hospitals={getHospitalsStatus.hospitals} />
-              </MarkerClusterGroup>
+              <HospitalMarkers hospitals={getHospitalsStatus.hospitals} />
             )}
 
             {/* Optimizar renderizado de empleados */}
