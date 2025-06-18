@@ -334,13 +334,22 @@ export default function CsvUploader({ onCancelar }) {
       if (!res.ok) throw new Error("Error al obtener los datos");
       const data = await res.json();
 
-      // Usar los nombres de campo correctos según la API
-      const rows = data.map(item => ({
+            // Usar los nombres de campo correctos según la API y ordenar por estado y municipio
+          const rows = data.map(item => ({
         ESTADO: item.nombre_estado,
         MUNICIPIO: item.nombre_municipio,
         HOSPITAL: item.nombre_hospital,
         GRUPO: item.nombre_grupo
-      }));
+      })).sort((a, b) => {
+        const keys = ["ESTADO", "MUNICIPIO", "HOSPITAL", "GRUPO"];
+        for (const key of keys) {
+          const valA = a[key]?.toLowerCase?.() || "";
+          const valB = b[key]?.toLowerCase?.() || "";
+          if (valA < valB) return -1;
+          if (valA > valB) return 1;
+        }
+        return 0;
+      });
 
       // Calcular el ancho óptimo de cada columna
       const headers = ["ESTADO", "MUNICIPIO", "HOSPITAL", "GRUPO"];
