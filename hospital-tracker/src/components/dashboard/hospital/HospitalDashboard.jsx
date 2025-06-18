@@ -1,16 +1,7 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import {
-  Calendar,
-  Users,
-  MapPin,
-  Clock,
-  Check,
-  TrendingUp,
-  Building2,
-  X,
-} from "lucide-react";
+import { useState, useEffect } from "react"
+import { Calendar, Users, MapPin, Clock, Check, TrendingUp, Building2, X, Download } from "lucide-react"
 import {
   BarChart,
   Bar,
@@ -24,7 +15,7 @@ import {
   Area,
   LabelList,
   Legend,
-} from "recharts";
+} from "recharts"
 import {
   format,
   subDays,
@@ -38,9 +29,10 @@ import {
   addWeeks,
   subWeeks,
   differenceInDays,
-} from "date-fns";
-import { es } from "date-fns/locale";
-import "react-calendar/dist/Calendar.css";
+} from "date-fns"
+import { es } from "date-fns/locale"
+import "react-calendar/dist/Calendar.css"
+import { generarReporteEmpleadoPDF } from "./reportes/EmployeeReportPDF"
 
 const customScrollbarStyles = `
   .custom-scrollbar::-webkit-scrollbar {
@@ -57,33 +49,28 @@ const customScrollbarStyles = `
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
   }
-`;
+`
 
-// Genera datos simplificados para el calendario
+// Genera datos mejorados para el calendario
 const generateEmployeeCalendarData = (employeeData, startDate, endDate) => {
   const days = eachDayOfInterval({
     start: new Date(startDate),
     end: new Date(endDate),
-  });
+  })
 
-  const employee = employeeData;
+  const employee = employeeData
   if (!employee) {
     return days.map((day) => ({
       date: day,
       totalHours: 0,
       status: "error",
       notes: "Empleado no encontrado",
-    }));
+    }))
   }
 
-  // Calcular promedios diarios (asumiendo 20 días laborales al mes)
-  const workDaysPerMonth = 20;
-  const dailyWorkedHours = employee.workedHours / workDaysPerMonth;
-  const dailyOutsideHours = employee.outsideHours / workDaysPerMonth;
-
   return days.map((day) => {
-    const dayOfWeek = day.getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const dayOfWeek = day.getDay()
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
 
     if (isWeekend) {
       return {
@@ -91,160 +78,120 @@ const generateEmployeeCalendarData = (employeeData, startDate, endDate) => {
         totalHours: 0,
         status: "weekend",
         notes: "Fin de semana",
-      };
+      }
     }
 
-    // Simplificado: solo 3 estados
-    const hasSignificantOutsideHours = dailyOutsideHours > 2;
-    const totalDailyHours =
-      dailyWorkedHours + (hasSignificantOutsideHours ? 0 : dailyOutsideHours);
-
-    if (hasSignificantOutsideHours || totalDailyHours < 4) {
-      return {
-        date: day,
-        totalHours: totalDailyHours,
-        status: "absence",
-        notes: "Ausencia o tiempo insuficiente",
-      };
-    }
+    // Horario realista: 7:00-16:00 con 30min fuera
+    const totalHours = 8.5 // 9 horas menos 30 min fuera
+    const outsideHours = 0.5 // 30 minutos fuera
 
     return {
       date: day,
-      totalHours: Math.round(totalDailyHours * 10) / 10,
+      totalHours: totalHours,
       status: "completed",
-      notes: "Horas cumplidas",
-    };
-  });
-};
+      notes: "Jornada completa",
+      workedHours: totalHours,
+      outsideHours: outsideHours,
+    }
+  })
+}
 
-// Genera eventos de geocerca simulados para un día específico
-const generateGeofenceEvents = (date, employee) => {
-  const [scheduleStart] = employee.schedule.split(" - ");
-  const [startHour, startMinute] = scheduleStart.split(":").map(Number);
+// Genera eventos realistas de geocerca para un día específico
+const generateRealisticGeofenceEvents = (date, employee) => {
+  const dayOfWeek = date.getDay()
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
 
-  const events = [];
-  const baseDate = new Date(date);
-  baseDate.setHours(startHour, startMinute, 0, 0);
+  if (isWeekend) {
+    return []
+  }
 
-  // Entrada inicial (check-in)
-  const checkInTime = new Date(baseDate);
-  events.push({
-    time: `${checkInTime.getHours().toString().padStart(2, "0")}:${checkInTime
-      .getMinutes()
-      .toString()
-      .padStart(2, "0")}`,
-    type: "entry",
-    location: "inside",
-    description: "Entrada inicial",
-  });
-
-  // Simular algunas salidas durante el día
-  const exitTime1 = new Date(checkInTime.getTime() + 2.5 * 60 * 60 * 1000); // 2.5 horas después
-  events.push({
-    time: `${exitTime1.getHours().toString().padStart(2, "0")}:${exitTime1
-      .getMinutes()
-      .toString()
-      .padStart(2, "0")}`,
-    type: "exit",
-    location: "outside",
-    description: "Salida temporal",
-  });
-
-  const entryTime1 = new Date(exitTime1.getTime() + 15 * 60 * 60 * 1000); // 15 minutos después
-  events.push({
-    time: `${entryTime1.getHours().toString().padStart(2, "0")}:${entryTime1
-      .getMinutes()
-      .toString()
-      .padStart(2, "0")}`,
-    type: "entry",
-    location: "inside",
-    description: "Regreso",
-  });
-
-  const exitTime2 = new Date(entryTime1.getTime() + 3 * 60 * 60 * 1000); // 3 horas después
-  events.push({
-    time: `${exitTime2.getHours().toString().padStart(2, "0")}:${exitTime2
-      .getMinutes()
-      .toString()
-      .padStart(2, "0")}`,
-    type: "exit",
-    location: "outside",
-    description: "Salida temporal",
-  });
-
-  const entryTime2 = new Date(exitTime2.getTime() + 30 * 60 * 60 * 1000); // 30 minutos después
-  events.push({
-    time: `${entryTime2.getHours().toString().padStart(2, "0")}:${entryTime2
-      .getMinutes()
-      .toString()
-      .padStart(2, "0")}`,
-    type: "entry",
-    location: "inside",
-    description: "Regreso",
-  });
-
-  // Salida final (check-out)
-  const checkOutTime = new Date(checkInTime.getTime() + 8 * 60 * 60 * 1000); // 8 horas después
-  events.push({
-    time: `${checkOutTime.getHours().toString().padStart(2, "0")}:${checkOutTime
-      .getMinutes()
-      .toString()
-      .padStart(2, "0")}`,
-    type: "exit",
-    location: "outside",
-    description: "Salida final",
-  });
-
-  return events.sort((a, b) => a.time.localeCompare(b.time));
-};
+  // Horario ejemplo mejorado: 7:00 AM - 4:00 PM con salida de 11:00-11:30
+  return [
+    {
+      time: "07:00",
+      type: "entry",
+      location: "inside",
+      description: "Entrada - Inicio de jornada",
+    },
+    {
+      time: "11:00",
+      type: "exit",
+      location: "outside",
+      description: "Salida temporal - Gestión externa",
+    },
+    {
+      time: "11:30",
+      type: "entry",
+      location: "inside",
+      description: "Regreso - Continuación de labores",
+    },
+    {
+      time: "16:00",
+      type: "exit",
+      location: "outside",
+      description: "Salida - Fin de jornada",
+    },
+  ]
+}
 
 // Genera datos mejorados por hora para un día específico
-const generateHourlyData = (dayData, employee) => {
+const generateEnhancedHourlyData = (dayData, employee) => {
   if (!dayData || dayData.status !== "completed") {
     return {
       hours: [],
       events: [],
       metrics: { workedHours: 0, outsideHours: 0, totalHours: 0 },
-    };
+    }
   }
 
-  const [scheduleStart, scheduleEnd] = employee.schedule.split(" - ");
-  const [startHour] = scheduleStart.split(":").map(Number);
-  const [endHour] = scheduleEnd.split(":").map(Number);
+  const events = generateRealisticGeofenceEvents(dayData.date, employee)
+  const hours = []
 
-  const events = generateGeofenceEvents(dayData.date, employee);
-  const hours = [];
+  // Horario de 7:00 a 16:00
+  const startHour = 7
+  const endHour = 16
 
-  // Calcular métricas reales
-  let workedHours = 0;
-  let outsideHours = 0;
+  let workedHours = 0
+  let outsideHours = 0
 
   for (let i = 0; i < endHour - startHour; i++) {
-    const hour = startHour + i;
-    const hourLabel = `${hour.toString().padStart(2, "0")}:00`;
-    const nextHourLabel = `${(hour + 1).toString().padStart(2, "0")}:00`;
+    const hour = startHour + i
+    const hourLabel = `${hour.toString().padStart(2, "0")}:00`
+    const nextHourLabel = `${(hour + 1).toString().padStart(2, "0")}:00`
 
-    // Determinar el estado durante esta hora basado en los eventos
-    let isInside = false;
-    let hasEntry = false;
-    let hasExit = false;
+    // Determinar el estado durante esta hora
+    let isInside = false
+    let hasEntry = false
+    let hasExit = false
 
+    // Lógica mejorada basada en el horario realista
+    if (hour >= 7 && hour < 11) {
+      isInside = true // Trabajando
+    } else if (hour >= 11 && hour < 12) {
+      isInside = false // Fuera de 11:00-11:30, dentro de 11:30-12:00
+      if (hour === 11) {
+        // En la hora 11:00-12:00, está fuera solo los primeros 30 min
+        isInside = false // Simplificado para la visualización
+      }
+    } else if (hour >= 12 && hour < 16) {
+      isInside = true // Trabajando
+    } else {
+      isInside = false // Fuera del horario
+    }
+
+    // Verificar eventos en esta hora
     for (const event of events) {
-      if (event.time <= nextHourLabel) {
-        if (event.type === "entry") {
-          isInside = true;
-          if (event.time >= hourLabel) hasEntry = true;
-        } else if (event.type === "exit") {
-          isInside = false;
-          if (event.time >= hourLabel) hasExit = true;
-        }
+      const eventHour = Number.parseInt(event.time.split(":")[0])
+      if (eventHour === hour) {
+        if (event.type === "entry") hasEntry = true
+        if (event.type === "exit") hasExit = true
       }
     }
 
     if (isInside) {
-      workedHours += 1;
-    } else {
-      outsideHours += 1;
+      workedHours += 1
+    } else if (hour >= 7 && hour < 16) {
+      outsideHours += 1
     }
 
     hours.push({
@@ -252,137 +199,186 @@ const generateHourlyData = (dayData, employee) => {
       status: isInside ? "inside" : "outside",
       hasEntry,
       hasExit,
-      events: events.filter(
-        (e) => e.time >= hourLabel && e.time < nextHourLabel
-      ),
-    });
+      events: events.filter((e) => {
+        const eventHour = Number.parseInt(e.time.split(":")[0])
+        return eventHour === hour
+      }),
+    })
   }
 
   return {
     hours,
     events,
     metrics: {
-      workedHours: Math.round(workedHours * 10) / 10,
-      outsideHours: Math.round(outsideHours * 10) / 10,
-      totalHours: Math.round((workedHours + outsideHours) * 10) / 10,
+      workedHours: 8.5, // 8.5 horas trabajadas (9 horas menos 30 min fuera)
+      outsideHours: 0.5, // 30 minutos fuera
+      totalHours: 9, // Total de 9 horas de jornada
     },
-  };
-};
+  }
+}
 
 const EmployeeCalendarView = ({ employee, startDate, endDate }) => {
-  const [calendarData, setCalendarData] = useState([]);
-  const [selectedDay, setSelectedDay] = useState(null);
-  const [hourlyData, setHourlyData] = useState([]);
+  const [calendarData, setCalendarData] = useState([])
+  const [selectedDay, setSelectedDay] = useState(null)
+  const [hourlyData, setHourlyData] = useState([])
 
   // Calcular si debe mostrar navegación
-  const daysDiff = differenceInDays(new Date(endDate), new Date(startDate));
-  const showNavigation = daysDiff > 7;
+  const daysDiff = differenceInDays(new Date(endDate), new Date(startDate))
+  const showNavigation = daysDiff > 7
 
   // Calcular las semanas a mostrar basado en el rango de fechas
-  const startWeek = startOfWeek(new Date(startDate), { weekStartsOn: 1 });
-  const endWeek = endOfWeek(new Date(endDate), { weekStartsOn: 1 });
-  const totalWeeks = Math.ceil(differenceInDays(endWeek, startWeek) / 7);
+  const startWeek = startOfWeek(new Date(startDate), { weekStartsOn: 1 })
+  const endWeek = endOfWeek(new Date(endDate), { weekStartsOn: 1 })
+  const totalWeeks = Math.ceil(differenceInDays(endWeek, startWeek) / 7)
 
-  const [currentWeekStart, setCurrentWeekStart] = useState(startWeek);
+  const [currentWeekStart, setCurrentWeekStart] = useState(startWeek)
 
   useEffect(() => {
-    const data = generateEmployeeCalendarData(employee, startDate, endDate);
-    setCalendarData(data);
-    setSelectedDay(null);
-    setHourlyData([]);
-  }, [employee, startDate, endDate]);
+    const data = generateEmployeeCalendarData(employee, startDate, endDate)
+    setCalendarData(data)
+    setSelectedDay(null)
+    setHourlyData([])
+  }, [employee, startDate, endDate])
 
   // Mostrar solo las semanas dentro del rango
-  const weeksToShow = Math.min(totalWeeks, 4); // Máximo 4 semanas
-  const allWeeks = [];
+  const weeksToShow = Math.min(totalWeeks, 4) // Máximo 4 semanas
+  const allWeeks = []
 
   for (let i = 0; i < weeksToShow; i++) {
-    const weekStart = addWeeks(currentWeekStart, i);
-    const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-    const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
-    allWeeks.push({ weekStart, weekEnd, weekDays });
+    const weekStart = addWeeks(currentWeekStart, i)
+    const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 })
+    const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd })
+    allWeeks.push({ weekStart, weekEnd, weekDays })
   }
 
   const getStatusColor = (status) => {
     switch (status) {
       case "completed":
-        return "bg-emerald-100 border-emerald-300 text-emerald-800 hover:bg-emerald-200 cursor-pointer";
+        return "bg-emerald-100 border-emerald-300 text-emerald-800 hover:bg-emerald-200 cursor-pointer"
       case "absence":
-        return "bg-red-100 border-red-300 text-red-800";
+        return "bg-red-100 border-red-300 text-red-800"
       case "weekend":
-        return "bg-gray-100 border-gray-300 text-gray-600";
+        return "bg-gray-100 border-gray-300 text-gray-600"
       default:
-        return "bg-gray-100 border-gray-300 text-gray-600";
+        return "bg-gray-100 border-gray-300 text-gray-600"
     }
-  };
+  }
 
   const getStatusIcon = (status) => {
     switch (status) {
       case "completed":
-        return "✓";
+        return "✓"
       case "absence":
-        return "✗";
+        return "✗"
       case "weekend":
-        return "🏠";
+        return "🏠"
       default:
-        return "";
+        return ""
     }
-  };
+  }
 
   const getDayData = (day) => {
-    return calendarData.find((data) => isSameDay(data.date, day));
-  };
+    return calendarData.find((data) => isSameDay(data.date, day))
+  }
 
   const handleDayClick = (dayData) => {
     if (dayData && dayData.status === "completed") {
-      setSelectedDay(dayData);
-      const hourlyInfo = generateHourlyData(dayData, employee);
-      setHourlyData(hourlyInfo);
+      setSelectedDay(dayData)
+      const hourlyInfo = generateEnhancedHourlyData(dayData, employee)
+      setHourlyData(hourlyInfo)
     }
-  };
+  }
 
   const goToPreviousWeek = () => {
-    const newStart = subWeeks(currentWeekStart, 1);
+    const newStart = subWeeks(currentWeekStart, 1)
     if (newStart >= startWeek) {
-      setCurrentWeekStart(newStart);
+      setCurrentWeekStart(newStart)
     }
-  };
+  }
 
   const goToNextWeek = () => {
-    const newStart = addWeeks(currentWeekStart, 1);
-    const maxStart = subWeeks(endWeek, weeksToShow - 1);
+    const newStart = addWeeks(currentWeekStart, 1)
+    const maxStart = subWeeks(endWeek, weeksToShow - 1)
     if (newStart <= maxStart) {
-      setCurrentWeekStart(newStart);
+      setCurrentWeekStart(newStart)
     }
-  };
+  }
 
   // Calcular totales solo para días laborales
-  const workDays = calendarData.filter((day) => day.status !== "weekend");
-  const totalHours = workDays.reduce(
-    (total, day) => total + (day.totalHours || 0),
-    0
-  );
-  const completedDays = workDays.filter(
-    (day) => day.status === "completed"
-  ).length;
-  const absenceDays = workDays.filter((day) => day.status === "absence").length;
+  const workDays = calendarData.filter((day) => day.status !== "weekend")
+  const totalHours = workDays.reduce((total, day) => total + (day.totalHours || 0), 0)
+  const completedDays = workDays.filter((day) => day.status === "completed").length
+  const absenceDays = workDays.filter((day) => day.status === "absence").length
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6 w-full">
+      {/* Botón de descarga de PDF mejorado */}
+      <div className="flex justify-end mb-4">
+        <button
+          className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-200"
+          onClick={() => {
+            const eventsByDay = {}
+            const timelineData = {}
+
+            calendarData.forEach((day) => {
+              const dateStr = format(day.date, "yyyy-MM-dd")
+              if (day.status === "completed") {
+                const events = generateRealisticGeofenceEvents(day.date, employee)
+                eventsByDay[dateStr] = events
+
+                // Generar datos de timeline para el PDF
+                timelineData[dateStr] = [
+                  {
+                    startTime: "07:00",
+                    endTime: "11:00",
+                    status: "within",
+                    description: "Trabajo normal",
+                  },
+                  {
+                    startTime: "11:00",
+                    endTime: "11:30",
+                    status: "outside",
+                    description: "Fuera de geocerca",
+                  },
+                  {
+                    startTime: "11:30",
+                    endTime: "16:00",
+                    status: "within",
+                    description: "Trabajo normal",
+                  },
+                ]
+              }
+            })
+
+            generarReporteEmpleadoPDF({
+              empleado: employee,
+              calendarData,
+              startDate,
+              endDate,
+              eventsByDay,
+              timelineData,
+            })
+          }}
+        >
+          <Download className="h-4 w-4" />
+          Descargar Reporte PDF
+        </button>
+      </div>
+
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-xl font-bold text-gray-800">
-            Calendario de {employee.name}
-          </h3>
+          <h3 className="text-xl font-bold text-gray-800">Calendario de {employee.name}</h3>
           <p className="text-sm text-gray-600">
             Horario: {employee.schedule} | Grupo: {employee.grupo}
+          </p>
+          <p className="text-xs text-blue-600 mt-1">
+            💡 Ejemplo: Entrada 7:00, Salida temporal 11:00-11:30, Salida final 16:00
           </p>
         </div>
         {showNavigation && (
           <div className="flex items-center gap-4">
             <div className="text-sm text-gray-600">
-              <span className="font-medium">Período:</span>{" "}
-              {format(new Date(startDate), "dd MMM", { locale: es })} -{" "}
+              <span className="font-medium">Período:</span> {format(new Date(startDate), "dd MMM", { locale: es })} -{" "}
               {format(new Date(endDate), "dd MMM yyyy", { locale: es })}
             </div>
             <div className="flex gap-2">
@@ -405,40 +401,39 @@ const EmployeeCalendarView = ({ employee, startDate, endDate }) => {
         )}
       </div>
 
-      {/* Resumen simplificado */}
+      {/* Resumen mejorado */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-emerald-50 rounded-lg p-4 text-center">
-          <div className="text-3xl font-bold text-emerald-600">
-            {Math.round(totalHours)}h
-          </div>
+        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg p-4 text-center border border-emerald-200">
+          <div className="text-3xl font-bold text-emerald-600">{Math.round(totalHours)}h</div>
           <div className="text-sm text-emerald-700">Total Horas</div>
-        </div>
-        <div className="bg-blue-50 rounded-lg p-4 text-center">
-          <div className="text-3xl font-bold text-blue-600">
-            {completedDays}
+          <div className="text-xs text-emerald-600 mt-1">
+            {completedDays > 0 ? `${(totalHours / completedDays).toFixed(1)}h promedio` : ""}
           </div>
-          <div className="text-sm text-blue-700">Días Cumplidos</div>
         </div>
-        <div className="bg-red-50 rounded-lg p-4 text-center">
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 text-center border border-blue-200">
+          <div className="text-3xl font-bold text-blue-600">{completedDays}</div>
+          <div className="text-sm text-blue-700">Días Cumplidos</div>
+          <div className="text-xs text-blue-600 mt-1">
+            {workDays.length > 0 ? `${((completedDays / workDays.length) * 100).toFixed(0)}% asistencia` : ""}
+          </div>
+        </div>
+        <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-4 text-center border border-red-200">
           <div className="text-3xl font-bold text-red-600">{absenceDays}</div>
           <div className="text-sm text-red-700">Ausencias</div>
+          <div className="text-xs text-red-600 mt-1">
+            {completedDays > 0 ? `${(completedDays * 0.5).toFixed(1)}h fuera total` : ""}
+          </div>
         </div>
       </div>
 
-      {/* Calendario simplificado */}
+      {/* Resto del componente calendario... */}
       <div className="space-y-6">
         {allWeeks.map((week, weekIndex) => {
-          // Filtrar días que están dentro del rango
-          const validDays = week.weekDays.filter(
-            (day) => day >= new Date(startDate) && day <= new Date(endDate)
-          );
+          const validDays = week.weekDays.filter((day) => day >= new Date(startDate) && day <= new Date(endDate))
 
-          if (validDays.length === 0) return null;
+          if (validDays.length === 0) return null
 
-          // Verificar si hay un día seleccionado en esta semana
-          const selectedDayInWeek =
-            selectedDay &&
-            week.weekDays.some((day) => isSameDay(selectedDay.date, day));
+          const selectedDayInWeek = selectedDay && week.weekDays.some((day) => isSameDay(selectedDay.date, day))
 
           return (
             <div key={weekIndex} className="border rounded-lg p-4">
@@ -448,33 +443,19 @@ const EmployeeCalendarView = ({ employee, startDate, endDate }) => {
               </div>
 
               <div className="grid grid-cols-7 gap-2">
-                {/* Encabezados de días */}
-                {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(
-                  (day) => (
-                    <div
-                      key={day}
-                      className="text-center text-sm font-medium text-gray-600 py-2"
-                    >
-                      {day}
-                    </div>
-                  )
-                )}
+                {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((day) => (
+                  <div key={day} className="text-center text-sm font-medium text-gray-600 py-2">
+                    {day}
+                  </div>
+                ))}
 
-                {/* Días de la semana */}
                 {week.weekDays.map((day) => {
-                  const dayData = getDayData(day);
-                  const isInRange =
-                    day >= new Date(startDate) && day <= new Date(endDate);
-                  const isSelected =
-                    selectedDay && isSameDay(selectedDay.date, day);
+                  const dayData = getDayData(day)
+                  const isInRange = day >= new Date(startDate) && day <= new Date(endDate)
+                  const isSelected = selectedDay && isSameDay(selectedDay.date, day)
 
                   if (!isInRange) {
-                    return (
-                      <div
-                        key={day.toISOString()}
-                        className="min-h-[100px]"
-                      ></div>
-                    );
+                    return <div key={day.toISOString()} className="min-h-[100px]"></div>
                   }
 
                   return (
@@ -482,245 +463,200 @@ const EmployeeCalendarView = ({ employee, startDate, endDate }) => {
                       key={day.toISOString()}
                       onClick={() => handleDayClick(dayData)}
                       className={`min-h-[100px] border-2 rounded-lg p-3 transition-all duration-200 ${
-                        dayData
-                          ? getStatusColor(dayData.status)
-                          : "bg-gray-50 border-gray-200"
-                      } ${
-                        isSelected ? "ring-2 ring-blue-500 ring-offset-2" : ""
-                      }`}
+                        dayData ? getStatusColor(dayData.status) : "bg-gray-50 border-gray-200"
+                      } ${isSelected ? "ring-2 ring-blue-500 ring-offset-2" : ""}`}
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">
-                          {format(day, "d")}
-                        </span>
-                        <span className="text-lg">
-                          {dayData ? getStatusIcon(dayData.status) : ""}
-                        </span>
+                        <span className="text-sm font-medium">{format(day, "d")}</span>
+                        <span className="text-lg">{dayData ? getStatusIcon(dayData.status) : ""}</span>
                       </div>
 
                       {dayData && dayData.status === "completed" && (
                         <div className="text-center">
-                          <div className="text-lg font-bold text-emerald-600">
-                            {dayData.totalHours}h
-                          </div>
-                          <div className="text-xs text-emerald-700">
-                            Click para detalles
-                          </div>
+                          <div className="text-lg font-bold text-emerald-600">{dayData.totalHours}h</div>
+                          <div className="text-xs text-emerald-700">Click para detalles</div>
+                          <div className="text-xs text-orange-600 mt-1">30min fuera</div>
                         </div>
                       )}
 
                       {dayData && dayData.status === "absence" && (
                         <div className="text-center">
-                          <div className="text-sm font-medium text-red-600">
-                            Ausencia
-                          </div>
+                          <div className="text-sm font-medium text-red-600">Ausencia</div>
                         </div>
                       )}
 
                       {dayData && dayData.status === "weekend" && (
                         <div className="text-center">
-                          <div className="text-sm text-gray-500">
-                            Fin de semana
-                          </div>
+                          <div className="text-sm text-gray-500">Fin de semana</div>
                         </div>
                       )}
                     </div>
-                  );
+                  )
                 })}
               </div>
 
-              {/* Vista detallada del día seleccionado - aparece justo debajo de la semana correspondiente */}
-              {selectedDayInWeek &&
-                selectedDay &&
-                hourlyData.hours &&
-                hourlyData.hours.length > 0 && (
-                  <div className="mt-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-lg border border-blue-100 overflow-hidden">
-                    <div className="p-6">
-                      <div className="flex items-center justify-between mb-6">
-                        <div>
-                          <h4 className="text-xl font-bold text-gray-800">
-                            📅{" "}
-                            {format(selectedDay.date, "dd 'de' MMMM, yyyy", {
-                              locale: es,
-                            })}
-                          </h4>
-                          <p className="text-sm text-gray-600 mt-1">
-                            Seguimiento detallado de geocerca
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="flex gap-3 text-xs">
-                            <div className="flex items-center gap-1">
-                              <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                              <span>Dentro</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                              <span>Fuera</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                              <span>Evento</span>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => {
-                              setSelectedDay(null);
-                              setHourlyData([]);
-                            }}
-                            className="p-1.5 rounded-lg hover:bg-blue-100 transition-colors"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
+              {/* Vista detallada del día seleccionado mejorada */}
+              {selectedDayInWeek && selectedDay && hourlyData.hours && hourlyData.hours.length > 0 && (
+                <div className="mt-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-lg border border-blue-100 overflow-hidden">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-6">
+                      <div>
+                        <h4 className="text-xl font-bold text-gray-800">
+                          📅{" "}
+                          {format(selectedDay.date, "dd 'de' MMMM, yyyy", {
+                            locale: es,
+                          })}
+                        </h4>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Seguimiento detallado de geocerca - Horario realista
+                        </p>
                       </div>
-
-                      {/* Estadísticas del día - más compactas */}
-                      <div className="grid grid-cols-3 gap-3 mb-6">
-                        <div className="bg-emerald-100 rounded-lg p-3 text-center border border-emerald-200">
-                          <div className="text-xl font-bold text-emerald-600">
-                            {hourlyData.metrics.workedHours}h
+                      <div className="flex items-center gap-4">
+                        <div className="flex gap-3 text-xs">
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                            <span>Dentro</span>
                           </div>
-                          <div className="text-xs text-emerald-700">
-                            Trabajadas
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                            <span>Fuera</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <span>Evento</span>
                           </div>
                         </div>
-                        <div className="bg-red-100 rounded-lg p-3 text-center border border-red-200">
-                          <div className="text-xl font-bold text-red-600">
-                            {hourlyData.metrics.outsideHours}h
-                          </div>
-                          <div className="text-xs text-red-700">Fuera</div>
-                        </div>
-                        <div className="bg-blue-100 rounded-lg p-3 text-center border border-blue-200">
-                          <div className="text-xl font-bold text-blue-600">
-                            {hourlyData.metrics.totalHours}h
-                          </div>
-                          <div className="text-xs text-blue-700">Total</div>
-                        </div>
+                        <button
+                          onClick={() => {
+                            setSelectedDay(null)
+                            setHourlyData([])
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-blue-100 transition-colors"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
                       </div>
+                    </div>
 
-                      {/* Línea de tiempo horizontal - más compacta */}
-                      <div className="relative bg-white rounded-lg p-4 border border-gray-200">
-                        {/* Línea base */}
-                        <div className="absolute top-1/2 left-4 right-4 h-1 bg-gray-300 rounded-full transform -translate-y-1/2"></div>
+                    {/* Estadísticas del día mejoradas */}
+                    <div className="grid grid-cols-3 gap-3 mb-6">
+                      <div className="bg-emerald-100 rounded-lg p-3 text-center border border-emerald-200">
+                        <div className="text-xl font-bold text-emerald-600">{hourlyData.metrics.workedHours}h</div>
+                        <div className="text-xs text-emerald-700">Trabajadas</div>
+                        <div className="text-xs text-emerald-600 mt-1">7:00-11:00 + 11:30-16:00</div>
+                      </div>
+                      <div className="bg-red-100 rounded-lg p-3 text-center border border-red-200">
+                        <div className="text-xl font-bold text-red-600">{hourlyData.metrics.outsideHours}h</div>
+                        <div className="text-xs text-red-700">Fuera</div>
+                        <div className="text-xs text-red-600 mt-1">11:00-11:30</div>
+                      </div>
+                      <div className="bg-blue-100 rounded-lg p-3 text-center border border-blue-200">
+                        <div className="text-xl font-bold text-blue-600">{hourlyData.metrics.totalHours}h</div>
+                        <div className="text-xs text-blue-700">Total</div>
+                        <div className="text-xs text-blue-600 mt-1">Jornada completa</div>
+                      </div>
+                    </div>
 
-                        {/* Horas */}
-                        <div className="relative flex justify-between items-center py-6">
-                          {hourlyData.hours.map((hourData, index) => {
-                            const isInside = hourData.status === "inside";
+                    {/* Timeline mejorado */}
+                    <div className="relative bg-white rounded-lg p-4 border border-gray-200">
+                      <div className="absolute top-1/2 left-4 right-4 h-1 bg-gray-300 rounded-full transform -translate-y-1/2"></div>
 
-                            return (
+                      <div className="relative flex justify-between items-center py-6">
+                        {hourlyData.hours.map((hourData, index) => {
+                          const isInside = hourData.status === "inside"
+
+                          return (
+                            <div key={hourData.hour} className="flex flex-col items-center relative">
                               <div
-                                key={hourData.hour}
-                                className="flex flex-col items-center relative"
+                                className={`w-6 h-6 rounded-full border-2 border-white shadow-md z-10 flex items-center justify-center ${
+                                  isInside ? "bg-emerald-500" : "bg-red-500"
+                                }`}
                               >
-                                {/* Marcador de hora */}
-                                <div
-                                  className={`w-6 h-6 rounded-full border-2 border-white shadow-md z-10 flex items-center justify-center ${
-                                    isInside ? "bg-emerald-500" : "bg-red-500"
-                                  }`}
-                                >
-                                  {/* Indicador de evento */}
-                                  {(hourData.hasEntry || hourData.hasExit) && (
-                                    <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-blue-500 rounded-full border border-white flex items-center justify-center">
-                                      <div className="w-1 h-1 bg-white rounded-full"></div>
+                                {(hourData.hasEntry || hourData.hasExit) && (
+                                  <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-blue-500 rounded-full border border-white flex items-center justify-center">
+                                    <div className="w-1 h-1 bg-white rounded-full"></div>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="mt-2 text-xs font-medium text-gray-700">{hourData.hour}</div>
+
+                              {(hourData.hasEntry || hourData.hasExit) && (
+                                <div className="mt-1 text-xs text-center space-y-0.5">
+                                  {hourData.hasEntry && (
+                                    <div className="text-emerald-600 font-medium bg-emerald-50 px-1 py-0.5 rounded text-xs">
+                                      ↓ Entrada
+                                    </div>
+                                  )}
+                                  {hourData.hasExit && (
+                                    <div className="text-red-600 font-medium bg-red-50 px-1 py-0.5 rounded text-xs">
+                                      ↑ Salida
                                     </div>
                                   )}
                                 </div>
+                              )}
 
-                                {/* Etiqueta de hora */}
-                                <div className="mt-2 text-xs font-medium text-gray-700">
-                                  {hourData.hour}
-                                </div>
-
-                                {/* Eventos en esta hora */}
-                                {(hourData.hasEntry || hourData.hasExit) && (
-                                  <div className="mt-1 text-xs text-center space-y-0.5">
-                                    {hourData.hasEntry && (
-                                      <div className="text-emerald-600 font-medium bg-emerald-50 px-1 py-0.5 rounded text-xs">
-                                        ↓
-                                      </div>
-                                    )}
-                                    {hourData.hasExit && (
-                                      <div className="text-red-600 font-medium bg-red-50 px-1 py-0.5 rounded text-xs">
-                                        ↑
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-
-                                {/* Segmento de línea coloreado */}
-                                {index < hourlyData.hours.length - 1 && (
-                                  <div
-                                    className={`absolute top-1/2 left-3 h-1 rounded-full transform -translate-y-1/2 z-5 ${
-                                      isInside ? "bg-emerald-400" : "bg-red-400"
-                                    }`}
-                                    style={{
-                                      width: `calc(100% - 1.5rem)`,
-                                    }}
-                                  ></div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Resumen de eventos - más compacto */}
-                      <div className="mt-4 bg-gray-50 rounded-lg p-3">
-                        <h5 className="font-semibold text-gray-800 mb-2 text-sm">
-                          Eventos del día
-                        </h5>
-                        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 text-xs">
-                          {hourlyData.events.map((event, index) => (
-                            <div
-                              key={index}
-                              className={`flex items-center gap-1 p-2 rounded border ${
-                                event.type === "entry"
-                                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                                  : "bg-red-50 text-red-800 border-red-200"
-                              }`}
-                            >
-                              <div
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  event.type === "entry"
-                                    ? "bg-emerald-500"
-                                    : "bg-red-500"
-                                }`}
-                              ></div>
-                              <div>
-                                <div className="font-medium">{event.time}</div>
-                                <div className="text-xs opacity-75">
-                                  {event.description}
-                                </div>
-                              </div>
+                              {index < hourlyData.hours.length - 1 && (
+                                <div
+                                  className={`absolute top-1/2 left-3 h-1 rounded-full transform -translate-y-1/2 z-5 ${
+                                    isInside ? "bg-emerald-400" : "bg-red-400"
+                                  }`}
+                                  style={{
+                                    width: `calc(100% - 1.5rem)`,
+                                  }}
+                                ></div>
+                              )}
                             </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Horario programado - más compacto */}
-                      <div className="mt-3 text-xs text-gray-600 text-center bg-blue-50 rounded-lg p-2">
-                        <strong>Horario:</strong> {employee.schedule} |{" "}
-                        <strong>Check-in:</strong>{" "}
-                        {hourlyData.events[0]?.time || "N/A"} |{" "}
-                        <strong>Check-out:</strong>{" "}
-                        {hourlyData.events[hourlyData.events.length - 1]
-                          ?.time || "N/A"}
+                          )
+                        })}
                       </div>
                     </div>
+
+                    {/* Resumen de eventos mejorado */}
+                    <div className="mt-4 bg-gray-50 rounded-lg p-3">
+                      <h5 className="font-semibold text-gray-800 mb-2 text-sm">Eventos del día</h5>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                        {hourlyData.events.map((event, index) => (
+                          <div
+                            key={index}
+                            className={`flex items-center gap-1 p-2 rounded border ${
+                              event.type === "entry"
+                                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                : "bg-red-50 text-red-800 border-red-200"
+                            }`}
+                          >
+                            <div
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                event.type === "entry" ? "bg-emerald-500" : "bg-red-500"
+                              }`}
+                            ></div>
+                            <div>
+                              <div className="font-medium">{event.time}</div>
+                              <div className="text-xs opacity-75">{event.description}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Información adicional */}
+                    <div className="mt-3 text-xs text-gray-600 text-center bg-blue-50 rounded-lg p-2">
+                      <strong>Horario programado:</strong> {employee.schedule} | <strong>Tiempo fuera:</strong> 30
+                      minutos (11:00-11:30) | <strong>Eficiencia:</strong> 94.4% (8.5h de 9h)
+                    </div>
                   </div>
-                )}
+                </div>
+              )}
             </div>
-          );
+          )
         })}
       </div>
 
-      {/* Leyenda simplificada */}
-      <div className="mt-6 flex flex-wrap gap-4 text-sm">
+      {/* Leyenda mejorada */}
+      <div className="mt-6 flex flex-wrap gap-4 text-sm bg-gray-50 rounded-lg p-4">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-emerald-100 border border-emerald-300 rounded"></div>
-          <span>Horas cumplidas</span>
+          <span>Horas cumplidas (8.5h trabajadas)</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-red-100 border border-red-300 rounded"></div>
@@ -730,34 +666,37 @@ const EmployeeCalendarView = ({ employee, startDate, endDate }) => {
           <div className="w-4 h-4 bg-gray-100 border border-gray-300 rounded"></div>
           <span>Fin de semana</span>
         </div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+          <span>30min fuera de geocerca por día</span>
+        </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
+// Resto del componente HospitalDashboard permanece igual...
 const HospitalDashboard = () => {
   // Estados para los filtros avanzados de fecha
   const [dateRange, setDateRange] = useState({
     startDate: format(subDays(new Date(), 30), "yyyy-MM-dd"),
     endDate: format(new Date(), "yyyy-MM-dd"),
-  });
+  })
 
   // Estados para el filtro de fechas mejorado
-  const [selectedPreset, setSelectedPreset] = useState("30d");
-  const [hasChanges, setHasChanges] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState("30d")
+  const [hasChanges, setHasChanges] = useState(false)
   const [tempDateRange, setTempDateRange] = useState({
     startDate: format(subDays(new Date(), 30), "yyyy-MM-dd"),
     endDate: format(new Date(), "yyyy-MM-dd"),
-  });
+  })
 
   // Estados para filtros detallados
-  const [selectedGrupo, setSelectedGrupo] = useState("");
-  const [selectedEmpleado, setSelectedEmpleado] = useState("");
-  const [fechaInicio, setFechaInicio] = useState(
-    format(subDays(new Date(), 30), "yyyy-MM-dd")
-  );
-  const [fechaFin, setFechaFin] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [empleadosFiltrados, setEmpleadosFiltrados] = useState([]);
+  const [selectedGrupo, setSelectedGrupo] = useState("")
+  const [selectedEmpleado, setSelectedEmpleado] = useState("")
+  const [fechaInicio, setFechaInicio] = useState(format(subDays(new Date(), 30), "yyyy-MM-dd"))
+  const [fechaFin, setFechaFin] = useState(format(new Date(), "yyyy-MM-dd"))
+  const [empleadosFiltrados, setEmpleadosFiltrados] = useState([])
 
   const datePresets = [
     { label: "Últimos 7 días", value: "7d", days: 7 },
@@ -769,73 +708,69 @@ const HospitalDashboard = () => {
     { label: "Últimos 6 meses", value: "6m", months: 6 },
     { label: "Último año", value: "1y", years: 1 },
     { label: "Personalizado", value: "custom" },
-  ];
+  ]
 
   const handlePresetChange = (preset) => {
-    setSelectedPreset(preset);
-    const today = new Date();
+    setSelectedPreset(preset)
+    const today = new Date()
 
     if (preset === "custom") {
-      return;
+      return
     }
 
-    const presetConfig = datePresets.find((p) => p.value === preset);
-    if (!presetConfig) return;
+    const presetConfig = datePresets.find((p) => p.value === preset)
+    if (!presetConfig) return
 
-    let newStartDate;
+    let newStartDate
     if (presetConfig.days) {
-      newStartDate = subDays(today, presetConfig.days);
+      newStartDate = subDays(today, presetConfig.days)
     } else if (presetConfig.months) {
-      newStartDate = subMonths(today, presetConfig.months);
+      newStartDate = subMonths(today, presetConfig.months)
     } else if (presetConfig.years) {
-      newStartDate = subYears(today, presetConfig.years);
+      newStartDate = subYears(today, presetConfig.years)
     } else {
-      return;
+      return
     }
 
     setTempDateRange({
       startDate: format(newStartDate, "yyyy-MM-dd"),
       endDate: format(today, "yyyy-MM-dd"),
-    });
-    setHasChanges(true);
-  };
+    })
+    setHasChanges(true)
+  }
 
   const handleDateChange = (field, value) => {
     setTempDateRange((prev) => ({
       ...prev,
       [field]: value,
-    }));
-    setSelectedPreset("custom");
-    setHasChanges(true);
-  };
+    }))
+    setSelectedPreset("custom")
+    setHasChanges(true)
+  }
 
   const applyChanges = () => {
-    setDateRange(tempDateRange);
-    setHasChanges(false);
-  };
+    setDateRange(tempDateRange)
+    setHasChanges(false)
+  }
 
   const resetToOriginal = () => {
-    setTempDateRange(dateRange);
-    setHasChanges(false);
-    setSelectedPreset("");
-  };
+    setTempDateRange(dateRange)
+    setHasChanges(false)
+    setSelectedPreset("")
+  }
 
   const isValidRange =
     tempDateRange.startDate &&
     tempDateRange.endDate &&
-    !isAfter(
-      new Date(tempDateRange.startDate),
-      new Date(tempDateRange.endDate)
-    );
+    !isAfter(new Date(tempDateRange.startDate), new Date(tempDateRange.endDate))
 
   const daysDifference =
     tempDateRange.startDate && tempDateRange.endDate
       ? Math.ceil(
-          (new Date(tempDateRange.endDate).getTime() -
-            new Date(tempDateRange.startDate).getTime()) /
-            (1000 * 60 * 60 * 24)
+          (new Date(tempDateRange.endDate).getTime() - new Date(tempDateRange.startDate).getTime()) /
+            (1000 * 60 * 60 * 24),
         )
-      : 0;
+      : 0
 
   // Estados para los filtros de ubicación alineados con la estructura
   const [filters, setFilters] = useState({
@@ -845,87 +780,85 @@ const HospitalDashboard = () => {
     nombre_estado: "",
     nombre_municipio: "",
     nombre_hospital: "",
-  });
+  })
 
-  const [estados, setEstados] = useState([]);
-  const [municipios, setMunicipios] = useState([]);
-  const [hospitales, setHospitales] = useState([]);
+  const [estados, setEstados] = useState([])
+  const [municipios, setMunicipios] = useState([])
+  const [hospitales, setHospitales] = useState([])
   const [grupos, setGrupos] = useState([
     { id: 1, nombre: "Limpieza" },
     { id: 2, nombre: "Mantenimiento" },
     { id: 3, nombre: "Vigilancia" },
     { id: 4, nombre: "Camilleros" },
     { id: 5, nombre: "Enfermería" },
-  ]);
+  ])
 
   // Estados para los datos
-  const [empleados, setEmpleados] = useState([]);
+  const [empleados, setEmpleados] = useState([])
 
   // Cargar estados
   useEffect(() => {
     const fetchEstados = async () => {
       try {
-        const res = await fetch(
-          "https://geoapphospital.onrender.com/api/superadmin/estados"
-        );
-        const data = await res.json();
-        setEstados(data);
+        const res = await fetch("https://geoapphospital.onrender.com/api/superadmin/estados")
+        const data = await res.json()
+        setEstados(data)
       } catch (error) {
-        console.error("Error al obtener estados:", error);
+        console.error("Error al obtener estados:", error)
       }
-    };
-    fetchEstados();
-  }, []);
+    }
+    fetchEstados()
+  }, [])
 
   // Cargar municipios al seleccionar estado
   useEffect(() => {
     if (!filters.id_estado) {
-      setMunicipios([]);
-      return;
+      setMunicipios([])
+      return
     }
 
     const fetchMunicipios = async () => {
       try {
         const res = await fetch(
-          `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${filters.id_estado}`
-        );
-        const data = await res.json();
-        setMunicipios(data);
+          `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${filters.id_estado}`,
+        )
+        const data = await res.json()
+        setMunicipios(data)
       } catch (error) {
-        console.error("Error al obtener municipios:", error);
-        setMunicipios([]);
+        console.error("Error al obtener municipios:", error)
+        setMunicipios([])
       }
-    };
-    fetchMunicipios();
-  }, [filters.id_estado]);
+    }
+    fetchMunicipios()
+  }, [filters.id_estado])
 
   // Cargar hospitales al seleccionar municipio
   useEffect(() => {
     if (!filters.id_estado || !filters.id_municipio) {
-      setHospitales([]);
-      return;
+      setHospitales([])
+      return
     }
 
     const fetchHospitales = async () => {
       try {
         const res = await fetch(
-          `https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${filters.id_estado}&id_municipio=${filters.id_municipio}`
-        );
-        const data = await res.json();
-        setHospitales(data);
+          `https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${filters.id_estado}&id_municipio=${filters.id_municipio}`,
+        )
+        const data = await res.json()
+        setHospitales(data)
       } catch (error) {
-        console.error("Error al obtener hospitales:", error);
-        setHospitales([]);
+        console.error("Error al obtener hospitales:", error)
+        setHospitales([])
       }
-    };
-    fetchHospitales();
-  }, [filters.id_estado, filters.id_municipio]);
+    }
+    fetchHospitales()
+  }, [filters.id_estado, filters.id_municipio])
 
   // Cargar empleados al seleccionar hospital
   useEffect(() => {
     if (!filters.id_hospital) {
-      setEmpleados([]);
-      return;
+      setEmpleados([])
+      return
     }
 
     const fetchEmpleados = async () => {
@@ -933,67 +866,65 @@ const HospitalDashboard = () => {
         {
           id: 1,
           name: "Juan Pérez González",
-          schedule: "07:00 - 15:00",
+          schedule: "07:00 - 16:00",
           plannedHours: 160,
-          workedHours: 155,
-          outsideHours: 8,
+          workedHours: 136, // 8.5h * 16 días
+          outsideHours: 8, // 0.5h * 16 días
           justifiedHours: 5,
           grupo: "Limpieza",
         },
         {
           id: 2,
           name: "María Rodríguez López",
-          schedule: "08:00 - 16:00",
+          schedule: "07:00 - 16:00",
           plannedHours: 160,
-          workedHours: 158,
-          outsideHours: 4,
+          workedHours: 136,
+          outsideHours: 8,
           justifiedHours: 2,
           grupo: "Mantenimiento",
         },
         {
           id: 3,
           name: "Carlos Sánchez Martínez",
-          schedule: "09:00 - 17:00",
+          schedule: "07:00 - 16:00",
           plannedHours: 160,
-          workedHours: 152,
-          outsideHours: 6,
+          workedHours: 136,
+          outsideHours: 8,
           justifiedHours: 8,
           grupo: "Vigilancia",
         },
         {
           id: 4,
           name: "Ana García López",
-          schedule: "07:00 - 15:00",
+          schedule: "07:00 - 16:00",
           plannedHours: 160,
-          workedHours: 156,
-          outsideHours: 3,
+          workedHours: 136,
+          outsideHours: 8,
           justifiedHours: 4,
           grupo: "Camilleros",
         },
         {
           id: 5,
           name: "Luis Hernández Ruiz",
-          schedule: "08:00 - 16:00",
+          schedule: "07:00 - 16:00",
           plannedHours: 160,
-          workedHours: 159,
-          outsideHours: 2,
+          workedHours: 136,
+          outsideHours: 8,
           justifiedHours: 1,
           grupo: "Enfermería",
         },
-      ];
+      ]
 
-      setEmpleados(empleadosSimulados);
-      setEmpleadosFiltrados(empleadosSimulados);
-    };
+      setEmpleados(empleadosSimulados)
+      setEmpleadosFiltrados(empleadosSimulados)
+    }
 
-    fetchEmpleados();
-  }, [filters.id_hospital]);
+    fetchEmpleados()
+  }, [filters.id_hospital])
 
   // Manejadores de cambios para los filtros
   const handleEstadoChange = (e) => {
-    const estado = estados.find(
-      (estado) => estado.id_estado === Number(e.target.value)
-    );
+    const estado = estados.find((estado) => estado.id_estado === Number(e.target.value))
     setFilters({
       ...filters,
       id_estado: estado?.id_estado || "",
@@ -1002,80 +933,71 @@ const HospitalDashboard = () => {
       nombre_municipio: "",
       id_hospital: "",
       nombre_hospital: "",
-    });
-  };
+    })
+  }
 
   const handleMunicipioChange = (e) => {
-    const municipio = municipios.find(
-      (mun) => mun.id_municipio === Number(e.target.value)
-    );
+    const municipio = municipios.find((mun) => mun.id_municipio === Number(e.target.value))
     setFilters({
       ...filters,
       id_municipio: municipio?.id_municipio || "",
       nombre_municipio: municipio?.nombre_municipio || "",
       id_hospital: "",
       nombre_hospital: "",
-    });
-  };
+    })
+  }
 
   const handleHospitalChange = (e) => {
-    const hospital = hospitales.find(
-      (hosp) => hosp.id_hospital === Number(e.target.value)
-    );
+    const hospital = hospitales.find((hosp) => hosp.id_hospital === Number(e.target.value))
     setFilters({
       ...filters,
       id_hospital: hospital?.id_hospital || "",
       nombre_hospital: hospital?.nombre_hospital || "",
-    });
-  };
+    })
+  }
 
   // Manejadores para los filtros detallados
   const handleGrupoChange = (e) => {
-    setSelectedGrupo(e.target.value);
-    filtrarEmpleados(e.target.value, selectedEmpleado, fechaInicio, fechaFin);
-  };
+    setSelectedGrupo(e.target.value)
+    filtrarEmpleados(e.target.value, selectedEmpleado, fechaInicio, fechaFin)
+  }
 
   const handleEmpleadoChange = (e) => {
-    setSelectedEmpleado(e.target.value);
-    filtrarEmpleados(selectedGrupo, e.target.value, fechaInicio, fechaFin);
-  };
+    setSelectedEmpleado(e.target.value)
+    filtrarEmpleados(selectedGrupo, e.target.value, fechaInicio, fechaFin)
+  }
 
   const handleFechaInicioChange = (e) => {
-    setFechaInicio(e.target.value);
-    filtrarEmpleados(selectedGrupo, selectedEmpleado, e.target.value, fechaFin);
-  };
+    setFechaInicio(e.target.value)
+    filtrarEmpleados(selectedGrupo, selectedEmpleado, e.target.value, fechaFin)
+  }
 
   const handleFechaFinChange = (e) => {
-    setFechaFin(e.target.value);
-    filtrarEmpleados(
-      selectedGrupo,
-      selectedEmpleado,
-      fechaInicio,
-      e.target.value
-    );
-  };
+    setFechaFin(e.target.value)
+    filtrarEmpleados(selectedGrupo, selectedEmpleado, fechaInicio, e.target.value)
+  }
 
   const filtrarEmpleados = (grupo, empleado, inicio, fin) => {
-    let filtrados = [...empleados];
+    let filtrados = [...empleados]
 
     if (grupo) {
-      filtrados = filtrados.filter((emp) => emp.grupo === grupo);
+      filtrados = filtrados.filter((emp) => emp.grupo === grupo)
     }
 
     if (empleado) {
-      filtrados = filtrados.filter((emp) => emp.id === Number(empleado));
+      filtrados = filtrados.filter((emp) => emp.id === Number(empleado))
     }
 
-    setEmpleadosFiltrados(filtrados);
-  };
+    setEmpleadosFiltrados(filtrados)
+  }
 
   const limpiarFiltros = () => {
-    setSelectedGrupo("");
-    setSelectedEmpleado("");
-    setFechaInicio(format(subDays(new Date(), 30), "yyyy-MM-dd"));
-    setFechaFin(format(new Date(), "yyyy-MM-dd"));
-    setEmpleadosFiltrados(empleados);
-  };
+    setSelectedGrupo("")
+    setSelectedEmpleado("")
+    setFechaInicio(format(subDays(new Date(), 30), "yyyy-MM-dd"))
+    setFechaFin(format(new Date(), "yyyy-MM-dd"))
+    setEmpleadosFiltrados(empleados)
+  }
 
   // Datos dummy para las tarjetas
   const cardData = {
@@ -1083,7 +1005,7 @@ const HospitalDashboard = () => {
     totalEmployees: 248,
     totalExits: 567,
     totalHours: 1920,
-  };
+  }
 
   // Datos dummy para la gráfica de barras
   const groupDistributionData = [
@@ -1092,7 +1014,7 @@ const HospitalDashboard = () => {
     { group: "Vigilancia", employees: 52, exits: 120 },
     { group: "Camilleros", employees: 31, exits: 89 },
     { group: "Enfermería", employees: 42, exits: 95 },
-  ];
+  ]
 
   // Datos dummy para la gráfica de líneas
   const hoursData = [
@@ -1101,41 +1023,39 @@ const HospitalDashboard = () => {
     { group: "Vigilancia", hours: 456 },
     { group: "Camilleros", hours: 288 },
     { group: "Enfermería", hours: 472 },
-  ];
+  ]
 
   // Datos dummy para empleados
   const employeesData = [
     {
       id: 1,
       name: "Juan Pérez González",
-      schedule: "07:00 - 15:00",
+      schedule: "07:00 - 16:00",
       plannedHours: 160,
-      workedHours: 155,
+      workedHours: 136,
       outsideHours: 8,
       justifiedHours: 5,
     },
     {
       id: 2,
       name: "María Rodríguez López",
-      schedule: "08:00 - 16:00",
+      schedule: "07:00 - 16:00",
       plannedHours: 160,
-      workedHours: 158,
-      outsideHours: 4,
+      workedHours: 136,
+      outsideHours: 8,
       justifiedHours: 2,
     },
-  ];
+  ]
 
   // Datos para la gráfica de horas por empleado
   const employeeHoursData = employeesData.map((emp) => ({
     name: emp.name.split(" ")[0],
     horasTrabajadas: emp.workedHours,
     horasAfuera: emp.outsideHours,
-  }));
+  }))
 
   // Obtener el empleado seleccionado para mostrar el calendario
-  const selectedEmployeeData = selectedEmpleado
-    ? empleados.find((emp) => emp.id === Number(selectedEmpleado))
-    : null;
+  const selectedEmployeeData = selectedEmpleado ? empleados.find((emp) => emp.id === Number(selectedEmpleado)) : null
 
   return (
     <>
@@ -1152,18 +1072,14 @@ const HospitalDashboard = () => {
                 <div className="w-10 h-10 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 flex items-center justify-center mr-3">
                   <Calendar className="h-5 w-5 text-white" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-800">
-                  Filtros de Análisis
-                </h3>
+                <h3 className="text-lg font-bold text-gray-800">Filtros de Análisis</h3>
               </div>
 
               {/* Primera fila: Período de análisis */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
                 {/* Selector de presets */}
                 <div className="lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Período
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Período</label>
                   <select
                     value={selectedPreset}
                     onChange={(e) => handlePresetChange(e.target.value)}
@@ -1180,9 +1096,7 @@ const HospitalDashboard = () => {
 
                 {/* Fecha inicio */}
                 <div className="lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fecha inicio
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Fecha inicio</label>
                   <div className="flex items-center">
                     <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center mr-2">
                       <Calendar className="h-4 w-4 text-emerald-500" />
@@ -1190,9 +1104,7 @@ const HospitalDashboard = () => {
                     <input
                       type="date"
                       value={tempDateRange.startDate}
-                      onChange={(e) =>
-                        handleDateChange("startDate", e.target.value)
-                      }
+                      onChange={(e) => handleDateChange("startDate", e.target.value)}
                       className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
@@ -1200,9 +1112,7 @@ const HospitalDashboard = () => {
 
                 {/* Fecha fin */}
                 <div className="lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fecha fin
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Fecha fin</label>
                   <div className="flex items-center">
                     <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
                       <Calendar className="h-4 w-4 text-blue-500" />
@@ -1210,9 +1120,7 @@ const HospitalDashboard = () => {
                     <input
                       type="date"
                       value={tempDateRange.endDate}
-                      onChange={(e) =>
-                        handleDateChange("endDate", e.target.value)
-                      }
+                      onChange={(e) => handleDateChange("endDate", e.target.value)}
                       className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -1242,9 +1150,7 @@ const HospitalDashboard = () => {
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
                 {/* Estado */}
                 <div className="lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Estado
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
                   <div className="flex items-center">
                     <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center mr-2">
                       <MapPin className="h-4 w-4 text-indigo-500" />
@@ -1266,9 +1172,7 @@ const HospitalDashboard = () => {
 
                 {/* Municipio */}
                 <div className="lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Municipio
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Municipio</label>
                   <div className="flex items-center">
                     <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center mr-2">
                       <MapPin className="h-4 w-4 text-purple-500" />
@@ -1281,10 +1185,7 @@ const HospitalDashboard = () => {
                     >
                       <option value="">Seleccionar Municipio</option>
                       {municipios.map((municipio) => (
-                        <option
-                          key={municipio.id_municipio}
-                          value={municipio.id_municipio}
-                        >
+                        <option key={municipio.id_municipio} value={municipio.id_municipio}>
                           {municipio.nombre_municipio}
                         </option>
                       ))}
@@ -1294,9 +1195,7 @@ const HospitalDashboard = () => {
 
                 {/* Hospital */}
                 <div className="lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Hospital
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Hospital</label>
                   <div className="flex items-center">
                     <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
                       <Building2 className="h-4 w-4 text-blue-500" />
@@ -1309,10 +1208,7 @@ const HospitalDashboard = () => {
                     >
                       <option value="">Seleccionar Hospital</option>
                       {hospitales.map((hospital) => (
-                        <option
-                          key={hospital.id_hospital}
-                          value={hospital.id_hospital}
-                        >
+                        <option key={hospital.id_hospital} value={hospital.id_hospital}>
                           {hospital.nombre_hospital}
                         </option>
                       ))}
@@ -1337,23 +1233,19 @@ const HospitalDashboard = () => {
                     <Check className="h-4 w-4 text-emerald-500 mr-2" />
                     <span className="text-sm text-emerald-800">
                       Rango seleccionado: {daysDifference + 1} días (
-                      {format(new Date(tempDateRange.startDate), "dd/MM/yyyy")}{" "}
-                      - {format(new Date(tempDateRange.endDate), "dd/MM/yyyy")})
+                      {format(new Date(tempDateRange.startDate), "dd/MM/yyyy")} -{" "}
+                      {format(new Date(tempDateRange.endDate), "dd/MM/yyyy")})
                     </span>
                   </div>
                 )}
 
                 {/* Mensaje de error */}
-                {tempDateRange.startDate &&
-                  tempDateRange.endDate &&
-                  !isValidRange && (
-                    <div className="bg-red-50 border border-red-100 rounded-lg p-3 flex items-center">
-                      <Calendar className="h-4 w-4 text-red-500 mr-2" />
-                      <span className="text-sm text-red-800">
-                        La fecha de inicio debe ser anterior a la fecha final
-                      </span>
-                    </div>
-                  )}
+                {tempDateRange.startDate && tempDateRange.endDate && !isValidRange && (
+                  <div className="bg-red-50 border border-red-100 rounded-lg p-3 flex items-center">
+                    <Calendar className="h-4 w-4 text-red-500 mr-2" />
+                    <span className="text-sm text-red-800">La fecha de inicio debe ser anterior a la fecha final</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1374,9 +1266,7 @@ const HospitalDashboard = () => {
                 <TrendingUp className="h-4 w-4 text-emerald-200" />
               </div>
               <span className="text-sm text-emerald-100">Total Empleados</span>
-              <span className="text-2xl font-bold">
-                {cardData.totalEmployees}
-              </span>
+              <span className="text-2xl font-bold">{cardData.totalEmployees}</span>
             </div>
             <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-2xl p-6 text-white flex flex-col shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
               <div className="flex items-center justify-between mb-2">
@@ -1405,9 +1295,7 @@ const HospitalDashboard = () => {
                   <h3 className="text-lg font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
                     Métricas por Grupo
                   </h3>
-                  <p className="text-sm text-gray-500">
-                    Comparación de empleados y salidas
-                  </p>
+                  <p className="text-sm text-gray-500">Comparación de empleados y salidas</p>
                 </div>
               </div>
               <div className="h-[500px]">
@@ -1418,33 +1306,16 @@ const HospitalDashboard = () => {
                     margin={{ top: 5, right: 30, left: 20, bottom: 25 }}
                   >
                     <defs>
-                      <linearGradient
-                        id="employeeGradient"
-                        x1="0"
-                        y1="0"
-                        x2="1"
-                        y2="0"
-                      >
+                      <linearGradient id="employeeGradient" x1="0" y1="0" x2="1" y2="0">
                         <stop offset="0%" stopColor="#6366f1" />
                         <stop offset="100%" stopColor="#4f46e5" />
                       </linearGradient>
-                      <linearGradient
-                        id="exitGradient"
-                        x1="0"
-                        y1="0"
-                        x2="1"
-                        y2="0"
-                      >
+                      <linearGradient id="exitGradient" x1="0" y1="0" x2="1" y2="0">
                         <stop offset="0%" stopColor="#ef4444" />
                         <stop offset="100%" stopColor="#dc2626" />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      horizontal={true}
-                      vertical={false}
-                      stroke="#E5E7EB"
-                    />
+                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E5E7EB" />
                     <XAxis
                       type="number"
                       tickLine={false}
@@ -1485,33 +1356,11 @@ const HospitalDashboard = () => {
                         paddingTop: "20px",
                       }}
                     />
-                    <Bar
-                      dataKey="employees"
-                      name="Empleados"
-                      fill="#4F46E5"
-                      radius={[0, 4, 4, 0]}
-                    >
-                      <LabelList
-                        dataKey="employees"
-                        position="right"
-                        fill="#4f46e5"
-                        fontSize={12}
-                        fontWeight={600}
-                      />
+                    <Bar dataKey="employees" name="Empleados" fill="#4F46E5" radius={[0, 4, 4, 0]}>
+                      <LabelList dataKey="employees" position="right" fill="#4f46e5" fontSize={12} fontWeight={600} />
                     </Bar>
-                    <Bar
-                      dataKey="exits"
-                      name="Salidas"
-                      fill="#EF4444"
-                      radius={[0, 4, 4, 0]}
-                    >
-                      <LabelList
-                        dataKey="exits"
-                        position="right"
-                        fill="#dc2626"
-                        fontSize={12}
-                        fontWeight={600}
-                      />
+                    <Bar dataKey="exits" name="Salidas" fill="#EF4444" radius={[0, 4, 4, 0]}>
+                      <LabelList dataKey="exits" position="right" fill="#dc2626" fontSize={12} fontWeight={600} />
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -1525,43 +1374,18 @@ const HospitalDashboard = () => {
                   <h3 className="text-lg font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
                     Tendencia de Horas por Grupo
                   </h3>
-                  <p className="text-sm text-gray-500">
-                    Distribución de horas trabajadas
-                  </p>
+                  <p className="text-sm text-gray-500">Distribución de horas trabajadas</p>
                 </div>
               </div>
               <div className="h-[500px]">
                 <ResponsiveContainer>
-                  <LineChart
-                    data={hoursData}
-                    margin={{ top: 5, right: 30, left: 20, bottom: 25 }}
-                  >
+                  <LineChart data={hoursData} margin={{ top: 5, right: 30, left: 20, bottom: 25 }}>
                     <defs>
-                      <linearGradient
-                        id="hoursGradient"
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop
-                          offset="5%"
-                          stopColor="#8b5cf6"
-                          stopOpacity={0.2}
-                        />
-                        <stop
-                          offset="95%"
-                          stopColor="#8b5cf6"
-                          stopOpacity={0}
-                        />
+                      <linearGradient id="hoursGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
                       </linearGradient>
-                      <linearGradient
-                        id="lineGradient"
-                        x1="0"
-                        y1="0"
-                        x2="1"
-                        y2="0"
-                      >
+                      <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
                         <stop offset="0%" stopColor="#8b5cf6" />
                         <stop offset="100%" stopColor="#6366f1" />
                       </linearGradient>
@@ -1594,18 +1418,9 @@ const HospitalDashboard = () => {
                         boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                         padding: "12px",
                       }}
-                      formatter={(value) => [
-                        `${value} horas`,
-                        "Horas Trabajadas",
-                      ]}
+                      formatter={(value) => [`${value} horas`, "Horas Trabajadas"]}
                     />
-                    <Area
-                      type="monotone"
-                      dataKey="hours"
-                      stroke="none"
-                      fillOpacity={1}
-                      fill="url(#hoursGradient)"
-                    />
+                    <Area type="monotone" dataKey="hours" stroke="none" fillOpacity={1} fill="url(#hoursGradient)" />
                     <Line
                       type="linear"
                       dataKey="hours"
@@ -1649,17 +1464,13 @@ const HospitalDashboard = () => {
                 <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center mr-3">
                   <TrendingUp className="h-5 w-5 text-white" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-800">
-                  Análisis Detallado
-                </h3>
+                <h3 className="text-lg font-bold text-gray-800">Análisis Detallado</h3>
               </div>
 
               {/* Filtros */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
                 <div className="lg:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Período
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Período</label>
                   <select className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500">
                     <option value="">Selección rápida</option>
                     <option value="7d">Últimos 7 días</option>
@@ -1675,9 +1486,7 @@ const HospitalDashboard = () => {
                 </div>
 
                 <div className="lg:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Grupo
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Grupo</label>
                   <div className="flex items-center">
                     <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
                       <Users className="h-4 w-4 text-blue-500" />
@@ -1698,9 +1507,7 @@ const HospitalDashboard = () => {
                 </div>
 
                 <div className="lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Empleado
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Empleado</label>
                   <div className="flex items-center">
                     <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center mr-2">
                       <Users className="h-4 w-4 text-purple-500" />
@@ -1712,9 +1519,7 @@ const HospitalDashboard = () => {
                     >
                       <option value="">Todos los empleados</option>
                       {empleados
-                        .filter(
-                          (emp) => !selectedGrupo || emp.grupo === selectedGrupo
-                        )
+                        .filter((emp) => !selectedGrupo || emp.grupo === selectedGrupo)
                         .map((emp) => (
                           <option key={emp.id} value={emp.id}>
                             {emp.name}
@@ -1725,9 +1530,7 @@ const HospitalDashboard = () => {
                 </div>
 
                 <div className="lg:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fecha inicio
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Fecha inicio</label>
                   <div className="flex items-center">
                     <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center mr-2">
                       <Calendar className="h-4 w-4 text-emerald-500" />
@@ -1742,9 +1545,7 @@ const HospitalDashboard = () => {
                 </div>
 
                 <div className="lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fecha fin
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Fecha fin</label>
                   <div className="flex items-center">
                     <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
                       <Calendar className="h-4 w-4 text-blue-500" />
@@ -1768,14 +1569,7 @@ const HospitalDashboard = () => {
                   Limpiar Filtros
                 </button>
                 <button
-                  onClick={() =>
-                    filtrarEmpleados(
-                      selectedGrupo,
-                      selectedEmpleado,
-                      fechaInicio,
-                      fechaFin
-                    )
-                  }
+                  onClick={() => filtrarEmpleados(selectedGrupo, selectedEmpleado, fechaInicio, fechaFin)}
                   className="px-3 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center text-sm"
                 >
                   <Check className="h-4 w-4 mr-1" />
@@ -1790,16 +1584,16 @@ const HospitalDashboard = () => {
                     <MapPin className="h-6 w-6 opacity-90" />
                     <TrendingUp className="h-4 w-4 text-red-200" />
                   </div>
-                  <span className="text-sm text-red-100">Salidas Totales</span>
-                  <span className="text-xl font-bold">24 hrs</span>
+                  <span className="text-sm text-red-100">Tiempo Fuera</span>
+                  <span className="text-xl font-bold">8 hrs</span>
                 </div>
                 <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white flex flex-col shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
                   <div className="flex items-center justify-between mb-2">
                     <Clock className="h-6 w-6 opacity-90" />
                     <TrendingUp className="h-4 w-4 text-purple-200" />
                   </div>
-                  <span className="text-sm text-purple-100">Horas Totales</span>
-                  <span className="text-xl font-bold">1,920 hrs</span>
+                  <span className="text-sm text-purple-100">Horas Trabajadas</span>
+                  <span className="text-xl font-bold">136 hrs</span>
                 </div>
               </div>
 
@@ -1810,24 +1604,15 @@ const HospitalDashboard = () => {
                   <span className="text-sm text-blue-800">
                     Mostrando {empleadosFiltrados.length} empleado(s)
                     {selectedGrupo ? ` del grupo ${selectedGrupo}` : ""}
-                    {selectedEmpleado
-                      ? " (filtrado por empleado específico)"
-                      : ""}
-                    en el período del{" "}
-                    {format(new Date(fechaInicio), "dd/MM/yyyy")}
+                    {selectedEmpleado ? ` (filtrado por empleado específico)` : ""}
+                    en el período del {format(new Date(fechaInicio), "dd/MM/yyyy")}
                     al {format(new Date(fechaFin), "dd/MM/yyyy")}
                   </span>
                 </div>
               </div>
 
               {/* Contenedor para tabla y gráfica o calendario */}
-              <div
-                className={
-                  selectedEmployeeData
-                    ? "space-y-6 mt-6"
-                    : "grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6"
-                }
-              >
+              <div className={selectedEmployeeData ? "space-y-6 mt-6" : "grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6"}>
                 {/* Tabla de empleados - solo mostrar si no hay empleado seleccionado */}
                 {!selectedEmployeeData && (
                   <div className="bg-white rounded-lg shadow-sm w-full">
@@ -1857,28 +1642,13 @@ const HospitalDashboard = () => {
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                           {empleadosFiltrados.map((employee) => (
-                            <tr
-                              key={employee.id}
-                              className="hover:bg-gray-50/50 transition-colors duration-200"
-                            >
-                              <td className="px-4 py-4 text-sm font-medium text-gray-900 truncate">
-                                {employee.name}
-                              </td>
-                              <td className="px-4 py-4 text-sm text-gray-500">
-                                {employee.schedule}
-                              </td>
-                              <td className="px-4 py-4 text-sm text-gray-500">
-                                {employee.plannedHours}
-                              </td>
-                              <td className="px-4 py-4 text-sm text-emerald-600 font-medium">
-                                {employee.workedHours}
-                              </td>
-                              <td className="px-4 py-4 text-sm text-red-600 font-medium">
-                                {employee.outsideHours}
-                              </td>
-                              <td className="px-4 py-4 text-sm text-blue-600 font-medium">
-                                {employee.justifiedHours}
-                              </td>
+                            <tr key={employee.id} className="hover:bg-gray-50/50 transition-colors duration-200">
+                              <td className="px-4 py-4 text-sm font-medium text-gray-900 truncate">{employee.name}</td>
+                              <td className="px-4 py-4 text-sm text-gray-500">{employee.schedule}</td>
+                              <td className="px-4 py-4 text-sm text-gray-500">{employee.plannedHours}</td>
+                              <td className="px-4 py-4 text-sm text-emerald-600 font-medium">{employee.workedHours}</td>
+                              <td className="px-4 py-4 text-sm text-red-600 font-medium">{employee.outsideHours}</td>
+                              <td className="px-4 py-4 text-sm text-blue-600 font-medium">{employee.justifiedHours}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1889,11 +1659,7 @@ const HospitalDashboard = () => {
 
                 {/* Vista condicional: Calendario para empleado individual o gráfica para múltiples */}
                 {selectedEmployeeData ? (
-                  <EmployeeCalendarView
-                    employee={selectedEmployeeData}
-                    startDate={fechaInicio}
-                    endDate={fechaFin}
-                  />
+                  <EmployeeCalendarView employee={selectedEmployeeData} startDate={fechaInicio} endDate={fechaFin} />
                 ) : (
                   <div className="h-[500px]">
                     <ResponsiveContainer>
@@ -1903,16 +1669,8 @@ const HospitalDashboard = () => {
                         <YAxis />
                         <Tooltip />
                         <Legend />
-                        <Bar
-                          dataKey="horasTrabajadas"
-                          name="Horas Trabajadas"
-                          fill="#10B981"
-                        />
-                        <Bar
-                          dataKey="horasAfuera"
-                          name="Horas Fuera"
-                          fill="#EF4444"
-                        />
+                        <Bar dataKey="horasTrabajadas" name="Horas Trabajadas" fill="#10B981" />
+                        <Bar dataKey="horasAfuera" name="Horas Fuera" fill="#EF4444" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -1923,7 +1681,7 @@ const HospitalDashboard = () => {
         </div>
       </div>
     </>
-  );
-};
+  )
+}
 
-export default HospitalDashboard;
+export default HospitalDashboard
