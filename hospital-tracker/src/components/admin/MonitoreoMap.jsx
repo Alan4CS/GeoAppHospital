@@ -1,11 +1,5 @@
-import { useState, useEffect, useRef, useMemo, memo } from "react";
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Popup,
-  Circle,
-  Polygon,
+import { useState, useEffect, useRef, useMemo, memo, createRef } from "react";
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon,
 } from "react-leaflet";
 import MarkerClusterGroup from 'react-leaflet-markercluster';
 import L from "leaflet";
@@ -494,11 +488,25 @@ const MonitoreoMap = () => {
     }
   };
 
+  // Refs para markers de empleados y cluster group
+  const employeeMarkerRefs = useRef({});
+  const employeeClusterGroupRef = useRef(null);
+
   // Función para manejar el clic en un empleado
   const handleEmployeeClick = (employeeId) => {
     const employee = employees.find((emp) => emp.id === employeeId);
     if (employee && employee.location && mapRef.current) {
       mapRef.current.setView(employee.location, 18);
+      // Abrir popup incluso si está en cluster
+      const markerRef = employeeMarkerRefs.current[employeeId];
+      const clusterGroup = employeeClusterGroupRef.current;
+      const marker = markerRef?.leafletElement || markerRef?.current || markerRef;
+      const cluster = clusterGroup?.leafletElement || clusterGroup?.current || clusterGroup;
+      if (marker && cluster && typeof cluster.zoomToShowLayer === 'function') {
+        cluster.zoomToShowLayer(marker, () => {
+          marker.openPopup();
+        });
+      }
     }
   };
 
@@ -642,16 +650,17 @@ const MonitoreoMap = () => {
   const [hospitalStats, setHospitalStats] = useState({});
 
   // Componente separado para los marcadores de empleados
-  const EmployeeMarkers = memo(({ employees }) => {
+  const EmployeeMarkers = memo(({ employees, markerRefs, clusterGroupRef }) => {
     return (
       <MarkerClusterGroup
         chunkedLoading
-        maxClusterRadius={10} // Puedes ajustar este valor para controlar la distancia de agrupamiento
+        maxClusterRadius={10}
         spiderfyOnMaxZoom={true}
         showCoverageOnHover={false}
         iconCreateFunction={createEmployeeClusterIcon}
         maxZoom={18}
         animate={false}
+        ref={clusterGroupRef}
       >
         {employees.map((employee) => {
           // Determinar qué icono usar basado en el estado
@@ -664,11 +673,17 @@ const MonitoreoMap = () => {
             icon = connectedIcon;
           }
 
+          // Crear ref si no existe
+          if (!markerRefs.current[employee.id]) {
+            markerRefs.current[employee.id] = createRef();
+          }
+
           return (
             <Marker
               key={employee.id}
               position={employee.location}
               icon={icon}
+              ref={markerRefs.current[employee.id]}
               eventHandlers={{
                 click: () => handleEmployeeClick(employee.id)
               }}
@@ -905,82 +920,172 @@ const MonitoreoMap = () => {
     <div className="flex flex-col h-[calc(100vh-64px)] bg-gray-50 overflow-hidden">
       {/* KPIs con espaciado reducido */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-3 px-4 pt-2 pb-3 max-w-[1800px] mx-auto w-[95%]">
-        <div className="flex items-center p-3 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
-          <div className="p-2.5 bg-emerald-50 rounded-full mr-3">
-            <FaUserCheck className="text-emerald-600 text-lg" />
+        {/* Empleados Activos */}
+        <div className="flex flex-col p-3 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
+          <div className="flex items-center">
+            <div className="p-2.5 bg-emerald-50 rounded-full mr-3">
+              <FaUserCheck className="text-emerald-600 text-lg" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Empleados Activos</h3>
+              <p className="text-xl font-bold text-gray-800">{connectedCount}</p>
+              {selectedHospital && hospitalStats[selectedHospital] && (
+                <p className="text-xs text-emerald-600 mt-0.5">
+                  {hospitalStats[selectedHospital].activos} en {hospitalStats[selectedHospital].nombre}
+                </p>
+              )}
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Empleados Activos</h3>
-            <p className="text-xl font-bold text-gray-800">{connectedCount}</p>
-            {selectedHospital && hospitalStats[selectedHospital] && (
-              <p className="text-xs text-emerald-600 mt-0.5">
-                {hospitalStats[selectedHospital].activos} en {hospitalStats[selectedHospital].nombre}
-              </p>
-            )}
+          {/* Lista desplegable de empleados activos */}
+          <details className="mt-2">
+            <summary className="cursor-pointer text-xs text-emerald-700 hover:underline select-none">Ver empleados</summary>
+            <div className="mt-1 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
+              {employees.filter(emp => emp.tipo_registro === 1).length === 0 ? (
+                <div className="text-xs text-gray-400 px-2 py-2">No hay empleados activos</div>
+              ) : (
+                employees.filter(emp => emp.tipo_registro === 1).map(emp => (
+                  <div
+                    key={emp.id}
+                    className="flex items-center gap-2 py-1 px-2 hover:bg-emerald-50 rounded cursor-pointer"
+                    onClick={() => handleEmployeeClick(emp.id)}
+                  >
+                    <div className={`w-6 h-6 rounded-full ${getAvatarColor(emp.name)} text-white flex items-center justify-center font-medium text-xs`}>
+                      {emp.avatar}
+                    </div>
+                    <div className="flex-1 truncate">
+                      <span className="text-xs">{emp.name}</span>
+                      <span className="ml-2 text-[10px] text-gray-500">{emp.hospital}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </details>
+        </div>
+
+        {/* Empleados Inactivos */}
+        <div className="flex flex-col p-3 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
+          <div className="flex items-center">
+            <div className="p-2.5 bg-gray-50 rounded-full mr-3">
+              <FaUserTimes className="text-gray-600 text-lg" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Empleados Inactivos</h3>
+              <p className="text-xl font-bold text-gray-800">{disconnectedCount}</p>
+              {selectedHospital && hospitalStats[selectedHospital] && (
+                <p className="text-xs text-gray-600 mt-0.5">
+                  {hospitalStats[selectedHospital].inactivos} en {hospitalStats[selectedHospital].nombre}
+                </p>
+              )}
+            </div>
+          </div>
+          {/* Lista desplegable de empleados inactivos */}
+          <details className="mt-2">
+            <summary className="cursor-pointer text-xs text-gray-700 hover:underline select-none">Ver empleados</summary>
+            <div className="mt-1 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
+              {employees.filter(emp => emp.tipo_registro === 0).length === 0 ? (
+                <div className="text-xs text-gray-400 px-2 py-2">No hay empleados inactivos</div>
+              ) : (
+                employees.filter(emp => emp.tipo_registro === 0).map(emp => (
+                  <div
+                    key={emp.id}
+                    className="flex items-center gap-2 py-1 px-2 hover:bg-gray-100 rounded cursor-pointer"
+                    onClick={() => handleEmployeeClick(emp.id)}
+                  >
+                    <div className={`w-6 h-6 rounded-full ${getAvatarColor(emp.name)} text-white flex items-center justify-center font-medium text-xs`}>
+                      {emp.avatar}
+                    </div>
+                    <div className="flex-1 truncate">
+                      <span className="text-xs">{emp.name}</span>
+                      <span className="ml-2 text-[10px] text-gray-500">{emp.hospital}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </details>
+        </div>
+
+        {/* Fuera de Geocerca */}
+        <div className="flex flex-col p-3 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
+          <div className="flex items-center">
+            <div className="p-2.5 bg-orange-50 rounded-full mr-3">
+              <FaExclamationTriangle className="text-orange-600 text-lg" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Fuera de Geocerca</h3>
+              <p className="text-xl font-bold text-gray-800">{outsideGeofenceCount}</p>
+              {selectedHospital && hospitalStats[selectedHospital] && (
+                <p className="text-xs text-orange-600 mt-0.5">
+                  {hospitalStats[selectedHospital].fueraGeocerca} en {hospitalStats[selectedHospital].nombre}
+                </p>
+              )}
+            </div>
+          </div>
+          {/* Lista desplegable de empleados fuera de geocerca */}
+          <details className="mt-2">
+            <summary className="cursor-pointer text-xs text-orange-700 hover:underline select-none">Ver empleados</summary>
+            <div className="mt-1 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
+              {employees.filter(emp => emp.dentro_geocerca === false).length === 0 ? (
+                <div className="text-xs text-gray-400 px-2 py-2">No hay empleados fuera de geocerca</div>
+              ) : (
+                employees.filter(emp => emp.dentro_geocerca === false).map(emp => (
+                  <div
+                    key={emp.id}
+                    className="flex items-center gap-2 py-1 px-2 hover:bg-orange-50 rounded cursor-pointer"
+                    onClick={() => handleEmployeeClick(emp.id)}
+                  >
+                    <div className={`w-6 h-6 rounded-full ${getAvatarColor(emp.name)} text-white flex items-center justify-center font-medium text-xs`}>
+                      {emp.avatar}
+                    </div>
+                    <div className="flex-1 truncate">
+                      <span className="text-xs">{emp.name}</span>
+                      <span className="ml-2 text-[10px] text-gray-500">{emp.hospital}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </details>
+        </div>
+
+        {/* Hospitales */}
+        <div className="flex flex-col p-3 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
+          <div className="flex items-center">
+            <div className="p-2.5 bg-blue-50 rounded-full mr-3">
+              <FaHospital className="text-blue-600 text-lg" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Hospitales</h3>
+              <p className="text-xl font-bold text-gray-800">{hospitals.length}</p>
+              {selectedState ? (
+                <p className="text-xs text-blue-600 mt-0.5">
+                  {filteredHospitals.length} filtrados en {selectedState}
+                </p>
+              ) : (
+                <p className="text-xs text-blue-600 mt-0.5">
+                  Promedio: {hospitals.length > 0 ? Math.round(totalEmployees / hospitals.length) : 0} emp/hospital
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center p-3 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
-          <div className="p-2.5 bg-gray-50 rounded-full mr-3">
-            <FaUserTimes className="text-gray-600 text-lg" />
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Empleados Inactivos</h3>
-            <p className="text-xl font-bold text-gray-800">{disconnectedCount}</p>
-            {selectedHospital && hospitalStats[selectedHospital] && (
-              <p className="text-xs text-gray-600 mt-0.5">
-                {hospitalStats[selectedHospital].inactivos} en {hospitalStats[selectedHospital].nombre}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center p-3 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
-          <div className="p-2.5 bg-orange-50 rounded-full mr-3">
-            <FaExclamationTriangle className="text-orange-600 text-lg" />
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Fuera de Geocerca</h3>
-            <p className="text-xl font-bold text-gray-800">{outsideGeofenceCount}</p>
-            {selectedHospital && hospitalStats[selectedHospital] && (
-              <p className="text-xs text-orange-600 mt-0.5">
-                {hospitalStats[selectedHospital].fueraGeocerca} en {hospitalStats[selectedHospital].nombre}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center p-3 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
-          <div className="p-2.5 bg-blue-50 rounded-full mr-3">
-            <FaHospital className="text-blue-600 text-lg" />
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Hospitales</h3>
-            <p className="text-xl font-bold text-gray-800">{hospitals.length}</p>
-            {selectedState ? (
-              <p className="text-xs text-blue-600 mt-0.5">
-                {filteredHospitals.length} filtrados en {selectedState}
-              </p>
-            ) : (
-              <p className="text-xs text-blue-600 mt-0.5">
-                Promedio: {hospitals.length > 0 ? Math.round(totalEmployees / hospitals.length) : 0} emp/hospital
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center p-3 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
-          <div className="p-2.5 bg-purple-50 rounded-full mr-3">
-            <FaUser className="text-purple-600 text-lg" />
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Total Empleados</h3>
-            <p className="text-xl font-bold text-gray-800">{totalEmployees}</p>
-            {selectedHospital && hospitalStats[selectedHospital] && (
-              <p className="text-xs text-purple-600 mt-0.5">
-                {hospitalStats[selectedHospital].total} en {hospitalStats[selectedHospital].nombre}
-              </p>
-            )}
+        {/* Total Empleados */}
+        <div className="flex flex-col p-3 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
+          <div className="flex items-center">
+            <div className="p-2.5 bg-purple-50 rounded-full mr-3">
+              <FaUser className="text-purple-600 text-lg" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Total Empleados</h3>
+              <p className="text-xl font-bold text-gray-800">{totalEmployees}</p>
+              {selectedHospital && hospitalStats[selectedHospital] && (
+                <p className="text-xs text-purple-600 mt-0.5">
+                  {hospitalStats[selectedHospital].total} en {hospitalStats[selectedHospital].nombre}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1184,7 +1289,7 @@ const MonitoreoMap = () => {
                   data={hospitalAndGeofenceData} 
                   showGeofences={showGeofences && showHospitals} 
                 />
-                <EmployeeMarkers employees={filteredEmployeesData} />
+                <EmployeeMarkers employees={filteredEmployeesData} markerRefs={employeeMarkerRefs} clusterGroupRef={employeeClusterGroupRef} />
               </>
             )}
           </MapContainer>
