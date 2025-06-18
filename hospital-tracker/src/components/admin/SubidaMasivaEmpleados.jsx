@@ -7,12 +7,7 @@ import {
   X,
   AlertCircle,
   CheckCircle2,
-  MapPin,
-  Building2,
-  Hospital,
-  Info,
 } from "lucide-react";
-import { useLocation } from "../../context/LocationContext";
 import sendCredentialsEmail from "../../helpers/emailHelper";
 import * as XLSX from "xlsx";
 
@@ -22,82 +17,7 @@ export default function CsvUploader({ onCancelar }) {
   const [processedRows, setProcessedRows] = useState({ total: 0, current: 0 });
   const [processingErrors, setProcessingErrors] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [locationData, setLocationData] = useState(null);
-  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
-  const [grupos, setGrupos] = useState([]);
-  const [selectedGrupo, setSelectedGrupo] = useState("");
   const [notificacion, setNotificacion] = useState(null);
-  const { currentLocation, locationVersion } = useLocation();
-
-  // Obtener la ubicación del administrador al cargar el componente
-  useEffect(() => {
-    const fetchLocationData = async () => {
-      try {
-        setIsLoadingLocation(true);
-
-        if (currentLocation) {
-          console.log("📍 Actualizando con nueva ubicación:", currentLocation);
-          setLocationData(currentLocation);
-          if (currentLocation.id_hospital) {
-            await fetchGrupos(currentLocation.id_hospital);
-          }
-        } else {
-          // Fallback a obtención manual solo si no hay contexto
-          const userId = localStorage.getItem("userId");
-          if (!userId) return;
-
-          const response = await fetch(
-            `https://geoapphospital.onrender.com/api/superadmin/superadmin-hospital-ubi/${userId}`
-          );
-
-          if (!response.ok) throw new Error("Error al obtener ubicación");
-
-          const data = await response.json();
-          if (data?.[0]) {
-            setLocationData(data[0]);
-            if (data[0].id_hospital) {
-              await fetchGrupos(data[0].id_hospital);
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error al obtener ubicación:", error);
-        setProcessingErrors([
-          "Error al obtener la ubicación: " + error.message,
-        ]);
-      } finally {
-        setIsLoadingLocation(false);
-      }
-    };
-
-    fetchLocationData();
-  }, [currentLocation, locationVersion]); // Agregamos locationVersion como dependencia
-
-  // Obtener grupos al cambiar la ubicación
-  useEffect(() => {
-    if (locationData?.id_hospital) {
-      fetchGrupos(locationData.id_hospital);
-    } else {
-      setGrupos([]);
-      setSelectedGrupo("");
-    }
-  }, [locationData]);
-
-  // Función para obtener grupos por hospital
-  const fetchGrupos = async (hospitalId) => {
-    try {
-      const res = await fetch(
-        `https://geoapphospital.onrender.com/api/employees/grupos-by-hospital?id_hospital=${hospitalId}`
-      );
-      if (!res.ok) throw new Error("Error al obtener grupos");
-      const data = await res.json();
-      setGrupos(data);
-      setSelectedGrupo(""); // Reset the selected group
-    } catch (error) {
-      console.error("Error al obtener grupos:", error);
-      setGrupos([]);
-    }
-  };
 
   // Validación de campos del CSV
   const validateCsvRow = (row) => {
@@ -318,7 +238,12 @@ export default function CsvUploader({ onCancelar }) {
       const user = nombre.charAt(0).toLowerCase() + ap_paterno.toLowerCase().replace(/\s+/g, "");
       const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
       let pass = "";
-      for (let j = 0; j < 10; j++) pass += chars.charAt(Math.floor(Math.random() * chars.length));
+      for (let j = 0; j < 10; j++) pass += chars.charAt(Math.floor(Math.random() * chars.length));      console.log("Procesando fila:", {
+        estado, municipio, hospital, grupo,
+        nombre, ap_paterno, ap_materno, curp,
+        telefono, correo
+      });
+      
       validatedData.push({
         estado,
         municipio,
@@ -329,7 +254,7 @@ export default function CsvUploader({ onCancelar }) {
         ap_materno,
         CURP: curp.toUpperCase(),
         correo_electronico: correo,
-        telefono: telefono,
+        telefono,
         user,
         pass,
         role_name: "empleado"
@@ -406,24 +331,50 @@ export default function CsvUploader({ onCancelar }) {
   const descargarGlosarioHospitales = async () => {
     try {
       const res = await fetch("https://geoapphospital.onrender.com/api/groups/get-groups");
-      if (!res.ok) throw new Error("Error al obtener datos de hospitales");
+      if (!res.ok) throw new Error("Error al obtener los datos");
       const data = await res.json();
-      const rows = data.map((item) => ({
+
+            // Usar los nombres de campo correctos según la API y ordenar por estado y municipio
+          const rows = data.map(item => ({
         ESTADO: item.nombre_estado,
         MUNICIPIO: item.nombre_municipio,
         HOSPITAL: item.nombre_hospital,
         GRUPO: item.nombre_grupo
-      }));
-      const ws = XLSX.utils.json_to_sheet(rows);
+      })).sort((a, b) => {
+        const keys = ["ESTADO", "MUNICIPIO", "HOSPITAL", "GRUPO"];
+        for (const key of keys) {
+          const valA = a[key]?.toLowerCase?.() || "";
+          const valB = b[key]?.toLowerCase?.() || "";
+          if (valA < valB) return -1;
+          if (valA > valB) return 1;
+        }
+        return 0;
+      });
+
+      // Calcular el ancho óptimo de cada columna
+      const headers = ["ESTADO", "MUNICIPIO", "HOSPITAL", "GRUPO"];
+      const allRows = [headers, ...rows.map(row => headers.map(h => row[h]))];
+      const colWidths = headers.map((header, i) => {
+        return {
+          wch: Math.max(
+            ...allRows.map(row => (row[i] ? row[i].toString().length : 0)),
+            header.length
+          ) + 2 // un poco de espacio extra
+        };
+      });
+
+      const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+      ws['!cols'] = colWidths;
+
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "GlosarioHospitales");
+      XLSX.utils.book_append_sheet(wb, ws, "Glosario");
       XLSX.writeFile(wb, "glosario_hospitales.xlsx");
     } catch (error) {
       setNotificacion({
         tipo: "error",
-        titulo: "Error al descargar glosario",
-        mensaje: error.message || "No se pudo generar el archivo",
-        duracion: 5000,
+        titulo: "Error",
+        mensaje: "No se pudo descargar el glosario de hospitales.",
+        duracion: 3000
       });
     }
   };
@@ -445,7 +396,30 @@ export default function CsvUploader({ onCancelar }) {
           Correo: "Correo Ejemplo"
         }
       ];
-      const ws = XLSX.utils.json_to_sheet(rows);
+      const headers = [
+        "ESTADO",
+        "MUNICIPIO",
+        "HOSPITAL",
+        "GRUPO",
+        "Nombre",
+        "Apellido Paterno",
+        "Apellido Materno",
+        "CURP",
+        "Telefono",
+        "Correo"
+      ];
+      // Calcular el ancho óptimo de cada columna
+      const allRows = [headers, ...rows.map(row => headers.map(h => row[h]))];
+      const colWidths = headers.map((header, i) => {
+        return {
+          wch: Math.max(
+            ...allRows.map(row => (row[i] ? row[i].toString().length : 0)),
+            header.length
+          ) + 2 // un poco de espacio extra
+        };
+      });
+      const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+      ws['!cols'] = colWidths;
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "PlantillaEmpleados");
       XLSX.writeFile(wb, "plantilla_empleados.xlsx");
