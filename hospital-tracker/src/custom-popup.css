@@ -1,0 +1,234 @@
+.custom-popup .leaflet-popup-content {
+  min-width: 160px;
+  max-width: 220px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.custom-popup .leaflet-popup-content-wrapper {
+  background: none;
+  box-shadow: none;
+  border: none;
+  padding: 0;
+}
+
+.custom-popup .leaflet-popup-tip {
+  width: 16px;
+  height: 8px;
+}
+
+.popup-hospital-card {
+  font-family: 'Inter', Arial, sans-serif;
+  background: #f8fafc;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  padding: 10px 12px;
+  min-width: 220px;
+  max-width: 320px;
+  color: #1e293b;
+  position: relative;
+}
+.popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 4px;
+  margin-bottom: 6px;
+}
+.popup-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2563eb;
+  margin-bottom: 0;
+}
+.popup-type {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 0;
+}
+.popup-expand {
+  background: none;
+  border: none;
+  color: #2563eb;
+  cursor: pointer;
+  padding: 0;
+  font-size: 1.1rem;
+}
+.popup-info {
+  margin-bottom: 6px;
+}
+.popup-state {
+  font-weight: 500;
+  color: #334155;
+  display: block;
+}
+.popup-address {
+  font-size: 0.75rem;
+  color: #64748b;
+  display: block;
+}
+.popup-stats, .popup-location {
+  background: #e0e7ef;
+  border-radius: 8px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+}
+.popup-stats-row {
+  display: flex;
+  align-items: center;
+  font-size: 0.92em;
+  gap: 4px;
+  color: #2563eb;
+  font-weight: 500;
+}
+.popup-stats-subrow {
+  display: flex;
+  align-items: center;
+  font-size: 0.85em;
+  margin-left: 18px;
+  gap: 4px;
+}
+.popup-bold {
+  font-weight: 700;
+  color: #0f172a;
+}
+.popup-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 3px;
+}
+.popup-dot-green {
+  background: #10b981;
+}
+.popup-dot-red {
+  background: #ef4444;
+}
+.popup-icon {
+  margin-right: 2px;
+  font-size: 1em;
+}
+.popup-geofence {
+  display: flex;
+  align-items: center;
+  color: #2563eb;
+  font-size: 0.92em;
+  font-weight: 500;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 4px;
+  margin-top: 4px;
+  gap: 4px;
+}
+.popup-coords {
+  font-size: 0.7em;
+  color: #64748b;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 4px;
+  padding-top: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.popup-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  background: #e2e8f0;
+  border: none;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  font-size: 1.1rem;
+  color: #64748b;
+  cursor: pointer;
+  z-index: 10;
+  transition: background 0.15s;
+}
+.popup-close:hover {
+  background: #cbd5e1;
+  color: #1e293b;
+}
+.custom-popup .leaflet-popup-close-button {
+  display: none !important;
+}
+
+.popup-employee-card {
+  background: #f1f5f9;
+  min-width: 220px;
+  max-width: 320px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: #1e293b;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  position: relative;
+}
+.popup-employee-card .popup-header {
+  margin-bottom: 6px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.popup-employee-card .popup-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2563eb;
+  margin-bottom: 0;
+}
+.popup-employee-card .popup-type {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 0;
+}
+.popup-employee-card .popup-info {
+  margin-bottom: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.popup-employee-card .popup-state {
+  font-weight: 500;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.popup-employee-card .popup-address {
+  font-size: 0.75rem;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.popup-employee-card .popup-stats {
+  background: #e0e7ef;
+  border-radius: 8px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+}
+.popup-employee-card .popup-stats-row {
+  display: flex;
+  align-items: center;
+  font-size: 0.92em;
+  gap: 4px;
+  font-weight: 500;
+}
+.popup-employee-card .popup-icon {
+  margin-right: 2px;
+  font-size: 1em;
+}
+.popup-employee-card .popup-coords {
+  font-size: 0.7em;
+  color: #64748b;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 4px;
+  padding-top: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
