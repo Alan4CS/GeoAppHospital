@@ -7,12 +7,7 @@ import {
   X,
   AlertCircle,
   CheckCircle2,
-  MapPin,
-  Building2,
-  Hospital,
-  Info,
 } from "lucide-react";
-import { useLocation } from "../../context/LocationContext";
 import sendCredentialsEmail from "../../helpers/emailHelper";
 import * as XLSX from "xlsx";
 
@@ -22,82 +17,7 @@ export default function CsvUploader({ onCancelar }) {
   const [processedRows, setProcessedRows] = useState({ total: 0, current: 0 });
   const [processingErrors, setProcessingErrors] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [locationData, setLocationData] = useState(null);
-  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
-  const [grupos, setGrupos] = useState([]);
-  const [selectedGrupo, setSelectedGrupo] = useState("");
   const [notificacion, setNotificacion] = useState(null);
-  const { currentLocation, locationVersion } = useLocation();
-
-  // Obtener la ubicación del administrador al cargar el componente
-  useEffect(() => {
-    const fetchLocationData = async () => {
-      try {
-        setIsLoadingLocation(true);
-
-        if (currentLocation) {
-          console.log("📍 Actualizando con nueva ubicación:", currentLocation);
-          setLocationData(currentLocation);
-          if (currentLocation.id_hospital) {
-            await fetchGrupos(currentLocation.id_hospital);
-          }
-        } else {
-          // Fallback a obtención manual solo si no hay contexto
-          const userId = localStorage.getItem("userId");
-          if (!userId) return;
-
-          const response = await fetch(
-            `https://geoapphospital.onrender.com/api/superadmin/superadmin-hospital-ubi/${userId}`
-          );
-
-          if (!response.ok) throw new Error("Error al obtener ubicación");
-
-          const data = await response.json();
-          if (data?.[0]) {
-            setLocationData(data[0]);
-            if (data[0].id_hospital) {
-              await fetchGrupos(data[0].id_hospital);
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error al obtener ubicación:", error);
-        setProcessingErrors([
-          "Error al obtener la ubicación: " + error.message,
-        ]);
-      } finally {
-        setIsLoadingLocation(false);
-      }
-    };
-
-    fetchLocationData();
-  }, [currentLocation, locationVersion]); // Agregamos locationVersion como dependencia
-
-  // Obtener grupos al cambiar la ubicación
-  useEffect(() => {
-    if (locationData?.id_hospital) {
-      fetchGrupos(locationData.id_hospital);
-    } else {
-      setGrupos([]);
-      setSelectedGrupo("");
-    }
-  }, [locationData]);
-
-  // Función para obtener grupos por hospital
-  const fetchGrupos = async (hospitalId) => {
-    try {
-      const res = await fetch(
-        `https://geoapphospital.onrender.com/api/employees/grupos-by-hospital?id_hospital=${hospitalId}`
-      );
-      if (!res.ok) throw new Error("Error al obtener grupos");
-      const data = await res.json();
-      setGrupos(data);
-      setSelectedGrupo(""); // Reset the selected group
-    } catch (error) {
-      console.error("Error al obtener grupos:", error);
-      setGrupos([]);
-    }
-  };
 
   // Validación de campos del CSV
   const validateCsvRow = (row) => {
@@ -318,7 +238,12 @@ export default function CsvUploader({ onCancelar }) {
       const user = nombre.charAt(0).toLowerCase() + ap_paterno.toLowerCase().replace(/\s+/g, "");
       const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
       let pass = "";
-      for (let j = 0; j < 10; j++) pass += chars.charAt(Math.floor(Math.random() * chars.length));
+      for (let j = 0; j < 10; j++) pass += chars.charAt(Math.floor(Math.random() * chars.length));      console.log("Procesando fila:", {
+        estado, municipio, hospital, grupo,
+        nombre, ap_paterno, ap_materno, curp,
+        telefono, correo
+      });
+      
       validatedData.push({
         estado,
         municipio,
@@ -329,7 +254,7 @@ export default function CsvUploader({ onCancelar }) {
         ap_materno,
         CURP: curp.toUpperCase(),
         correo_electronico: correo,
-        telefono: telefono,
+        telefono,
         user,
         pass,
         role_name: "empleado"
