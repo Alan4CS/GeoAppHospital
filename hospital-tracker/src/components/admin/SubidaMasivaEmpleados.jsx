@@ -331,24 +331,41 @@ export default function CsvUploader({ onCancelar }) {
   const descargarGlosarioHospitales = async () => {
     try {
       const res = await fetch("https://geoapphospital.onrender.com/api/groups/get-groups");
-      if (!res.ok) throw new Error("Error al obtener datos de hospitales");
+      if (!res.ok) throw new Error("Error al obtener los datos");
       const data = await res.json();
-      const rows = data.map((item) => ({
+
+      // Usar los nombres de campo correctos según la API
+      const rows = data.map(item => ({
         ESTADO: item.nombre_estado,
         MUNICIPIO: item.nombre_municipio,
         HOSPITAL: item.nombre_hospital,
         GRUPO: item.nombre_grupo
       }));
-      const ws = XLSX.utils.json_to_sheet(rows);
+
+      // Calcular el ancho óptimo de cada columna
+      const headers = ["ESTADO", "MUNICIPIO", "HOSPITAL", "GRUPO"];
+      const allRows = [headers, ...rows.map(row => headers.map(h => row[h]))];
+      const colWidths = headers.map((header, i) => {
+        return {
+          wch: Math.max(
+            ...allRows.map(row => (row[i] ? row[i].toString().length : 0)),
+            header.length
+          ) + 2 // un poco de espacio extra
+        };
+      });
+
+      const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+      ws['!cols'] = colWidths;
+
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "GlosarioHospitales");
+      XLSX.utils.book_append_sheet(wb, ws, "Glosario");
       XLSX.writeFile(wb, "glosario_hospitales.xlsx");
     } catch (error) {
       setNotificacion({
         tipo: "error",
-        titulo: "Error al descargar glosario",
-        mensaje: error.message || "No se pudo generar el archivo",
-        duracion: 5000,
+        titulo: "Error",
+        mensaje: "No se pudo descargar el glosario de hospitales.",
+        duracion: 3000
       });
     }
   };
@@ -370,7 +387,30 @@ export default function CsvUploader({ onCancelar }) {
           Correo: "Correo Ejemplo"
         }
       ];
-      const ws = XLSX.utils.json_to_sheet(rows);
+      const headers = [
+        "ESTADO",
+        "MUNICIPIO",
+        "HOSPITAL",
+        "GRUPO",
+        "Nombre",
+        "Apellido Paterno",
+        "Apellido Materno",
+        "CURP",
+        "Telefono",
+        "Correo"
+      ];
+      // Calcular el ancho óptimo de cada columna
+      const allRows = [headers, ...rows.map(row => headers.map(h => row[h]))];
+      const colWidths = headers.map((header, i) => {
+        return {
+          wch: Math.max(
+            ...allRows.map(row => (row[i] ? row[i].toString().length : 0)),
+            header.length
+          ) + 2 // un poco de espacio extra
+        };
+      });
+      const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+      ws['!cols'] = colWidths;
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "PlantillaEmpleados");
       XLSX.writeFile(wb, "plantilla_empleados.xlsx");
