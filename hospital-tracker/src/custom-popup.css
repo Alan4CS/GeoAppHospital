@@ -29,25 +29,43 @@
   max-width: 320px;
   color: #1e293b;
   position: relative;
+  font-size: 0.85em; /* <--- texto más pequeño */
 }
 .popup-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start; /* Cambia a flex-start para que el botón no empuje el título */
   align-items: flex-start;
   border-bottom: 1px solid #e2e8f0;
-  padding-bottom: 4px;
-  margin-bottom: 6px;
+  padding-bottom: 0px;
+  margin-bottom: 2px;
+  position: relative;
+}
+.popup-header.popup-employee-header > div:first-child {
+  min-width: 32px;
+  min-height: 32px;
+  max-width: 32px;
+  max-height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
 }
 .popup-title {
   font-size: 1rem;
   font-weight: 600;
   color: #2563eb;
   margin-bottom: 0;
+  margin-right: 32px; /* Espacio para el botón cerrar */
+  word-break: break-word;
 }
 .popup-type {
   font-size: 0.75rem;
-  color: #64748b;
-  margin-top: 0;
+  color: #94a3b8;
+  margin-top: 4px; /* Más espacio debajo del nombre */
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 .popup-expand {
   background: none;
@@ -124,7 +142,7 @@
   gap: 4px;
 }
 .popup-coords {
-  font-size: 0.7em;
+  font-size: 0.85em; /* Más grande que antes */
   color: #64748b;
   border-top: 1px solid #e2e8f0;
   margin-top: 4px;
@@ -223,7 +241,7 @@
   font-size: 1em;
 }
 .popup-employee-card .popup-coords {
-  font-size: 0.7em;
+  font-size: 0.85em; /* Más grande que antes */
   color: #64748b;
   border-top: 1px solid #e2e8f0;
   margin-top: 4px;

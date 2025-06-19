@@ -706,7 +706,7 @@ const MonitoreoMap = () => {
                     ×
                   </button>
                   {/* Header */}
-                  <div className="popup-header">
+                  <div className="popup-header popup-employee-header">
                     <div className={`w-8 h-8 rounded-full ${getAvatarColor(employee.name)} text-white flex items-center justify-center font-medium mr-2 text-xs`}>
                       {employee.avatar}
                     </div>
@@ -1130,7 +1130,7 @@ const MonitoreoMap = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative" style={mapContainerStyle}>
           {/* Barra de herramientas flotante con posición fija */}
           <div
-            className="absolute top-3 left-14 z-[10] bg-white rounded-lg shadow-lg border border-gray-200 transform-gpu"
+            className="absolute bottom-3 left-14 z-[10] bg-white rounded-lg shadow-lg border border-gray-200 transform-gpu"
             style={filterContainerStyle}
           >
             <div className="px-3 py-2">
@@ -1231,7 +1231,7 @@ const MonitoreoMap = () => {
 
           {/* Botón para mostrar/ocultar filtros */}
           <button
-            className="absolute top-4 left-4 z-[11] bg-white text-emerald-600 p-3 rounded-full shadow-md hover:bg-emerald-50 transition-transform duration-200 transform-gpu"
+            className="absolute bottom-4 left-4 z-[11] bg-white text-emerald-600 p-3 rounded-full shadow-md hover:bg-emerald-50 transition-transform duration-200 transform-gpu"
             onClick={() => setShowFilters(!showFilters)}
           >
             <FaFilter 
