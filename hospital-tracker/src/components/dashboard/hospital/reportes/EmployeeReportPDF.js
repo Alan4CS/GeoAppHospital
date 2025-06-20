@@ -73,7 +73,7 @@ export function generarReporteEmpleadoPDF({
 }
 
 function drawExcelStyleHeader(doc, empleado, startDate, endDate, colors) {
-  // Fondo verde estilo Excel
+  // Fondo verde 
   doc.setFillColor(...colors.primary)
   doc.rect(10, 10, 190, 45, "F")
 

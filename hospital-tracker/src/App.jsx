@@ -2,15 +2,17 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { LocationProvider } from "./context/LocationContext";
 import ProtectedRoute from "./components/ProtectedRoute";
-import Login from "./pages/Login";
-import SuperadminGeoApp from "./pages/SuperadminGeoApp";
-import Dashboard from "./pages/Dashboard";
-import EstadoadminGeoApp from "./pages/EstadoadminGeoApp";
-import HospitalAdminGeoApp from "./pages/HospitalAdminGeoApp";
-import GroupadminGeoApp from "./pages/GroupadminGeoApp";
 import ActivityLog from "./components/ActivityLog";
+import React, { Suspense, lazy } from "react";
 
-// Componente envoltorio para rutas protegidas que incluye ActivityLog
+const Login = lazy(() => import("./pages/Login"));
+const SuperadminGeoApp = lazy(() => import("./pages/SuperadminGeoApp"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const EstadoadminGeoApp = lazy(() => import("./pages/EstadoadminGeoApp"));
+const HospitalAdminGeoApp = lazy(() => import("./pages/HospitalAdminGeoApp"));
+const GroupadminGeoApp = lazy(() => import("./pages/GroupadminGeoApp"));
+
+// Solo para superadmin: ruta protegida con ActivityLog
 const ProtectedRouteWithActivityLog = ({ children }) => (
   <ProtectedRoute>
     <>
@@ -19,48 +21,52 @@ const ProtectedRouteWithActivityLog = ({ children }) => (
     </>
   </ProtectedRoute>
 );
+// Para los demás: ruta protegida normal
+const ProtectedRouteOnly = ({ children }) => <ProtectedRoute>{children}</ProtectedRoute>;
 
 function App() {
   return (
     <AuthProvider>
       <LocationProvider>
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Login />} />
-            <Route
-              path="/superadmin-geoapp"
-              element={
-                <ProtectedRouteWithActivityLog>
-                  <SuperadminGeoApp />
-                </ProtectedRouteWithActivityLog>
-              }
-            />
-            <Route
-              path="/estadoadmin-geoapp"
-              element={
-                <ProtectedRouteWithActivityLog>
-                  <EstadoadminGeoApp />
-                </ProtectedRouteWithActivityLog>
-              }
-            />
-            <Route
-              path="/hospitaladmin-geoapp"
-              element={
-                <ProtectedRouteWithActivityLog>
-                  <HospitalAdminGeoApp />
-                </ProtectedRouteWithActivityLog>
-              }
-            />
-            <Route
-              path="/grupoadmin-geoapp"
-              element={
-                <ProtectedRouteWithActivityLog>
-                  <GroupadminGeoApp />
-                </ProtectedRouteWithActivityLog>
-              }
-            />
-            <Route path="/dashboard" element={<Dashboard />} />
-          </Routes>
+          <Suspense fallback={<div className="flex h-screen items-center justify-center text-lg">Cargando...</div>}>
+            <Routes>
+              <Route path="/" element={<Login />} />
+              <Route
+                path="/superadmin-geoapp"
+                element={
+                  <ProtectedRouteWithActivityLog>
+                    <SuperadminGeoApp />
+                  </ProtectedRouteWithActivityLog>
+                }
+              />
+              <Route
+                path="/estadoadmin-geoapp"
+                element={
+                  <ProtectedRouteOnly>
+                    <EstadoadminGeoApp />
+                  </ProtectedRouteOnly>
+                }
+              />
+              <Route
+                path="/hospitaladmin-geoapp"
+                element={
+                  <ProtectedRouteOnly>
+                    <HospitalAdminGeoApp />
+                  </ProtectedRouteOnly>
+                }
+              />
+              <Route
+                path="/grupoadmin-geoapp"
+                element={
+                  <ProtectedRouteOnly>
+                    <GroupadminGeoApp />
+                  </ProtectedRouteOnly>
+                }
+              />
+              <Route path="/dashboard" element={<Dashboard />} />
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </LocationProvider>
     </AuthProvider>
