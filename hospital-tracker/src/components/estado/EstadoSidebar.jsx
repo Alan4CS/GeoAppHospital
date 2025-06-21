@@ -1,14 +1,6 @@
-"use client";
-
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import {
-  Home,
-  Users,
-  Hospital,
-  Layers,
-  LogOut,
-  BarChart3,
+import { Home, Users, Hospital, Layers, LogOut, BarChart3,
 } from "lucide-react";
 
 export default function EstadoSidebar({
