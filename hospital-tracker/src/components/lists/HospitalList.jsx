@@ -1,4 +1,4 @@
-import { ChevronRight, Hospital, Settings } from "lucide-react"
+import { ChevronRight, Hospital, Settings, MapPin, Shield } from "lucide-react"
 
 const HospitalList = ({
   hospitales,
@@ -23,26 +23,36 @@ const HospitalList = ({
   const totalPaginas = Math.ceil(hospitalesFiltrados.length / hospitalesPorPagina)
 
   return (
-    <div className="bg-white shadow-md rounded-xl overflow-hidden">
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
-          <h3 className="text-xl font-semibold text-gray-800 flex items-center">
-            <Hospital className="h-5 w-5 mr-2 text-emerald-600" />
-            Hospitales registrados
-          </h3>
+    <div className="bg-white rounded-lg border border-gray-200">
+      {/* Header limpio */}
+      <div className="px-6 py-6 border-b border-gray-100 bg-gray-50/30">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+              <Hospital className="h-4 w-4 text-emerald-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Hospitales registrados
+              </h3>
+              <p className="text-sm text-gray-500">
+                {hospitalesFiltrados.length} hospital{hospitalesFiltrados.length !== 1 ? 'es' : ''}
+                {estadoFiltro && ` en ${estadoFiltro}`}
+              </p>
+            </div>
+          </div>
 
-          {/* Filtro por estado */}
-          <div className="flex items-center">
-            <label className="text-gray-700 font-medium mr-2">Filtrar por estado:</label>
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-gray-400" />
             <select
               value={estadoFiltro}
               onChange={(e) => {
                 setEstadoFiltro(e.target.value)
                 setPaginaActual(1)
               }}
-              className="px-4 py-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             >
-              <option value="">Todos</option>
+              <option value="">Todos los estados</option>
               {[...new Set(hospitales.map((h) => h.estado))]
                 .filter(Boolean)
                 .sort()
@@ -56,53 +66,77 @@ const HospitalList = ({
         </div>
       </div>
 
-      {/* Tabla de hospitales */}
+      {/* Tabla minimalista */}
       {hospitalesFiltrados.length > 0 ? (
         <>
           <div className="overflow-x-auto">
-            <table className="w-full table-auto">
+            <table className="w-full">
               <thead>
-                <tr className="bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  <th className="px-4 py-2">Nombre</th>
-                  <th className="px-4 py-2">Estado</th>
-                  <th className="px-4 py-2">Tipo</th>
-                  <th className="px-4 py-2">Región</th>
-                  <th className="px-4 py-2">Radio Cerca (m)</th>
-                  <th className="px-4 py-2">Acciones</th>
+                <tr className="border-b border-gray-100">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    Nombre
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    Estado
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    Tipo
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    Región
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    Geocerca
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody>
                 {hospitalesPagina.map((h, i) => {
-                  // Calcular el índice real en la lista completa
                   const indiceReal = indexInicio + i
                   return (
-                    <tr key={i} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm">
-                        <div className="max-w-xs truncate">{h.nombre}</div>
+                    <tr key={i} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="font-medium text-gray-900 truncate max-w-xs">
+                          {h.nombre}
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-sm">{h.estado}</td>
-                      <td className="px-4 py-3 text-sm">{h.tipoUnidad}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <div className="max-w-xs truncate">{h.region}</div>
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-gray-600">
+                          {h.estado}
+                        </span>
                       </td>
-                      <td className="px-4 py-3 text-sm">
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-gray-600">
+                          {h.tipoUnidad}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-gray-600 truncate max-w-xs block">
+                          {h.region}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
                         {h.geocerca?.radio ? (
-                          <span className="px-2 py-1 text-xs font-semibold rounded bg-emerald-100 text-emerald-700">
-                            Geocerca definida
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+                            Definida
                           </span>
                         ) : (
-                          <span className="px-2 py-1 text-xs font-semibold rounded bg-gray-100 text-gray-500">
-                            Sin geocerca
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-50 text-gray-500 border border-gray-200">
+                            <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                            Sin definir
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-sm">
+                      <td className="px-6 py-4">
                         <button
                           onClick={() => handleEditarHospital(h, indiceReal)}
-                          className="text-emerald-600 hover:text-emerald-800 transition-colors flex items-center"
+                          className="text-gray-400 hover:text-emerald-600 transition-colors p-2 hover:bg-emerald-50 rounded-lg"
                         >
-                          <Settings className="h-4 w-4 mr-1" />
-                          Editar
+                          <Settings className="h-4 w-4" />
                         </button>
                       </td>
                     </tr>
@@ -112,83 +146,87 @@ const HospitalList = ({
             </table>
           </div>
 
-          {/* Controles de paginación */}
-          <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+          {/* Paginación minimalista */}
+          <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
             <div className="flex-1 flex justify-between sm:hidden">
               <button
                 onClick={() => setPaginaActual((p) => Math.max(p - 1, 1))}
                 disabled={paginaActual === 1}
-                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="text-sm text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Anterior
+                ← Anterior
               </button>
               <button
                 onClick={() => setPaginaActual((p) => Math.min(p + 1, totalPaginas))}
                 disabled={paginaActual === totalPaginas}
-                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="text-sm text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Siguiente
+                Siguiente →
               </button>
             </div>
+            
             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm text-gray-700">
-                  Mostrando <span className="font-medium">{indexInicio + 1}</span> a{" "}
-                  <span className="font-medium">{Math.min(indexFin, hospitalesFiltrados.length)}</span> de{" "}
-                  <span className="font-medium">{hospitalesFiltrados.length}</span> resultados
+                <p className="text-sm text-gray-500">
+                  {indexInicio + 1}–{Math.min(indexFin, hospitalesFiltrados.length)} de {hospitalesFiltrados.length}
                 </p>
               </div>
-              <div>
-                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                  <button
-                    onClick={() => setPaginaActual((p) => Math.max(p - 1, 1))}
-                    disabled={paginaActual === 1}
-                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <span className="sr-only">Anterior</span>
-                    <ChevronRight className="h-5 w-5 transform rotate-180" />
-                  </button>
-                  {/* Números de página */}
-                  {Array.from({ length: Math.min(5, totalPaginas) }, (_, i) => {
-                    let pageNum
-                    if (totalPaginas <= 5) {
-                      pageNum = i + 1
-                    } else if (paginaActual <= 3) {
-                      pageNum = i + 1
-                    } else if (paginaActual >= totalPaginas - 2) {
-                      pageNum = totalPaginas - 4 + i
-                    } else {
-                      pageNum = paginaActual - 2 + i
-                    }
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => setPaginaActual(pageNum)}
-                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                          pageNum === paginaActual
-                            ? "z-10 bg-emerald-50 border-emerald-500 text-emerald-600"
-                            : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    )
-                  })}
-                  <button
-                    onClick={() => setPaginaActual((p) => Math.min(p + 1, totalPaginas))}
-                    disabled={paginaActual === totalPaginas}
-                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <span className="sr-only">Siguiente</span>
-                    <ChevronRight className="h-5 w-5" />
-                  </button>
-                </nav>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPaginaActual((p) => Math.max(p - 1, 1))}
+                  disabled={paginaActual === 1}
+                  className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight className="h-4 w-4 transform rotate-180" />
+                </button>
+                
+                {Array.from({ length: Math.min(5, totalPaginas) }, (_, i) => {
+                  let pageNum
+                  if (totalPaginas <= 5) {
+                    pageNum = i + 1
+                  } else if (paginaActual <= 3) {
+                    pageNum = i + 1
+                  } else if (paginaActual >= totalPaginas - 2) {
+                    pageNum = totalPaginas - 4 + i
+                  } else {
+                    pageNum = paginaActual - 2 + i
+                  }
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => setPaginaActual(pageNum)}
+                      className={`w-8 h-8 text-sm rounded transition-colors ${
+                        pageNum === paginaActual
+                          ? "bg-gray-900 text-white"
+                          : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  )
+                })}
+                
+                <button
+                  onClick={() => setPaginaActual((p) => Math.min(p + 1, totalPaginas))}
+                  disabled={paginaActual === totalPaginas}
+                  className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
               </div>
             </div>
           </div>
         </>
       ) : (
-        <div className="p-6 text-center text-gray-500">No hay hospitales registrados.</div>
+        <div className="px-6 py-16 text-center">
+          <Hospital className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500">
+            {estadoFiltro 
+              ? `No hay hospitales en ${estadoFiltro}`
+              : 'No hay hospitales registrados'
+            }
+          </p>
+        </div>
       )}
     </div>
   )
