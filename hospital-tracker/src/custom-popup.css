@@ -56,14 +56,15 @@
   font-size: 1rem;
   font-weight: 600;
   color: #2563eb;
-  margin-bottom: 0;
+  margin-top: 2px; /* Más espacio encima del nombre */
+  margin-bottom: 1px;
   margin-right: 32px; /* Espacio para el botón cerrar */
   word-break: break-word;
 }
 .popup-type {
   font-size: 0.75rem;
   color: #94a3b8;
-  margin-top: 4px; /* Más espacio debajo del nombre */
+  margin-top: 2px; /* Más espacio debajo del nombre */
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -76,10 +77,11 @@
   font-size: 1.1rem;
 }
 .popup-info {
+  margin-top: 6px;
   margin-bottom: 6px;
 }
 .popup-state {
-  font-weight: 500;
+  font-weight: 600;
   color: #334155;
   display: block;
 }
@@ -97,7 +99,7 @@
 .popup-stats-row {
   display: flex;
   align-items: center;
-  font-size: 0.92em;
+  font-size: 1.15em;
   gap: 4px;
   color: #2563eb;
   font-weight: 500;
@@ -105,12 +107,12 @@
 .popup-stats-subrow {
   display: flex;
   align-items: center;
-  font-size: 0.85em;
+  font-size: 1.1em;
   margin-left: 18px;
   gap: 4px;
 }
 .popup-bold {
-  font-weight: 700;
+  font-weight: 500;
   color: #0f172a;
 }
 .popup-dot {
@@ -134,7 +136,7 @@
   display: flex;
   align-items: center;
   color: #2563eb;
-  font-size: 0.92em;
+  font-size: 1.2em;
   font-weight: 500;
   border-top: 1px solid #e2e8f0;
   padding-top: 4px;
@@ -142,7 +144,7 @@
   gap: 4px;
 }
 .popup-coords {
-  font-size: 0.85em; /* Más grande que antes */
+  font-size: 1em; /* Más grande que antes */
   color: #64748b;
   border-top: 1px solid #e2e8f0;
   margin-top: 4px;
