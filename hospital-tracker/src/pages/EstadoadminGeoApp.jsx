@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import EstadoSidebar from "../components/estado/EstadoSidebar";
 import HospitalList from "../components/estado/HospitalList";
 import GrupoList from "../components/estado/GrupoList";
@@ -9,10 +9,36 @@ import DashboardEstado from "../components/estado/Dashboard";
 export default function EstadoAdminDashboard() {
   const [activeTab, setActiveTab] = useState("hospitales");
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  // TODO: Reemplaza esto por tu lógica real para obtener el nombre del estado
-  const estadoNombre = "QUINTANA ROO";
+  const [estadoNombre, setEstadoNombre] = useState("");
+  const [hospitales, setHospitales] = useState([]);
+  const [hospitalesLoading, setHospitalesLoading] = useState(true);
   // Obtener el id_user desde localStorage (ajusta si lo tienes en contexto)
   const id_user = localStorage.getItem("userId");
+
+  useEffect(() => {
+    const fetchHospitalesYEstado = async () => {
+      try {
+        setHospitalesLoading(true);
+        const response = await fetch(`https://geoapphospital.onrender.com/api/estadoadmin/hospitals-by-user/${id_user}?source=hospitals`);
+        const data = await response.json();
+        setHospitales(data);
+        // Si hay hospitales, toma el nombre_estado del primero
+        if (Array.isArray(data) && data.length > 0) {
+          setEstadoNombre(data[0].nombre_estado || "");
+        } else {
+          setEstadoNombre("");
+        }
+      } catch (error) {
+        setEstadoNombre("");
+        setHospitales([]);
+      } finally {
+        setHospitalesLoading(false);
+      }
+    };
+    if (id_user) {
+      fetchHospitalesYEstado();
+    }
+  }, [id_user]);
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -32,11 +58,11 @@ export default function EstadoAdminDashboard() {
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold text-gray-800">
               {activeTab === "hospitales"
-                ? `Hospitales en ${estadoNombre}`
+                ? `Hospitales en ${estadoNombre || "..."}`
                 : activeTab === "grupos"
-                ? `Grupos en ${estadoNombre}`
+                ? `Grupos en ${estadoNombre || "..."}`
                 : activeTab === "empleados"
-                ? `Hospitales en ${estadoNombre}`
+                ? `Empleados en ${estadoNombre || "..."}`
                 : activeTab === "monitoreo"
                 ? "Monitoreo de grupos"
                 : activeTab === "dashboard"
@@ -48,7 +74,13 @@ export default function EstadoAdminDashboard() {
         {/* CONTENIDO */}
         <main className="p-6">
           {activeTab === "dashboard" && <DashboardEstado />}
-          {activeTab === "hospitales" && <HospitalList />}
+          {activeTab === "hospitales" && (
+            <HospitalList 
+              estadoNombre={estadoNombre} 
+              hospitales={hospitales} 
+              loading={hospitalesLoading}
+            />
+          )}
           {activeTab === "grupos" && <GrupoList id_user={id_user} />}
           {activeTab === "empleados" && <EmpleadoList id_user={id_user} />}
           {activeTab === "monitoreo" && <Monitoreo id_user={id_user} />}

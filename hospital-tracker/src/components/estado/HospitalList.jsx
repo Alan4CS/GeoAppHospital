@@ -1,46 +1,15 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { ChevronRight, Hospital, Users, User } from "lucide-react";
 import StatsCardEstado from "./StatsCardEstado";
 
-export default function HospitalList({ estadoNombre = "Nombre del Estado" }) {
-  const [hospitales, setHospitales] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+export default function HospitalList({ estadoNombre = "Nombre del Estado", hospitales = [], loading = false }) {
   const [paginaActual, setPaginaActual] = useState(1);
   const hospitalesPorPagina = 20;
   const [stats, setStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState(null);
-  // Usar refs separados para evitar doble-fetch y bloqueos
-  const fetchedHospitalesRef = useRef(false);
-  const fetchedStatsRef = useRef(false);
 
   useEffect(() => {
-    if (fetchedHospitalesRef.current) return;
-    fetchedHospitalesRef.current = true;
-    const fetchHospitales = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const userId = localStorage.getItem("userId");
-        const res = await fetch(
-          `https://geoapphospital.onrender.com/api/estadoadmin/hospitals-by-user/${userId}?source=hospitals`
-        ); // Nombre descriptivo para hospitales de estadoadmin
-        if (!res.ok) throw new Error("No se pudieron obtener los hospitales");
-        const data = await res.json();
-        setHospitales(data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchHospitales();
-  }, []);
-
-  useEffect(() => {
-    if (fetchedStatsRef.current) return;
-    fetchedStatsRef.current = true;
     const id_user = localStorage.getItem("userId");
     if (!id_user) {
       setStatsError("No se encontró el usuario actual");
@@ -48,7 +17,7 @@ export default function HospitalList({ estadoNombre = "Nombre del Estado" }) {
       return;
     }
     setStatsLoading(true);
-    fetch(`https://geoapphospital.onrender.com/api/estadoadmin/stats-by-user/${id_user}?source=stats`) // Nombre descriptivo para stats de estadoadmin
+    fetch(`https://geoapphospital.onrender.com/api/estadoadmin/stats-by-user/${id_user}?source=stats`)
       .then((res) => {
         if (!res.ok) throw new Error("No se pudieron obtener las estadísticas de estadoadmin");
         return res.json();
@@ -65,20 +34,12 @@ export default function HospitalList({ estadoNombre = "Nombre del Estado" }) {
   }, []);
 
   const hospitalesFiltrados = hospitales;
-
-  // Calcular índices para paginación
   const indexInicio = (paginaActual - 1) * hospitalesPorPagina;
   const indexFin = indexInicio + hospitalesPorPagina;
   const hospitalesPagina = hospitalesFiltrados.slice(indexInicio, indexFin);
-
-  // Calcular total de páginas
   const totalPaginas = Math.ceil(hospitalesFiltrados.length / hospitalesPorPagina);
 
-  // Obtener el nombre del estado (si hay hospitales)
-  const nombreEstado = hospitales.length > 0 ? hospitales[0].nombre_estado : "";
-
   if (loading) return <div className="text-center text-gray-500">Cargando hospitales...</div>;
-  if (error) return <div className="text-center text-red-500">{error}</div>;
   if (!hospitales.length) return <div className="text-center text-gray-500">No hay hospitales registrados en tu estado.</div>;
 
   return (
@@ -146,7 +107,6 @@ export default function HospitalList({ estadoNombre = "Nombre del Estado" }) {
                     <td className="px-4 py-3 text-sm">{h.nombre_estado || "-"}</td>
                     <td className="px-4 py-3 text-sm">{h.tipo_hospital || "-"}</td>
                     <td className="px-4 py-3 text-sm">{h.region || "-"}</td>
-                    
                     <td className="px-4 py-3 text-sm">
                       {h.radio_geo ? (
                         <span className="px-2 py-1 text-xs font-semibold rounded bg-emerald-100 text-emerald-700 whitespace-nowrap">
@@ -239,9 +199,7 @@ export default function HospitalList({ estadoNombre = "Nombre del Estado" }) {
             </div>
           </div>
         </>
-      ) : (
-        <div className="p-6 text-center text-gray-500">No hay hospitales registrados.</div>
-      )}
+      ) : null}
     </div>
   );
 }
