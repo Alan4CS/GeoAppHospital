@@ -134,16 +134,34 @@ router.post("/empleados/login", async (req, res) => {
 /**
  * POST /api/ubicaciones
  * Actualiza la ubicación del usuario y verifica si está dentro de la geocerca
+ * evento: 0 - salió geocerca, 1 - entró geocerca, 2 - inicio descanso, 3 - terminó descanso
  */
 router.post("/ubicaciones", authenticateToken, async (req, res) => {
-    const { latitud, longitud, tipo_registro } = req.body;
+    const { latitud, longitud, tipo_registro, evento } = req.body;
     const id_user = req.user.id_user;
 
     if (latitud == null || longitud == null || (tipo_registro !== 0 && tipo_registro !== 1)) {
         return res.status(400).json({ error: "Latitud, longitud y tipo_registro (0 o 1) son obligatorios." });
+    }    // Validar evento si se proporciona
+    if (evento != null && ![0, 1, 2, 3].includes(evento)) {
+        return res.status(400).json({ error: "El evento debe ser 0 (salió geocerca), 1 (entró geocerca), 2 (inicio descanso) o 3 (terminó descanso)." });
     }
 
     try {
+        // Obtener el último registro del usuario para comparar estados
+        const ultimoRegistroQuery = await pool.query(
+            `SELECT dentro_geocerca, evento 
+             FROM registro_ubicaciones 
+             WHERE id_user = $1 
+             ORDER BY fecha_hora DESC 
+             LIMIT 1`,
+            [id_user]
+        );
+
+        const estadoAnterior = ultimoRegistroQuery.rowCount > 0 ? 
+            ultimoRegistroQuery.rows[0] : 
+            { dentro_geocerca: false, evento: null };
+
         const hospitalQuery = await pool.query(
             `SELECT 
                 h.radio_geo,
@@ -177,20 +195,26 @@ router.post("/ubicaciones", authenticateToken, async (req, res) => {
                             [longitud, latitud],
                             geocerca.coordinates[0]
                         );
-                    }
-                } catch (error) {
+                    }                } catch (error) {
                     console.error("Error al procesar la geocerca:", error);
                 }
             }
         }
 
+        // Determinar evento automáticamente si no se proporciona
+        let eventoFinal = evento;
+        if (evento == null && estadoAnterior.dentro_geocerca !== dentro_geocerca) {
+            // Solo determinar automáticamente eventos de entrada/salida de geocerca
+            eventoFinal = dentro_geocerca ? 1 : 0; // 1 = entró, 0 = salió
+        }
+
         // Insertar siempre un nuevo registro para mantener historial
         await pool.query(
             `INSERT INTO registro_ubicaciones 
-             (id_user, latitud, longitud, fecha_hora, dentro_geocerca, tipo_registro)
-             VALUES ($1, $2, $3, NOW(), $4, $5)
+             (id_user, latitud, longitud, fecha_hora, dentro_geocerca, tipo_registro, evento)
+             VALUES ($1, $2, $3, NOW(), $4, $5, $6)
              RETURNING *`,
-            [id_user, latitud, longitud, dentro_geocerca, tipo_registro]
+            [id_user, latitud, longitud, dentro_geocerca, tipo_registro, eventoFinal]
         );
         console.log(`✅ Se insertó nueva ubicación para el usuario ${id_user}`);
 
@@ -198,6 +222,7 @@ router.post("/ubicaciones", authenticateToken, async (req, res) => {
             mensaje: "Ubicación registrada correctamente.",
             dentro_geocerca,
             tipo_registro,
+            evento: eventoFinal,
             fecha_hora: new Date()
         });
 

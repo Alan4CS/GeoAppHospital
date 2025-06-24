@@ -183,6 +183,7 @@ router.get("/monitoreo", async (req, res) => {
         r.fecha_hora,
         r.dentro_geocerca,
         r.tipo_registro,
+        r.evento,
         h.id_hospital,
         h.nombre_hospital
       FROM registro_ubicaciones r
