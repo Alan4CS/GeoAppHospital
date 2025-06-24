@@ -100,7 +100,7 @@ const connectedIcon = createCustomIcon("#4CAF50"); // Verde para conectados
 const outsideGeofenceIcon = createCustomIcon("#FF5722", "#FFF"); // Naranja para fuera de geocerca
 const inactiveIcon = createCustomIcon("#DC2626", "#FFF"); // Rojo para inactivos
 
-const MonitoreoMap = () => {
+const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre = "" }) => {
   const [showFilters, setShowFilters] = useState(true);
   const [selectedLevel, setSelectedLevel] = useState("hospital");
   const [selectedState, setSelectedState] = useState("");
@@ -179,6 +179,34 @@ const MonitoreoMap = () => {
       setStates(filteredStates);
     } catch (err) {
       console.error("Error al obtener estados:", err);
+    }
+  };
+
+  // Función para obtener el estado del administrador estatal
+  const fetchEstadoAdmin = async () => {
+    if (!modoEstadoAdmin || !estadoId) return;
+    
+    try {
+      const response = await fetch(
+        `https://geoapphospital.onrender.com/api/estadoadmin/hospitals-by-user/${estadoId}?source=hospitals`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      // Si hay hospitales, tomar el nombre_estado del primero
+      if (Array.isArray(data) && data.length > 0) {
+        const nombreEstado = data[0].nombre_estado || "";
+        if (nombreEstado) {
+          setSelectedState(nombreEstado);
+          console.log("Estado del administrador estatal detectado:", nombreEstado);
+        }
+      }
+    } catch (err) {
+      console.error("Error al obtener estado del administrador:", err);
     }
   };
 
@@ -415,6 +443,19 @@ const MonitoreoMap = () => {
     fetchHospitalsData();
     fetchMonitoringData();
     fetchTotalEmployees();
+    
+    // Si es modo administrador estatal, obtener el estado automáticamente
+    if (modoEstadoAdmin) {
+      if (estadoNombre) {
+        // Si ya tenemos el nombre del estado, usarlo directamente
+        setSelectedState(estadoNombre);
+        console.log("Estado del administrador estatal establecido:", estadoNombre);
+      } else if (estadoId) {
+        // Si no tenemos el nombre pero sí el ID, obtenerlo de la API
+        fetchEstadoAdmin();
+      }
+    }
+    
     const hospitalsInterval = setInterval(fetchHospitalsData, 3600000); // Actualizar hospitales cada hora
     if (mapRef.current) {
       mapRef.current.setView([23.6345, -102.5528], 5);
@@ -422,18 +463,67 @@ const MonitoreoMap = () => {
     return () => {
       clearInterval(hospitalsInterval);
     };
-  }, []);
+  }, [modoEstadoAdmin, estadoId, estadoNombre]);
+
+  // Efecto para manejar el cambio automático de estado en modo administrador estatal
+  useEffect(() => {
+    if (modoEstadoAdmin && selectedState && mapRef.current) {
+      // Esperar un poco para que los hospitales se carguen
+      setTimeout(() => {
+        const stateHospitals = hospitalsByState[selectedState] || [];
+        if (stateHospitals.length > 0) {
+          const bounds = L.latLngBounds(
+            stateHospitals.map(h => [h.latitud, h.longitud])
+          );
+          mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+        }
+      }, 1000);
+    }
+  }, [modoEstadoAdmin, selectedState, hospitalsByState]);
+
+  // Efecto para establecer el estado cuando estadoNombre cambia
+  useEffect(() => {
+    if (modoEstadoAdmin && estadoNombre && !selectedState) {
+      setSelectedState(estadoNombre);
+      console.log("Estado del administrador estatal establecido desde prop:", estadoNombre);
+    }
+  }, [modoEstadoAdmin, estadoNombre, selectedState]);
 
   // Filtrar empleados según los criterios seleccionados y búsqueda
-  const filteredEmployees = employees.filter((emp) => {
-    // Solo aplicar filtro de búsqueda por nombre, no filtros de ubicación
-    if (
-      searchTerm &&
-      !emp.name.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-      return false;
-    return true;
-  });
+  const filteredEmployees = useMemo(() => {
+    if (!employees || !Array.isArray(employees)) {
+      return [];
+    }
+    
+    return employees.filter((emp) => {
+      // Solo aplicar filtro de búsqueda por nombre, no filtros de ubicación
+      if (
+        searchTerm &&
+        !emp.name.toLowerCase().includes(searchTerm.toLowerCase())
+      ) {
+        return false;
+      }
+      
+      // Filtro por estado si está seleccionado
+      if (selectedState && emp.hospital) {
+        // Buscar el hospital del empleado en la lista de hospitales del estado seleccionado
+        const hospitalInState = hospitals.find(h => 
+          h.id_hospital === emp.hospitalId && 
+          h.estado === selectedState
+        );
+        if (!hospitalInState) {
+          return false;
+        }
+        
+        // Filtro adicional por hospital específico si está seleccionado
+        if (selectedHospital && emp.hospitalId.toString() !== selectedHospital) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+  }, [employees, searchTerm, selectedState, selectedHospital, hospitals]);
 
   // Filtrar hospitales según los criterios seleccionados
   const filteredHospitals = useMemo(() => {
@@ -446,15 +536,20 @@ const MonitoreoMap = () => {
   }, [hospitals, selectedState, selectedHospital]);
 
   // Calcular KPIs
-  const connectedCount = employees.filter(
-    (emp) => emp.tipo_registro === 1
-  ).length;
-  const disconnectedCount = employees.filter(
-    (emp) => emp.tipo_registro === 0
-  ).length;
-  const outsideGeofenceCount = employees.filter(
-    (emp) => !emp.dentro_geocerca
-  ).length;
+  const connectedCount = useMemo(() => {
+    if (!filteredEmployees || !Array.isArray(filteredEmployees)) return 0;
+    return filteredEmployees.filter((emp) => emp.tipo_registro === 1).length;
+  }, [filteredEmployees]);
+  
+  const disconnectedCount = useMemo(() => {
+    if (!filteredEmployees || !Array.isArray(filteredEmployees)) return 0;
+    return filteredEmployees.filter((emp) => emp.tipo_registro === 0).length;
+  }, [filteredEmployees]);
+  
+  const outsideGeofenceCount = useMemo(() => {
+    if (!filteredEmployees || !Array.isArray(filteredEmployees)) return 0;
+    return filteredEmployees.filter((emp) => !emp.dentro_geocerca).length;
+  }, [filteredEmployees]);
 
   // Función para manejar el cambio de estado
   const handleStateChange = (selectedState) => {
@@ -539,7 +634,10 @@ const MonitoreoMap = () => {
 
   // Función para limpiar filtros
   const clearFilters = () => {
-    setSelectedState("");
+    // No limpiar el estado si estamos en modo administrador estatal
+    if (!modoEstadoAdmin) {
+      setSelectedState("");
+    }
     setSelectedMunicipality("");
     setSelectedHospital("");
     setSearchTerm("");
@@ -597,7 +695,8 @@ const MonitoreoMap = () => {
     if (stateHospitals.length === 0) {
       return { 
         status: 'no_hospitals',
-        message: `No hay hospitales registrados en ${selectedState}`
+        message: `No hay hospitales registrados en ${selectedState}`,
+        hospitals: []
       };
     }
 
@@ -608,7 +707,8 @@ const MonitoreoMap = () => {
     if (hospitalsWithCoords.length === 0) {
       return { 
         status: 'no_coordinates',
-        message: `Los hospitales en ${selectedState} no tienen coordenadas registradas`
+        message: `Los hospitales en ${selectedState} no tienen coordenadas registradas`,
+        hospitals: []
       };
     }
 
@@ -620,9 +720,33 @@ const MonitoreoMap = () => {
 
   // Memoizar los datos filtrados para evitar recálculos innecesarios
   const filteredEmployeesData = useMemo(() => {
+    if (!employees || !Array.isArray(employees)) {
+      return [];
+    }
+    
     return employees.filter((emp) => {
-      if (searchTerm && !emp.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      // Filtro de búsqueda por nombre
+      if (searchTerm && !emp.name.toLowerCase().includes(searchTerm.toLowerCase())) {
         return false;
+      }
+      
+      // Filtro por estado si está seleccionado
+      if (selectedState && emp.hospital) {
+        // Buscar el hospital del empleado en la lista de hospitales del estado seleccionado
+        const hospitalInState = hospitals.find(h => 
+          h.id_hospital === emp.hospitalId && 
+          h.estado === selectedState
+        );
+        if (!hospitalInState) {
+          return false;
+        }
+        
+        // Filtro adicional por hospital específico si está seleccionado
+        if (selectedHospital && emp.hospitalId.toString() !== selectedHospital) {
+          return false;
+        }
+      }
+      
       return true;
     }).filter(
       (employee) =>
@@ -630,11 +754,13 @@ const MonitoreoMap = () => {
         employee.location[0] &&
         employee.location[1]
     );
-  }, [employees, searchTerm]);
+  }, [employees, searchTerm, selectedState, selectedHospital, hospitals]);
 
   // Memoizar los hospitales filtrados y sus geocercas
   const hospitalAndGeofenceData = useMemo(() => {
-    if (!showHospitals || !getHospitalsStatus.hospitals) return [];
+    if (!showHospitals || !getHospitalsStatus.hospitals || !Array.isArray(getHospitalsStatus.hospitals)) {
+      return [];
+    }
     
     return getHospitalsStatus.hospitals.map(hospital => ({
       hospital,
@@ -651,6 +777,11 @@ const MonitoreoMap = () => {
 
   // Componente separado para los marcadores de empleados
   const EmployeeMarkers = memo(({ employees, markerRefs, clusterGroupRef }) => {
+    // Validar que employees sea un array válido
+    if (!employees || !Array.isArray(employees) || employees.length === 0) {
+      return null;
+    }
+
     return (
       <MarkerClusterGroup
         chunkedLoading
@@ -763,6 +894,11 @@ const MonitoreoMap = () => {
 
   // Componente separado para los marcadores de hospitales
   const HospitalMarkers = memo(({ hospitals }) => {
+    // Validar que hospitals sea un array válido
+    if (!hospitals || !Array.isArray(hospitals) || hospitals.length === 0) {
+      return null;
+    }
+
     return (
       <MarkerClusterGroup
         chunkedLoading
@@ -865,7 +1001,7 @@ const MonitoreoMap = () => {
 
   // Componente separado para las geocercas
   const GeofenceOverlays = memo(({ data, showGeofences }) => {
-    if (!showGeofences) return null;
+    if (!showGeofences || !data || !Array.isArray(data) || data.length === 0) return null;
 
     return data.map(({ hospital, geofencePolygon, position }) => (
       <div key={`geofence-${hospital.id_hospital}`}>
@@ -1125,6 +1261,30 @@ const MonitoreoMap = () => {
         </div>
       )}
 
+      {/* Mensaje informativo cuando se aplica filtro por estado */}
+      {selectedState && (
+        <div className="mx-4 mb-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+          <div className="flex items-center">
+            <FaMapMarkerAlt className="text-blue-600 mr-1 text-xs" />
+            <span className="text-blue-800 text-sm">
+              Mostrando solo empleados y hospitales del estado: <strong>{selectedState}</strong>
+              {selectedHospital && (
+                <>
+                  {" "}• Hospital: <strong>{hospitals.find(h => h.id_hospital.toString() === selectedHospital)?.nombre_hospital || selectedHospital}</strong>
+                </>
+              )}
+            </span>
+            <button
+              onClick={clearFilters}
+              className="ml-auto text-blue-600 hover:text-blue-800 underline text-xs"
+              disabled={modoEstadoAdmin}
+            >
+              Limpiar filtro
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Contenedor principal optimizado */}
       <div className="flex-1 px-4 pt-2 pb-4 overflow-hidden flex justify-center">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative" style={mapContainerStyle}>
@@ -1150,9 +1310,12 @@ const MonitoreoMap = () => {
 
                 {/* Estado */}
                 <select
-                  className="w-48 border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className={`w-48 border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                    modoEstadoAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
+                  }`}
                   value={selectedState}
                   onChange={(e) => handleStateChange(e.target.value)}
+                  disabled={modoEstadoAdmin}
                 >
                   <option value="">Todos los estados</option>
                   {states.map((state) => (
@@ -1207,6 +1370,18 @@ const MonitoreoMap = () => {
                   <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-md">
                     {filteredEmployees.length} emp.
                   </span>
+                  {selectedState && (
+                    <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-md flex items-center gap-1">
+                      <FaMapMarkerAlt className="text-xs" />
+                      {selectedState}
+                    </span>
+                  )}
+                  {modoEstadoAdmin && (
+                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-md flex items-center gap-1">
+                      <FaUser className="text-xs" />
+                      Admin Estatal
+                    </span>
+                  )}
                 </div>
 
                 {/* Botones */}
@@ -1220,7 +1395,11 @@ const MonitoreoMap = () => {
                   </button>
                   <button
                     onClick={clearFilters}
-                    className="border border-gray-200 bg-white text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-colors text-sm"
+                    className={`border border-gray-200 bg-white text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-colors text-sm ${
+                      modoEstadoAdmin ? 'cursor-not-allowed opacity-50' : ''
+                    }`}
+                    title={modoEstadoAdmin ? "El estado no se puede limpiar en modo administrador estatal" : "Limpiar todos los filtros"}
+                    disabled={modoEstadoAdmin}
                   >
                     Limpiar
                   </button>

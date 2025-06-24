@@ -5,6 +5,7 @@ import GrupoList from "../components/estado/GrupoList";
 import EmpleadoList from "../components/estado/EmpleadoList";
 import Monitoreo from "../components/estado/Monitoreo";
 import DashboardEstado from "../components/estado/Dashboard";
+import MonitoreoMap from "../components/admin/MonitoreoMap";
 
 export default function EstadoAdminDashboard() {
   const [activeTab, setActiveTab] = useState("hospitales");
@@ -65,6 +66,8 @@ export default function EstadoAdminDashboard() {
                 ? `Empleados en ${estadoNombre || "..."}`
                 : activeTab === "monitoreo"
                 ? "Monitoreo de grupos"
+                : activeTab === "monitoreomap"
+                ? "Monitoreo estatal"
                 : activeTab === "dashboard"
                 ? "Dashboard estatal"
                 : "Estado Admin"}
@@ -83,7 +86,12 @@ export default function EstadoAdminDashboard() {
           )}
           {activeTab === "grupos" && <GrupoList id_user={id_user} />}
           {activeTab === "empleados" && <EmpleadoList id_user={id_user} />}
-          {activeTab === "monitoreo" && <Monitoreo id_user={id_user} />}
+          {activeTab === "monitoreo" && (
+            <MonitoreoMap modoEstadoAdmin={true} estadoId={id_user} />
+          )}
+          {activeTab === "monitoreomap" && (
+            <MonitoreoMap modoEstadoAdmin={true} estadoId={id_user} estadoNombre={estadoNombre} />
+          )}
         </main>
       </div>
     </div>

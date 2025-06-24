@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { Home, Users, Hospital, Layers, LogOut, BarChart3,
+import { Home, Users, Hospital, Layers, LogOut, BarChart3, Map
 } from "lucide-react";
 
 export default function EstadoSidebar({
@@ -30,7 +30,7 @@ export default function EstadoSidebar({
     },
     {
       label: "Monitoreo",
-      icon: <Home className="h-5 w-5" />,
+      icon: <Map className= "h-5 w-5" />,
       tab: "monitoreo",
     },
     {
