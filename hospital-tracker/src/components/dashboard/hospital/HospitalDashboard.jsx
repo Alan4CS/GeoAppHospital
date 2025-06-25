@@ -858,65 +858,39 @@ const HospitalDashboard = () => {
   useEffect(() => {
     if (!filters.id_hospital) {
       setEmpleados([])
+      setEmpleadosFiltrados([])
+      setGrupos([]) // Limpiar grupos si no hay hospital
       return
     }
 
     const fetchEmpleados = async () => {
-      const empleadosSimulados = [
-        {
-          id: 1,
-          name: "Juan Pérez González",
-          schedule: "07:00 - 16:00",
-          plannedHours: 160,
-          workedHours: 136, // 8.5h * 16 días
-          outsideHours: 8, // 0.5h * 16 días
-          justifiedHours: 5,
-          grupo: "Limpieza",
-        },
-        {
-          id: 2,
-          name: "María Rodríguez López",
-          schedule: "07:00 - 16:00",
-          plannedHours: 160,
-          workedHours: 136,
-          outsideHours: 8,
-          justifiedHours: 2,
-          grupo: "Mantenimiento",
-        },
-        {
-          id: 3,
-          name: "Carlos Sánchez Martínez",
-          schedule: "07:00 - 16:00",
-          plannedHours: 160,
-          workedHours: 136,
-          outsideHours: 8,
-          justifiedHours: 8,
-          grupo: "Vigilancia",
-        },
-        {
-          id: 4,
-          name: "Ana García López",
-          schedule: "07:00 - 16:00",
-          plannedHours: 160,
-          workedHours: 136,
-          outsideHours: 8,
-          justifiedHours: 4,
-          grupo: "Camilleros",
-        },
-        {
-          id: 5,
-          name: "Luis Hernández Ruiz",
-          schedule: "07:00 - 16:00",
-          plannedHours: 160,
-          workedHours: 136,
-          outsideHours: 8,
-          justifiedHours: 1,
-          grupo: "Enfermería",
-        },
-      ]
-
-      setEmpleados(empleadosSimulados)
-      setEmpleadosFiltrados(empleadosSimulados)
+      try {
+        const res = await fetch(
+          `https://geoapphospital.onrender.com/api/hospitaladmin/empleados-by-ubicacion?id_hospital=${filters.id_hospital}`
+        )
+        const data = await res.json()
+        // Mapear empleados y construir nombre completo
+        const empleadosBackend = data.map(emp => ({
+          id: emp.id_user || emp.id_empleado || emp.id, // Ajusta según tu backend
+          name: [emp.nombre, emp.ap_paterno, emp.ap_materno].filter(Boolean).join(' '),
+          schedule: emp.horario || "07:00 - 16:00",
+          plannedHours: emp.horas_planeadas || 160,
+          workedHours: emp.horas_trabajadas || 0,
+          outsideHours: emp.horas_fuera || 0,
+          justifiedHours: emp.horas_justificadas || 0,
+          grupo: emp.nombre_grupo || emp.grupo || "",
+        }))
+        setEmpleados(empleadosBackend)
+        setEmpleadosFiltrados(empleadosBackend)
+        // Extraer grupos únicos de los empleados
+        const gruposUnicos = Array.from(new Set(empleadosBackend.map(emp => emp.grupo).filter(Boolean))).map((nombre, idx) => ({ id: idx + 1, nombre }))
+        setGrupos(gruposUnicos)
+      } catch (error) {
+        console.error("Error al obtener empleados reales:", error)
+        setEmpleados([])
+        setEmpleadosFiltrados([])
+        setGrupos([])
+      }
     }
 
     fetchEmpleados()
@@ -1025,31 +999,9 @@ const HospitalDashboard = () => {
     { group: "Enfermería", hours: 472 },
   ]
 
-  // Datos dummy para empleados
-  const employeesData = [
-    {
-      id: 1,
-      name: "Juan Pérez González",
-      schedule: "07:00 - 16:00",
-      plannedHours: 160,
-      workedHours: 136,
-      outsideHours: 8,
-      justifiedHours: 5,
-    },
-    {
-      id: 2,
-      name: "María Rodríguez López",
-      schedule: "07:00 - 16:00",
-      plannedHours: 160,
-      workedHours: 136,
-      outsideHours: 8,
-      justifiedHours: 2,
-    },
-  ]
-
-  // Datos para la gráfica de horas por empleado
-  const employeeHoursData = employeesData.map((emp) => ({
-    name: emp.name.split(" ")[0],
+  // Datos para la gráfica de horas por empleado (usando datos reales filtrados)
+  const employeeHoursData = empleadosFiltrados.map((emp) => ({
+    name: emp.name?.split(" ")[0] || emp.name,
     horasTrabajadas: emp.workedHours,
     horasAfuera: emp.outsideHours,
   }))
@@ -1076,9 +1028,9 @@ const HospitalDashboard = () => {
               </div>
 
               {/* Primera fila: Período de análisis */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
+              <div className="grid grid-cols-1 lg:grid-cols-6 gap-4 items-end">
                 {/* Selector de presets */}
-                <div className="lg:col-span-3">
+                <div className="lg:col-span-1">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Período</label>
                   <select
                     value={selectedPreset}
@@ -1095,7 +1047,7 @@ const HospitalDashboard = () => {
                 </div>
 
                 {/* Fecha inicio */}
-                <div className="lg:col-span-3">
+                <div className="lg:col-span-1">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Fecha inicio</label>
                   <div className="flex items-center">
                     <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center mr-2">
@@ -1104,14 +1056,14 @@ const HospitalDashboard = () => {
                     <input
                       type="date"
                       value={tempDateRange.startDate}
-                      onChange={(e) => handleDateChange("startDate", e.target.value)}
+                      onChange={(e) => handleDateChange('startDate', e.target.value)}
                       className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
                 </div>
 
                 {/* Fecha fin */}
-                <div className="lg:col-span-3">
+                <div className="lg:col-span-1">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Fecha fin</label>
                   <div className="flex items-center">
                     <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
@@ -1120,34 +1072,83 @@ const HospitalDashboard = () => {
                     <input
                       type="date"
                       value={tempDateRange.endDate}
-                      onChange={(e) => handleDateChange("endDate", e.target.value)}
+                      onChange={(e) => handleDateChange('endDate', e.target.value)}
                       className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
 
-                {/* Botones de fecha */}
-                <div className="lg:col-span-3 flex gap-2">
-                  <button
-                    onClick={resetToOriginal}
-                    disabled={!hasChanges}
-                    className="flex-1 px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 text-sm"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={applyChanges}
-                    disabled={!isValidRange || !hasChanges}
-                    className="flex-1 px-3 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 flex items-center justify-center text-sm"
-                  >
-                    <Check className="h-4 w-4 mr-1" />
-                    Aplicar
-                  </button>
+                {/* Estado */}
+                <div className="lg:col-span-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center mr-2">
+                      <MapPin className="h-4 w-4 text-indigo-500" />
+                    </div>
+                    <select
+                      value={filters.id_estado}
+                      onChange={handleEstadoChange}
+                      className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="">Seleccionar Estado</option>
+                      {estados.map((estado) => (
+                        <option key={estado.id_estado} value={estado.id_estado}>
+                          {estado.nombre_estado}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Municipio */}
+                <div className="lg:col-span-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Municipio</label>
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center mr-2">
+                      <MapPin className="h-4 w-4 text-purple-500" />
+                    </div>
+                    <select
+                      value={filters.id_municipio}
+                      onChange={handleMunicipioChange}
+                      disabled={!filters.id_estado}
+                      className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="">Seleccionar Municipio</option>
+                      {municipios.map((municipio) => (
+                        <option key={municipio.id_municipio} value={municipio.id_municipio}>
+                          {municipio.nombre_municipio}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Hospital */}
+                <div className="lg:col-span-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Hospital</label>
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
+                      <Building2 className="h-4 w-4 text-blue-500" />
+                    </div>
+                    <select
+                      value={filters.id_hospital}
+                      onChange={handleHospitalChange}
+                      disabled={!filters.id_municipio}
+                      className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Seleccionar Hospital</option>
+                      {hospitales.map((hospital) => (
+                        <option key={hospital.id_hospital} value={hospital.id_hospital}>
+                          {hospital.nombre_hospital}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              {/* Segunda fila: Ubicación */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
+              {/* Segunda fila: Ubicación y botón aplicar */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end mt-2">
                 {/* Estado */}
                 <div className="lg:col-span-3">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
@@ -1215,14 +1216,27 @@ const HospitalDashboard = () => {
                     </select>
                   </div>
                 </div>
+              </div>
 
-                {/* Botón aplicar ubicación */}
-                <div className="lg:col-span-3">
-                  <button className="w-full px-4 py-2 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 flex items-center justify-center">
-                    <Check className="h-4 w-4 mr-1" />
-                    Aplicar Filtros
-                  </button>
-                </div>
+              {/* Botones de acción, fuera del grid, alineados a la derecha y con margen superior */}
+              <div className="flex gap-2 justify-end mt-6">
+                <button
+                  onClick={limpiarFiltros}
+                  className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 text-sm"
+                >
+                  Limpiar Filtros
+                </button>
+                <button
+                  onClick={() => {
+                    applyChanges();
+                    // Aquí puedes agregar lógica adicional si es necesario
+                  }}
+                  className="px-3 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center text-sm"
+                  style={{ minHeight: '44px' }}
+                >
+                  <Check className="h-4 w-4 mr-1" />
+                  Aplicar Filtros
+                </button>
               </div>
 
               {/* Mensajes informativos */}
@@ -1468,10 +1482,14 @@ const HospitalDashboard = () => {
               </div>
 
               {/* Filtros */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
+              {/* Primera fila: Fechas */}
+              <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 items-end">
                 <div className="lg:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Período</label>
-                  <select className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                  <select
+                    className={`w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${!filters.id_hospital ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''}`}
+                    disabled={!filters.id_hospital}
+                  >
                     <option value="">Selección rápida</option>
                     <option value="7d">Últimos 7 días</option>
                     <option value="15d">Últimos 15 días</option>
@@ -1484,51 +1502,6 @@ const HospitalDashboard = () => {
                     <option value="custom">Personalizado</option>
                   </select>
                 </div>
-
-                <div className="lg:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Grupo</label>
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
-                      <Users className="h-4 w-4 text-blue-500" />
-                    </div>
-                    <select
-                      value={selectedGrupo}
-                      onChange={handleGrupoChange}
-                      className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Todos los grupos</option>
-                      {grupos.map((grupo) => (
-                        <option key={grupo.id} value={grupo.nombre}>
-                          {grupo.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Empleado</label>
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center mr-2">
-                      <Users className="h-4 w-4 text-purple-500" />
-                    </div>
-                    <select
-                      value={selectedEmpleado}
-                      onChange={handleEmpleadoChange}
-                      className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    >
-                      <option value="">Todos los empleados</option>
-                      {empleados
-                        .filter((emp) => !selectedGrupo || emp.grupo === selectedGrupo)
-                        .map((emp) => (
-                          <option key={emp.id} value={emp.id}>
-                            {emp.name}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                </div>
-
                 <div className="lg:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Fecha inicio</label>
                   <div className="flex items-center">
@@ -1539,11 +1512,11 @@ const HospitalDashboard = () => {
                       type="date"
                       value={fechaInicio}
                       onChange={handleFechaInicioChange}
-                      className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      disabled={!filters.id_hospital}
+                      className={`flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${!filters.id_hospital ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''}`}
                     />
                   </div>
                 </div>
-
                 <div className="lg:col-span-3">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Fecha fin</label>
                   <div className="flex items-center">
@@ -1554,8 +1527,57 @@ const HospitalDashboard = () => {
                       type="date"
                       value={fechaFin}
                       onChange={handleFechaFinChange}
-                      className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={!filters.id_hospital}
+                      className={`flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${!filters.id_hospital ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''}`}
                     />
+                  </div>
+                </div>
+              </div>
+
+              {/* Segunda fila: Grupo y Empleado */}
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-end mt-2">
+                <div className="lg:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Grupo</label>
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
+                      <Users className="h-4 w-4 text-blue-500" />
+                    </div>
+                    <select
+                      value={selectedGrupo}
+                      onChange={handleGrupoChange}
+                      disabled={!filters.id_hospital}
+                      className={`flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${!filters.id_hospital ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''}`}
+                    >
+                      <option value="">Todos los grupos</option>
+                      {grupos.map((grupo) => (
+                        <option key={grupo.nombre} value={grupo.nombre}>
+                          {grupo.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="lg:col-span-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Empleado</label>
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center mr-2">
+                      <Users className="h-4 w-4 text-purple-500" />
+                    </div>
+                    <select
+                      value={selectedEmpleado}
+                      onChange={handleEmpleadoChange}
+                      disabled={!filters.id_hospital}
+                      className={`flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 ${!filters.id_hospital ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''}`}
+                    >
+                      <option value="">Todos los empleados</option>
+                      {empleados
+                        .filter((emp) => !selectedGrupo || emp.grupo === selectedGrupo)
+                        .map((emp) => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.name}
+                          </option>
+                        ))}
+                    </select>
                   </div>
                 </div>
               </div>

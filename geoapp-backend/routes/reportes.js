@@ -12,7 +12,7 @@ router.post('/empleado', async (req, res) => {
     const query = `
       SELECT u.id_user, u.nombre, u.ap_paterno, u.ap_materno, u.id_group, u.id_estado, u.id_municipio, 
              g.nombre_grupo, e.nombre_estado, m.nombre_municipio, h.nombre_hospital,
-             r.id_registro, r.latitud, r.longitud, r.fecha_hora, r.dentro_geocerca, r.tipo_registro
+             r.id_registro, r.latitud, r.longitud, r.fecha_hora, r.dentro_geocerca, r.tipo_registro, r.evento
       FROM user_data u
       LEFT JOIN registro_ubicaciones r ON u.id_user = r.id_user
       LEFT JOIN groups g ON u.id_group = g.id_group
@@ -44,7 +44,8 @@ router.post('/empleado', async (req, res) => {
       longitud: row.longitud,
       fecha_hora: row.fecha_hora,
       dentro_geocerca: row.dentro_geocerca,
-      tipo_registro: row.tipo_registro
+      tipo_registro: row.tipo_registro,
+      evento: row.evento
     }));
     res.json({ empleado, actividades });
   } catch (error) {
