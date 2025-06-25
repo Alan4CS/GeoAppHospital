@@ -21,9 +21,10 @@ import {
 } from "recharts"
 import { MapContainer, TileLayer, CircleMarker, Popup, GeoJSON, useMap } from "react-leaflet"
 import "leaflet/dist/leaflet.css"
+import { feature } from "topojson-client"
 
 // URLs de los archivos GeoJSON
-const MUNICIPIOS_GEOJSON = "/lib/municipiosmx.json"
+const MUNICIPIOS_TOPOJSON = "/lib/mx_tj.json"
 const ESTADOS_GEOJSON = "/lib/mx.json"
 
 // Datos simulados de hospitales por municipio
@@ -358,6 +359,78 @@ const municipioDefaultStyle = {
   dashArray: "3,3"
 }
 
+// Mapeo de códigos de estado a nombres
+const stateCodeToName = {
+  MXAGU: "Aguascalientes",
+  MXBCN: "Baja California",
+  MXBCS: "Baja California Sur",
+  MXCAM: "Campeche",
+  MXCHH: "Chihuahua",
+  MXCHP: "Chiapas",
+  MXCMX: "Ciudad de México",
+  MXCOA: "Coahuila",
+  MXCOL: "Colima",
+  MXDUR: "Durango",
+  MXGRO: "Guerrero",
+  MXGUA: "Guanajuato",
+  MXHID: "Hidalgo",
+  MXJAL: "Jalisco",
+  MXMEX: "México",
+  MXMIC: "Michoacán",
+  MXMOR: "Morelos",
+  MXNAY: "Nayarit",
+  MXNLE: "Nuevo León",
+  MXOAX: "Oaxaca",
+  MXPUE: "Puebla",
+  MXQUE: "Querétaro",
+  MXROO: "Quintana Roo",
+  MXSIN: "Sinaloa",
+  MXSLP: "San Luis Potosí",
+  MXSON: "Sonora",
+  MXTAB: "Tabasco",
+  MXTAM: "Tamaulipas",
+  MXTLA: "Tlaxcala",
+  MXVER: "Veracruz",
+  MXYUC: "Yucatán",
+  MXZAC: "Zacatecas",
+}
+
+// Mapeo de códigos numéricos de estado a códigos de letras
+const stateCodeMapping = {
+  "01": "MXAGU", // Aguascalientes
+  "02": "MXBCN", // Baja California
+  "03": "MXBCS", // Baja California Sur
+  "04": "MXCAM", // Campeche
+  "05": "MXCOA", // Coahuila
+  "06": "MXCOL", // Colima
+  "07": "MXCHP", // Chiapas
+  "08": "MXCHH", // Chihuahua
+  "09": "MXCMX", // Ciudad de México
+  "10": "MXDUR", // Durango
+  "11": "MXGUA", // Guanajuato
+  "12": "MXGRO", // Guerrero
+  "13": "MXHID", // Hidalgo
+  "14": "MXJAL", // Jalisco
+  "15": "MXMEX", // México
+  "16": "MXMIC", // Michoacán
+  "17": "MXMOR", // Morelos
+  "18": "MXNAY", // Nayarit
+  "19": "MXNLE", // Nuevo León
+  "20": "MXOAX", // Oaxaca
+  "21": "MXPUE", // Puebla
+  "22": "MXQUE", // Querétaro
+  "23": "MXROO", // Quintana Roo
+  "24": "MXSLP", // San Luis Potosí
+  "25": "MXSIN", // Sinaloa
+  "26": "MXSON", // Sonora
+  "27": "MXTAB", // Tabasco
+  "28": "MXTAM", // Tamaulipas
+  "29": "MXTLA", // Tlaxcala
+  "30": "MXVER", // Veracruz
+  "31": "MXYUC", // Yucatán
+  "32": "MXZAC", // Zacatecas
+}
+
 // Componente para actualizar la vista del mapa
 const MapUpdater = ({ center, zoom }) => {
   const map = useMap();
@@ -420,6 +493,7 @@ const MapTooltip = ({ x, y, hospital }) => {
 
 export default function EnhancedMunicipalDashboard() {
   const [estadosGeo, setEstadosGeo] = useState(null)
+  const [municipiosTopo, setMunicipiosTopo] = useState(null)
   const [municipiosGeo, setMunicipiosGeo] = useState(null)
   const [selectedEstado, setSelectedEstado] = useState("Quintana Roo")
   const [selectedMunicipio, setSelectedMunicipio] = useState("Benito Juárez")
@@ -436,17 +510,32 @@ export default function EnhancedMunicipalDashboard() {
   })
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
 
-  // Cargar datos GeoJSON
+  // Cargar datos GeoJSON y TopoJSON
   useEffect(() => {
     async function fetchGeos() {
       setIsLoading(true)
       try {
-        const [resEstados, resMunicipios] = await Promise.all([fetch(ESTADOS_GEOJSON), fetch(MUNICIPIOS_GEOJSON)])
+        const [resEstados, resMunicipios] = await Promise.all([
+          fetch(ESTADOS_GEOJSON),
+          fetch(MUNICIPIOS_TOPOJSON),
+        ])
         setEstadosGeo(await resEstados.json())
-        setMunicipiosGeo(await resMunicipios.json())
+        const topoData = await resMunicipios.json()
+        setMunicipiosTopo(topoData)
+        // Convertir TopoJSON a GeoJSON para el estado seleccionado (por defecto Quintana Roo)
+        if (topoData && topoData.objects && topoData.objects.municipalities) {
+          const allMunicipalities = feature(topoData, topoData.objects.municipalities)
+          setMunicipiosGeo(allMunicipalities)
+          if (allMunicipalities && allMunicipalities.features && allMunicipalities.features.length > 0) {
+            console.log('Ejemplo de feature de municipiosGeo:', allMunicipalities.features[0])
+          }
+        } else {
+          setMunicipiosGeo(null)
+        }
       } catch (e) {
-        console.error("Error loading GeoJSON:", e)
+        console.error("Error loading GeoJSON/TopoJSON:", e)
         setEstadosGeo(null)
+        setMunicipiosTopo(null)
         setMunicipiosGeo(null)
       }
       setIsLoading(false)
@@ -454,19 +543,38 @@ export default function EnhancedMunicipalDashboard() {
     fetchGeos()
   }, [])
 
-  // Lista de estados disponibles
+  // Lista de estados disponibles usando el mapeo
   const estadosList = useMemo(() => {
     if (!municipiosGeo) return []
-    return [...new Set(municipiosGeo.features.map((f) => f.properties.NAME_1))].sort()
+    const codes = [...new Set(municipiosGeo.features.map((f) => f.properties.state_code))]
+    const estadosMapped = codes
+      .map((code) => stateCodeToName[stateCodeMapping[String(code).padStart(2, "0")]])
+      .filter(Boolean)
+      .sort()
+    console.log("Estados disponibles en municipiosGeo:", estadosMapped)
+    return estadosMapped
   }, [municipiosGeo])
 
-  // Lista de municipios del estado seleccionado
+  // selectedEstado por defecto dinámico
+  useEffect(() => {
+    if (estadosList.length && !selectedEstado) {
+      setSelectedEstado(estadosList[0])
+    }
+  }, [estadosList, selectedEstado])
+
+  // Lista de municipios del estado seleccionado usando el mapeo
   const municipiosList = useMemo(() => {
     if (!municipiosGeo || !selectedEstado) return []
-    return municipiosGeo.features
-      .filter((f) => f.properties.NAME_1 === selectedEstado)
-      .map((f) => f.properties.NAME_2)
+    // Encontrar el código de letras del estado seleccionado
+    const codeLetter = Object.entries(stateCodeToName).find(([, name]) => name === selectedEstado)?.[0]
+    // Encontrar el código numérico
+    const codeNum = Object.entries(stateCodeMapping).find(([, v]) => v === codeLetter)?.[0]
+    const municipios = municipiosGeo.features
+      .filter((f) => String(f.properties.state_code).padStart(2, "0") === codeNum)
+      .map((f) => f.properties.mun_name)
       .sort()
+    console.log(`Municipios para estado '${selectedEstado}':`, municipios)
+    return municipios
   }, [municipiosGeo, selectedEstado])
 
   // Hospitales del municipio seleccionado
@@ -513,9 +621,35 @@ export default function EnhancedMunicipalDashboard() {
     if (!municipiosGeo || !selectedEstado) return null;
     return {
       type: "FeatureCollection",
-      features: municipiosGeo.features.filter(f => f.properties.NAME_1 === selectedEstado)
+      features: municipiosGeo.features.filter(f => f.properties.state_name === selectedEstado)
     };
   }, [municipiosGeo, selectedEstado]);
+
+  // GeoJSON del municipio seleccionado para resaltar
+  const selectedMunicipioGeo = useMemo(() => {
+    if (!municipiosGeo || !selectedEstado || !selectedMunicipio) return null;
+    // Encontrar el código de letras del estado seleccionado
+    const codeLetter = Object.entries(stateCodeToName).find(([, name]) => name === selectedEstado)?.[0];
+    // Encontrar el código numérico
+    const codeNum = Object.entries(stateCodeMapping).find(([, v]) => v === codeLetter)?.[0];
+    const municipioFeature = municipiosGeo.features.find(
+      (f) => String(f.properties.state_code).padStart(2, "0") === codeNum && f.properties.mun_name === selectedMunicipio
+    );
+    if (!municipioFeature) return null;
+    return {
+      type: "FeatureCollection",
+      features: [municipioFeature],
+    };
+  }, [municipiosGeo, selectedEstado, selectedMunicipio]);
+
+  // Estilo destacado para el municipio seleccionado
+  const municipioSelectedStyle = {
+    fillColor: "#2563eb",
+    weight: 3,
+    opacity: 1,
+    color: "#1e40af",
+    fillOpacity: 0.25,
+  };
 
   // Actualizar posición del mapa cuando cambia el municipio
   useEffect(() => {
@@ -529,9 +663,37 @@ export default function EnhancedMunicipalDashboard() {
     }
   }, [selectedMunicipio, hospitals])
 
+  // Datos agregados del municipio (por municipio, para visualizaciones tipo estatal)
+  const municipalityData = useMemo(() => {
+    if (!municipiosGeo || !selectedEstado) return []
+    // Filtrar municipios del estado seleccionado
+    const municipios = municipiosGeo.features.filter(f => f.properties.state_name === selectedEstado)
+    return municipios.map(f => {
+      const munName = f.properties.mun_name
+      const hospitalsArr = hospitalData[munName] || []
+      return {
+        municipality: munName,
+        geofenceExits: hospitalsArr.reduce((sum, h) => sum + h.geofenceExits, 0),
+        hoursWorked: hospitalsArr.reduce((sum, h) => sum + h.hoursWorked, 0),
+        hospitals: hospitalsArr.length,
+        employees: hospitalsArr.reduce((sum, h) => sum + h.employees, 0),
+        id: munName.replace(/\s+/g, '_'),
+      }
+    })
+  }, [municipiosGeo, selectedEstado, hospitalData])
+
+  // Sincronizar municipio seleccionado con el estado
+  useEffect(() => {
+    if (!municipiosList.length) return;
+    // Si el municipio seleccionado no está en la lista, seleccionar el primero
+    if (!municipiosList.includes(selectedMunicipio)) {
+      setSelectedMunicipio(municipiosList[0]);
+    }
+  }, [selectedEstado, municipiosList]);
+
   return (
     <>
-      <style jsx global>
+      <style>
         {customScrollbarStyles}
       </style>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -732,11 +894,15 @@ export default function EnhancedMunicipalDashboard() {
                     <GeoJSON
                       key={selectedMunicipio}
                       data={filteredEstadoGeo}
-                      style={(feature) => {
-                        return feature.properties.NAME_2 === selectedMunicipio
-                          ? municipioStyle
-                          : municipioDefaultStyle;
-                      }}
+                      style={municipioDefaultStyle}
+                    />
+                  )}
+                  {/* Capa resaltada del municipio seleccionado */}
+                  {selectedMunicipioGeo && (
+                    <GeoJSON
+                      key={selectedMunicipio + "-highlight"}
+                      data={selectedMunicipioGeo}
+                      style={municipioSelectedStyle}
                     />
                   )}
                   
