@@ -1,11 +1,12 @@
-"use client"
-
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
+import { createPortal } from "react-dom"
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps"
 import { scaleQuantile } from "d3-scale"
 import { format, subDays, subMonths, subYears, isAfter } from "date-fns"
 import { Calendar, Building2, MapPin, Clock, LogOut, Plus, Minus, Users, ArrowUpRight, Briefcase, Building, TrendingUp, Check } from "lucide-react"
 import { AreaChart, Area, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, LabelList } from 'recharts'
+import { feature } from "topojson-client"
+import { geoCentroid } from "d3-geo"
 
 // URL del mapa GeoJSON de México (estados)
 const MEXICO_GEOJSON = "/lib/mx.json"
@@ -46,35 +47,73 @@ const stateCodeToName = {
   MXZAC: "Zacatecas",
 }
 
-// Coordenadas del centro de cada estado (longitud, latitud)
-const stateCoordinates = {
-  MXROO: [-88.2000, 19.5000], // Quintana Roo
-  MXYUC: [-89.0000, 20.7000], // Yucatán
-  MXCAM: [-90.3000, 19.0000], // Campeche
-  MXCHP: [-92.4000, 16.5000], // Chiapas
-  MXTAB: [-92.9475, 17.9892], // Tabasco
+// Mapeo de códigos numéricos de estado a códigos de letras
+const stateCodeMapping = {
+  "01": "MXAGU", // Aguascalientes
+  "02": "MXBCN", // Baja California
+  "03": "MXBCS", // Baja California Sur
+  "04": "MXCAM", // Campeche
+  "05": "MXCOA", // Coahuila
+  "06": "MXCOL", // Colima (NO es Chiapas)
+  "07": "MXCHP", // Chiapas
+  "08": "MXCHH", // Chihuahua
+  "09": "MXCMX", // Ciudad de México
+  "10": "MXDUR", // Durango
+  "11": "MXGUA", // Guanajuato
+  "12": "MXGRO", // Guerrero
+  "13": "MXHID", // Hidalgo
+  "14": "MXJAL", // Jalisco
+  "15": "MXMEX", // México
+  "16": "MXMIC", // Michoacán
+  "17": "MXMOR", // Morelos
+  "18": "MXNAY", // Nayarit
+  "19": "MXNLE", // Nuevo León
+  "20": "MXOAX", // Oaxaca
+  "21": "MXPUE", // Puebla
+  "22": "MXQUE", // Querétaro
+  "23": "MXROO", // Quintana Roo
+  "24": "MXSLP", // San Luis Potosí
+  "25": "MXSIN", // Sinaloa
+  "26": "MXSON", // Sonora
+  "27": "MXTAB", // Tabasco
+  "28": "MXTAM", // Tamaulipas
+  "29": "MXTLA", // Tlaxcala
+  "30": "MXVER", // Veracruz
+  "31": "MXYUC", // Yucatán
+  "32": "MXZAC", // Zacatecas
 }
 
-// Niveles de zoom por estado
-const stateZoomLevels = {
-  MXROO: 6,
-  MXYUC: 6,
-  MXCAM: 6,
-  MXCHP: 6,
-  MXTAB: 6,
-}
+// Componente Tooltip mejorado con portal y ajuste automático
+const MapTooltip = ({ x, y, municipality, containerRef }) => {
+  const [pos, setPos] = useState({ left: x, top: y })
+  const tooltipRef = useRef(null)
 
-// Componente Tooltip
-const MapTooltip = ({ x, y, municipality }) => {
+  useEffect(() => {
+    if (!tooltipRef.current || !containerRef?.current) return
+    const tooltipRect = tooltipRef.current.getBoundingClientRect()
+    const containerRect = containerRef.current.getBoundingClientRect()
+    // Posición absoluta respecto al viewport
+    let left = containerRect.left + x + 4
+    let top = containerRect.top + y - 4 - tooltipRect.height
+    // Ajuste horizontal para no salir de la pantalla
+    if (left + tooltipRect.width > window.innerWidth) {
+      left = window.innerWidth - tooltipRect.width - 4
+    }
+    if (left < 0) left = 4
+    // Ajuste vertical para no salir de la pantalla
+    if (top < 0) top = containerRect.top + y + 4
+    setPos({ left, top })
+  }, [x, y, municipality, containerRef])
+
   if (!municipality) return null
 
-  return (
+  const tooltip = (
     <div
+      ref={tooltipRef}
       style={{
         position: "absolute",
-        left: `${x + 10}px`,
-        top: `${y - 10}px`,
-        transform: "translate(0, -100%)",
+        left: pos.left,
+        top: pos.top,
         backgroundColor: "rgba(255, 255, 255, 0.95)",
         padding: "8px 12px",
         borderRadius: "6px",
@@ -108,6 +147,8 @@ const MapTooltip = ({ x, y, municipality }) => {
       </div>
     </div>
   )
+  // Usar portal para renderizar el tooltip fuera del flujo normal del DOM
+  return createPortal(tooltip, document.body)
 }
 
 // Añadir estos estilos globales al inicio del archivo, justo después de "use client"
@@ -337,16 +378,9 @@ export default function EstatalDashboard() {
       MXCAM: [
         { municipality: "Campeche", geofenceExits: 30, hoursWorked: 700, hospitals: 3, employees: 60, id: "MXCAM_CAM" },
         { municipality: "Carmen", geofenceExits: 20, hoursWorked: 500, hospitals: 2, employees: 40, id: "MXCAM_CAR" },
-        {
-          municipality: "Champotón",
-          geofenceExits: 10,
-          hoursWorked: 300,
-          hospitals: 1,
-          employees: 20,
-          id: "MXCAM_CHA",
-        },
-        { municipality: "Escárcega", geofenceExits: 8, hoursWorked: 200, hospitals: 1, employees: 15, id: "MXCAM_ESC" },
-        { municipality: "Calkiní", geofenceExits: 5, hoursWorked: 150, hospitals: 1, employees: 10, id: "MXCAM_CAL" },
+        { municipality: "Calkiní", geofenceExits: 10, hoursWorked: 300, hospitals: 1, employees: 20, id: "MXCAM_CAL" },
+        { municipality: "Palizada", geofenceExits: 8, hoursWorked: 200, hospitals: 1, employees: 15, id: "MXCAM_PAL" },
+        { municipality: "Champotón", geofenceExits: 5, hoursWorked: 150, hospitals: 1, employees: 10, id: "MXCAM_CHA" },
       ],
       MXCHP: [
         {
@@ -414,41 +448,45 @@ export default function EstatalDashboard() {
     }
     setMunicipalityData(mockMunicipalityData[selectedState] || [])
     setIsLoading(false)
-  }, [selectedState])
-
-  // Cargar municipios GeoJSON (fallback de importación del lado del cliente)
+  }, [selectedState])  // Cargar municipios TopoJSON del sureste mexicano (mx_tj.json - versión optimizada)
   useEffect(() => {
     async function fetchMunicipios() {
       try {
-        console.log("[Debug] Attempting to fetch municipios GeoJSON...")
-        const res = await fetch("/lib/municipiosmx.json")
+        console.log("[Debug] Attempting to fetch mx_tj.json (Southeast Mexico TopoJSON)...")
+        const res = await fetch("/lib/mx_tj.json")
         if (!res.ok) {
           throw new Error(`HTTP error! status: ${res.status}`)
         }
         const data = await res.json()
-        console.log("[Debug] Municipios GeoJSON structure:", {
+        console.log("[Debug] mx_tj.json TopoJSON structure:", {
           type: data.type,
-          featuresCount: data.features?.length,
-          sampleFeature: data.features?.[0],
+          objects: Object.keys(data.objects || {}),
+          municipalitiesCount: data.objects?.municipalities?.geometries?.length,
+          statesCount: data.objects?.states?.geometries?.length,
+          sampleMunicipality: data.objects?.municipalities?.geometries?.[0],
         })
 
-        // Validate GeoJSON structure
-        if (!data.type || !data.features || !Array.isArray(data.features)) {
-          console.error("[Error] Invalid GeoJSON structure:", data)
+        // Validate TopoJSON structure
+        if (!data.type || data.type !== "Topology" || !data.objects || !data.objects.municipalities) {
+          console.error("[Error] Invalid TopoJSON structure:", data)
           return
         }
 
+        // Mostrar estados disponibles en el TopoJSON
+        if (data.objects.municipalities?.geometries) {
+          const availableStates = [...new Set(data.objects.municipalities.geometries.map(m => m.properties?.state_name))].filter(Boolean)
+          console.log("[Debug] Available states in TopoJSON:", availableStates)
+        }
+
         setMunicipiosGeo(data)
-        console.log("[Debug] Municipios loaded successfully")
+        console.log("[Debug] mx_tj.json TopoJSON loaded successfully - Southeast Mexico municipalities available")
       } catch (e) {
-        console.error("[Error] Failed loading municipiosmx.json:", e)
+        console.error("[Error] Failed loading mx_tj.json (Southeast Mexico TopoJSON):", e)
         setMunicipiosGeo(null)
       }
     }
     fetchMunicipios()
-  }, [])
-
-  // Crear GeoJSON filtrado para los municipios del estado seleccionado
+  }, [])  // Crear GeoJSON filtrado para los municipios del estado seleccionado (usando mx_tj.json TopoJSON)
   const filteredMunicipiosGeo = useMemo(() => {
     if (!municipiosGeo || !selectedState) {
       console.log("[Debug] Cannot create filteredMunicipiosGeo:", {
@@ -458,19 +496,75 @@ export default function EstatalDashboard() {
       return null
     }
 
+    // Verificar que tenemos la estructura TopoJSON correcta
+    if (!municipiosGeo.objects?.municipalities?.geometries) {
+      console.error("[Error] Invalid TopoJSON structure - missing municipalities:", municipiosGeo.objects)
+      return null
+    }
+
+    // Obtener el código numérico del estado seleccionado
     const stateName = stateCodeToName[selectedState]
     if (!stateName) {
       console.error("[Error] No state name found for:", selectedState)
       return null
     }
 
-    const filtered = municipiosGeo.features.filter((f) => f.properties.NAME_1 === stateName)
-    console.log(`[Debug] Found ${filtered.length} municipalities for state ${selectedState} (name: ${stateName})`)
+    // Encontrar el código numérico correspondiente al estado seleccionado
+    const stateCode = Object.keys(stateCodeMapping).find(code => stateCodeMapping[code] === selectedState)
+    if (!stateCode) {
+      console.error("[Error] No state code found for:", selectedState)
+      return null
+    }
 
-    // Create proper GeoJSON structure for filtered municipalities
-    return {
-      type: "FeatureCollection",
-      features: filtered,
+    console.log("[Debug] Filtering municipalities for state:", {
+      selectedState,
+      stateName,
+      stateCode
+    })
+
+    try {
+      // Convertir TopoJSON completo a GeoJSON primero
+      const allMunicipalities = feature(municipiosGeo, municipiosGeo.objects.municipalities)
+      
+      console.log("[Debug] Converted TopoJSON to GeoJSON:", {
+        type: allMunicipalities.type,
+        featuresCount: allMunicipalities.features?.length,
+        sampleFeature: allMunicipalities.features?.[0]
+      })
+
+      // Filtrar municipios por código del estado
+      const filtered = allMunicipalities.features.filter((feature) => {
+        const stateCodeInTopo = String(feature.properties?.state_code)
+         const match = String(feature.properties.state_code).padStart(2, "0") === stateCode
+        
+        if (match) {
+          console.log("[Debug] Found municipality for state:", {
+            municipality: feature.properties?.mun_name,
+            stateCode: stateCodeInTopo,
+            munCode: feature.properties?.mun_code
+          })
+        }
+        
+        return match
+      })
+
+      console.log(`[Debug] Found ${filtered.length} municipalities for state ${selectedState} (code: ${stateCode}) in TopoJSON`)
+
+      // Mostrar todos los municipios disponibles para debug
+      if (filtered.length > 0) {
+        console.log("[Debug] Available municipalities in TopoJSON for this state:", 
+          filtered.map(f => f.properties?.mun_name).filter(Boolean).sort()
+        )
+      }
+
+      // Crear GeoJSON con las features filtradas
+      return {
+        type: "FeatureCollection",
+        features: filtered
+      }
+    } catch (error) {
+      console.error("[Error] Failed to convert TopoJSON to GeoJSON:", error)
+      return null
     }
   }, [selectedState, municipiosGeo])
 
@@ -507,73 +601,77 @@ export default function EstatalDashboard() {
       ])
   }, [municipalityData])
 
+  // Objeto para simplificar las comparaciones de métricas
+  const selectedMetric = useMemo(() => {
+    return metricToShow === "geofenceExits"
+      ? {
+          key: "geofenceExits",
+          scale: geofenceColorScale,
+        }
+      : {
+          key: "hoursWorked",
+          scale: hoursWorkedColorScale,
+        }
+  }, [metricToShow, geofenceColorScale, hoursWorkedColorScale])
+
   // Función para obtener el color según la métrica seleccionada
   const getColorByMetric = (municipality) => {
     if (!municipality) return "#F5F5F5" // Color por defecto para municipios sin datos
 
     try {
-      const value = metricToShow === "geofenceExits" ? municipality.geofenceExits : municipality.hoursWorked
+      const value = municipality[selectedMetric.key]
 
       if (value === undefined || value === null) {
         console.warn("[Warning] No metric value for municipality:", municipality)
         return "#F5F5F5"
       }
 
-      const scale = metricToShow === "geofenceExits" ? geofenceColorScale : hoursWorkedColorScale
-      return scale(value)
+      return selectedMetric.scale(value)
     } catch (error) {
       console.error("[Error] Failed to get color for municipality:", municipality, error)
       return "#F5F5F5"
     }
   }
 
-  // Municipios con coordenadas (proyección Mercator)
-  const municipalityCoordinates = {
-    // Quintana Roo
-    MXROO_CUN: [-86.8466, 21.1619], // Cancún
-    MXROO_PDC: [-87.0739, 20.6296], // Playa del Carmen
-    MXROO_CHE: [-88.2999, 18.5001], // Chetumal
-    MXROO_TUL: [-87.4649, 20.2114], // Tulum
-
-    // Yucatán
-    MXYUC_MER: [-89.6237, 20.9674], // Mérida
-    MXYUC_VAL: [-88.2022, 20.6896], // Valladolid
-    MXYUC_PRO: [-89.6626, 21.2811], // Progreso
-
-    // Campeche
-    MXCAM_CAM: [-90.5359, 19.8301], // Campeche
-    MXCAM_CDC: [-91.8066, 18.6515], // Ciudad del Carmen
-    MXCAM_CHA: [-90.7224, 19.3535], // Champotón
-
-    // Chiapas
-    MXCHP_TUX: [-93.1332, 16.7569], // Tuxtla Gutiérrez
-    MXCHP_SCR: [-92.6376, 16.737], // San Cristóbal
-    MXCHP_TAP: [-92.2673, 14.9101], // Tapachula
-
-    // Tabasco
-    MXTAB_VIL: [-92.9475, 17.9892], // Villahermosa
-    MXTAB_CAR: [-93.3776, 18.0001], // Cárdenas
-    MXTAB_COM: [-93.2245, 18.2709], // Comalcalco
-  }
-
-  // Ya no necesitamos el mapeo de nombres porque ahora usamos los nombres oficiales
-  const municipalityNameMap = useMemo(() => ({}), [])
+  // Cargar la configuración de estados (centro y zoom) desde el JSON generado
+  const [stateMapConfig, setStateMapConfig] = useState({})
+  useEffect(() => {
+    fetch('/lib/state_map_config.json')
+      .then(res => res.json())
+      .then(setStateMapConfig)
+      .catch(() => setStateMapConfig({}))
+  }, [])
 
   // Efecto para actualizar la posición del mapa cuando cambia el estado seleccionado
   useEffect(() => {
-    if (selectedState && stateCoordinates[selectedState]) {
-      setMapPosition({
-        coordinates: stateCoordinates[selectedState],
-        zoom: stateZoomLevels[selectedState]
-      })
-    } else {
-      // Volver a la vista general de México
-      setMapPosition({
-        coordinates: [-102, 23],
-        zoom: 3
-      })
+    if (selectedState) {
+      // Buscar el código numérico del estado seleccionado
+      const stateCode = Object.keys(stateCodeMapping).find(code => stateCodeMapping[code] === selectedState)
+      if (stateCode && stateMapConfig[stateCode]) {
+        setMapPosition({
+          coordinates: stateMapConfig[stateCode].center,
+          zoom: stateMapConfig[stateCode].zoom
+        })
+      } else if (filteredMunicipiosGeo && filteredMunicipiosGeo.features && filteredMunicipiosGeo.features.length > 0) {
+        // Calcula el centroid del estado usando d3-geo
+        const centroid = geoCentroid(filteredMunicipiosGeo)
+        setMapPosition({ coordinates: centroid, zoom: 5 })
+      } else {
+        setMapPosition({ coordinates: [-102, 23], zoom: 3 })
+      }
     }
-  }, [selectedState])
+  }, [selectedState, stateMapConfig, filteredMunicipiosGeo])
+
+  // Mapeo rápido municipio-metricas para acceso O(1)
+  const municipalityMap = useMemo(() => {
+    const map = new Map()
+    municipalityData.forEach((m) => {
+      map.set(m.municipality.toLowerCase(), m)
+    })
+    return map
+  }, [municipalityData])
+
+  const mapContainerRef = useRef(null)
 
   return (
     <>
@@ -658,7 +756,7 @@ export default function EstatalDashboard() {
                     {/* Selector Rápido */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Selección Rápida
+                        Selección Rápido
                       </label>
                       <select
                         value={selectedPreset}
@@ -798,7 +896,7 @@ export default function EstatalDashboard() {
                 </div>
               </div>
 
-              <div className="h-[450px] relative bg-gray-50 rounded-lg overflow-hidden">
+              <div ref={mapContainerRef} className="h-[450px] relative bg-gray-50 rounded-lg overflow-hidden">
                 {/* Controles de Zoom */}
                 <div className="absolute right-4 top-4 z-10 flex flex-col gap-2">
                   <button
@@ -863,43 +961,33 @@ export default function EstatalDashboard() {
                           )
                         })
                       }
-                    </Geographies>
-
-                    {/* Renderizar polígonos de municipios solo si hay estado seleccionado */}
+                    </Geographies>                    {/* Renderizar polígonos de municipios solo si hay estado seleccionado */}
                     {selectedState && filteredMunicipiosGeo && (
                       <Geographies geography={filteredMunicipiosGeo}>
                         {({ geographies }) => {
-                          console.log("[Debug] Rendering municipalities geographies:", {
+                          console.log("[Debug] Rendering municipalities from GeoJSON:", {
                             count: geographies.length,
                             firstGeo: geographies[0]?.properties,
                           })
                           return geographies
                             .map((geo) => {
-                              const munName = geo.properties.NAME_2
+                              const munName = geo.properties?.mun_name
                               if (!munName) {
-                                console.warn("[Warning] Municipality name not found in properties:", geo.properties)
+                                console.warn("[Warning] Municipality name not found in GeoJSON properties:", geo.properties)
                                 return null
                               }
 
                               // Debug: Mostrar el nombre del municipio del GeoJSON
                               console.log("[Debug] GeoJSON Municipality:", munName)
 
-                              // Usar el mapeo de nombres si existe
-                              const mappedName = municipalityNameMap[munName] || munName
-
-                              // Debug: Mostrar el nombre mapeado
-                              console.log("[Debug] Mapped Municipality name:", mappedName)
-
-                              const munData = municipalityData.find(
-                                (m) => m.municipality && m.municipality.toLowerCase() === mappedName.toLowerCase(),
-                              )
+                              const munData = municipalityMap.get(munName.toLowerCase())
 
                               // Debug: Mostrar si se encontró coincidencia y los datos
                               console.log("[Debug] Found municipality data:", munData)
 
                               // Debug: Mostrar el color calculado
                               const color = getColorByMetric(munData)
-                              console.log("[Debug] Calculated color for", mappedName, ":", color)
+                              console.log("[Debug] Calculated color for", munName, ":", color)
 
                               return (
                                 <Geography
@@ -954,7 +1042,7 @@ export default function EstatalDashboard() {
                 </ComposableMap>
 
                 {/* Tooltip */}
-                <MapTooltip x={tooltipPosition.x} y={tooltipPosition.y} municipality={hoveredMunicipality} />
+                <MapTooltip x={tooltipPosition.x} y={tooltipPosition.y} municipality={hoveredMunicipality} containerRef={mapContainerRef} />
               </div>
             </div>
 
