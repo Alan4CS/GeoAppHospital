@@ -135,16 +135,35 @@ router.post("/empleados/login", async (req, res) => {
  * POST /api/ubicaciones
  * Actualiza la ubicación del usuario y verifica si está dentro de la geocerca
  * evento: 0 - salió geocerca, 1 - entró geocerca, 2 - inicio descanso, 3 - terminó descanso
+ * fecha_hora: (opcional) Fecha y hora ISO 8601 cuando ocurrió el registro. Si no se proporciona, usa la hora actual del servidor.
  */
 router.post("/ubicaciones", authenticateToken, async (req, res) => {
-    const { latitud, longitud, tipo_registro, evento } = req.body;
+    const { latitud, longitud, tipo_registro, evento, fecha_hora } = req.body;
     const id_user = req.user.id_user;
 
     if (latitud == null || longitud == null || (tipo_registro !== 0 && tipo_registro !== 1)) {
         return res.status(400).json({ error: "Latitud, longitud y tipo_registro (0 o 1) son obligatorios." });
-    }    // Validar evento si se proporciona
+    }
+
+    // Validar evento si se proporciona
     if (evento != null && ![0, 1, 2, 3].includes(evento)) {
         return res.status(400).json({ error: "El evento debe ser 0 (salió geocerca), 1 (entró geocerca), 2 (inicio descanso) o 3 (terminó descanso)." });
+    }
+
+    // Usar la fecha_hora del cliente si se proporciona, si no usar la actual del servidor
+    let fechaHoraRegistro;
+    if (fecha_hora) {
+        try {
+            fechaHoraRegistro = new Date(fecha_hora);
+            // Validar que sea una fecha válida
+            if (isNaN(fechaHoraRegistro.getTime())) {
+                return res.status(400).json({ error: "El formato de fecha_hora no es válido." });
+            }
+        } catch (error) {
+            return res.status(400).json({ error: "El formato de fecha_hora no es válido." });
+        }
+    } else {
+        fechaHoraRegistro = new Date();
     }
 
     try {
@@ -212,18 +231,18 @@ router.post("/ubicaciones", authenticateToken, async (req, res) => {
         await pool.query(
             `INSERT INTO registro_ubicaciones 
              (id_user, latitud, longitud, fecha_hora, dentro_geocerca, tipo_registro, evento)
-             VALUES ($1, $2, $3, NOW(), $4, $5, $6)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
              RETURNING *`,
-            [id_user, latitud, longitud, dentro_geocerca, tipo_registro, eventoFinal]
+            [id_user, latitud, longitud, fechaHoraRegistro, dentro_geocerca, tipo_registro, eventoFinal]
         );
-        console.log(`✅ Se insertó nueva ubicación para el usuario ${id_user}`);
+        console.log(`✅ Se insertó nueva ubicación para el usuario ${id_user} con fecha: ${fechaHoraRegistro.toISOString()}`);
 
         res.status(200).json({
             mensaje: "Ubicación registrada correctamente.",
             dentro_geocerca,
             tipo_registro,
             evento: eventoFinal,
-            fecha_hora: new Date()
+            fecha_hora: fechaHoraRegistro
         });
 
     } catch (error) {
