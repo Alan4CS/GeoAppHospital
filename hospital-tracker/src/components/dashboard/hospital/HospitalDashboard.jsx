@@ -1027,10 +1027,10 @@ const HospitalDashboard = () => {
                 <h3 className="text-lg font-bold text-gray-800">Filtros de Análisis</h3>
               </div>
 
-              {/* Primera fila: Período de análisis */}
-              <div className="grid grid-cols-1 lg:grid-cols-6 gap-4 items-end">
+              {/* Primera fila: Período, Fecha inicio, Fecha fin */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-end">
                 {/* Selector de presets */}
-                <div className="lg:col-span-1">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Período</label>
                   <select
                     value={selectedPreset}
@@ -1045,9 +1045,8 @@ const HospitalDashboard = () => {
                     ))}
                   </select>
                 </div>
-
                 {/* Fecha inicio */}
-                <div className="lg:col-span-1">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Fecha inicio</label>
                   <div className="flex items-center">
                     <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center mr-2">
@@ -1061,9 +1060,8 @@ const HospitalDashboard = () => {
                     />
                   </div>
                 </div>
-
                 {/* Fecha fin */}
-                <div className="lg:col-span-1">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Fecha fin</label>
                   <div className="flex items-center">
                     <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
@@ -1077,9 +1075,12 @@ const HospitalDashboard = () => {
                     />
                   </div>
                 </div>
+              </div>
 
+              {/* Segunda fila: Estado, Municipio, Hospital y botones */}
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-end mt-4">
                 {/* Estado */}
-                <div className="lg:col-span-1">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
                   <div className="flex items-center">
                     <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center mr-2">
@@ -1099,9 +1100,8 @@ const HospitalDashboard = () => {
                     </select>
                   </div>
                 </div>
-
                 {/* Municipio */}
-                <div className="lg:col-span-1">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Municipio</label>
                   <div className="flex items-center">
                     <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center mr-2">
@@ -1122,9 +1122,8 @@ const HospitalDashboard = () => {
                     </select>
                   </div>
                 </div>
-
                 {/* Hospital */}
-                <div className="lg:col-span-1">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Hospital</label>
                   <div className="flex items-center">
                     <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
@@ -1145,98 +1144,25 @@ const HospitalDashboard = () => {
                     </select>
                   </div>
                 </div>
-              </div>
-
-              {/* Segunda fila: Ubicación y botón aplicar */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end mt-2">
-                {/* Estado */}
-                <div className="lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center mr-2">
-                      <MapPin className="h-4 w-4 text-indigo-500" />
-                    </div>
-                    <select
-                      value={filters.id_estado}
-                      onChange={handleEstadoChange}
-                      className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="">Seleccionar Estado</option>
-                      {estados.map((estado) => (
-                        <option key={estado.id_estado} value={estado.id_estado}>
-                          {estado.nombre_estado}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                {/* Botones */}
+                <div className="flex gap-2 justify-end mt-6 lg:mt-0">
+                  <button
+                    onClick={limpiarFiltros}
+                    className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 text-sm"
+                  >
+                    Limpiar Filtros
+                  </button>
+                  <button
+                    onClick={() => {
+                      applyChanges();
+                    }}
+                    className="px-3 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center text-sm"
+                    style={{ minHeight: '44px' }}
+                  >
+                    <Check className="h-4 w-4 mr-1" />
+                    Aplicar Filtros
+                  </button>
                 </div>
-
-                {/* Municipio */}
-                <div className="lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Municipio</label>
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center mr-2">
-                      <MapPin className="h-4 w-4 text-purple-500" />
-                    </div>
-                    <select
-                      value={filters.id_municipio}
-                      onChange={handleMunicipioChange}
-                      disabled={!filters.id_estado}
-                      className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    >
-                      <option value="">Seleccionar Municipio</option>
-                      {municipios.map((municipio) => (
-                        <option key={municipio.id_municipio} value={municipio.id_municipio}>
-                          {municipio.nombre_municipio}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Hospital */}
-                <div className="lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Hospital</label>
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
-                      <Building2 className="h-4 w-4 text-blue-500" />
-                    </div>
-                    <select
-                      value={filters.id_hospital}
-                      onChange={handleHospitalChange}
-                      disabled={!filters.id_municipio}
-                      className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Seleccionar Hospital</option>
-                      {hospitales.map((hospital) => (
-                        <option key={hospital.id_hospital} value={hospital.id_hospital}>
-                          {hospital.nombre_hospital}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Botones de acción, fuera del grid, alineados a la derecha y con margen superior */}
-              <div className="flex gap-2 justify-end mt-6">
-                <button
-                  onClick={limpiarFiltros}
-                  className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 text-sm"
-                >
-                  Limpiar Filtros
-                </button>
-                <button
-                  onClick={() => {
-                    applyChanges();
-                    // Aquí puedes agregar lógica adicional si es necesario
-                  }}
-                  className="px-3 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center text-sm"
-                  style={{ minHeight: '44px' }}
-                >
-                  <Check className="h-4 w-4 mr-1" />
-                  Aplicar Filtros
-                </button>
               </div>
 
               {/* Mensajes informativos */}
