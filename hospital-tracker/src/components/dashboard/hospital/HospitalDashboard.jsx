@@ -221,6 +221,7 @@ const EmployeeCalendarView = ({ employee, startDate, endDate }) => {
   const [calendarData, setCalendarData] = useState([])
   const [selectedDay, setSelectedDay] = useState(null)
   const [hourlyData, setHourlyData] = useState([])
+  const [loadingPDF, setLoadingPDF] = useState(false)
 
   // Calcular si debe mostrar navegación
   const daysDiff = differenceInDays(new Date(endDate), new Date(startDate))
@@ -315,53 +316,63 @@ const EmployeeCalendarView = ({ employee, startDate, endDate }) => {
       {/* Botón de descarga de PDF mejorado */}
       <div className="flex justify-end mb-4">
         <button
-          className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-200"
-          onClick={() => {
+          className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-60"
+          disabled={loadingPDF}
+          onClick={async () => {
+            setLoadingPDF(true)
             const eventsByDay = {}
-            const timelineData = {}
-
-            calendarData.forEach((day) => {
-              const dateStr = format(day.date, "yyyy-MM-dd")
-              if (day.status === "completed") {
-                const events = generateRealisticGeofenceEvents(day.date, employee)
-                eventsByDay[dateStr] = events
-
-                // Generar datos de timeline para el PDF
-                timelineData[dateStr] = [
-                  {
-                    startTime: "07:00",
-                    endTime: "11:00",
-                    status: "within",
-                    description: "Trabajo normal",
-                  },
-                  {
-                    startTime: "11:00",
-                    endTime: "11:30",
-                    status: "outside",
-                    description: "Fuera de geocerca",
-                  },
-                  {
-                    startTime: "11:30",
-                    endTime: "16:00",
-                    status: "within",
-                    description: "Trabajo normal",
-                  },
-                ]
+            try {
+              // Usar solo un fetch para todo el rango
+              const fechaInicio = `${startDate} 00:00:00`
+              const fechaFin = `${endDate} 23:59:59`
+              const res = await fetch("http://localhost:4000/api/reportes/empleado", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  empleadoId: employee.id,
+                  fechaInicio,
+                  fechaFin,
+                }),
+              })
+              const data = await res.json()
+              // Agrupar actividades por día (yyyy-MM-dd)
+              if (Array.isArray(data.actividades)) {
+                data.actividades.forEach((act) => {
+                  const dateStr = act.fecha_hora.slice(0, 10)
+                  if (!eventsByDay[dateStr]) eventsByDay[dateStr] = []
+                  eventsByDay[dateStr].push(act)
+                })
               }
-            })
-
-            generarReporteEmpleadoPDF({
-              empleado: employee,
-              calendarData,
-              startDate,
-              endDate,
-              eventsByDay,
-              timelineData,
-            })
+              // Mapear empleado a formato PDF
+              const empleadoPDF = {
+                name: `${employee.nombre || employee.name || ''} ${employee.ap_paterno || ''} ${employee.ap_materno || ''}`.trim(),
+                schedule: '45 horas semanales a cumplir',
+                grupo: employee.grupo || employee.nombre_grupo || '',
+                hospital: employee.hospital || employee.nombre_hospital || '',
+                estado: employee.estado || employee.nombre_estado || '',
+                municipio: employee.municipio || employee.nombre_municipio || '',
+              }
+              await generarReporteEmpleadoPDF({
+                empleado: empleadoPDF,
+                calendarData,
+                startDate,
+                endDate,
+                eventsByDay,
+              })
+            } catch (err) {
+              alert("Error al generar el PDF con datos reales")
+            }
+            setLoadingPDF(false)
           }}
         >
-          <Download className="h-4 w-4" />
-          Descargar Reporte PDF
+          {loadingPDF ? (
+            <span className="flex items-center gap-2"><span className="animate-spin h-4 w-4 border-2 border-white border-t-blue-400 rounded-full"></span> Generando PDF...</span>
+          ) : (
+            <>
+              <Download className="h-4 w-4" />
+              Descargar Reporte PDF
+            </>
+          )}
         </button>
       </div>
 
