@@ -1,10 +1,17 @@
 import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 
+// Constantes para medidas fijas
+const TIMELINE_WIDTH = 600; // Ancho fijo en puntos
+const TIMELINE_HEIGHT = 80;
+const TIMELINE_MARGIN = 20; // Margen lateral
+const BAR_HEIGHT = 8; // Aumentado de 4 a 8
+const NODE_SIZE = 12; // Aumentado ligeramente
+
 const timelineStyles = StyleSheet.create({
   timelineContainer: {
     marginVertical: 20,
-    paddingHorizontal: 10,
+    paddingHorizontal: TIMELINE_MARGIN,
   },
   timelineTitle: {
     fontSize: 12,
@@ -12,106 +19,212 @@ const timelineStyles = StyleSheet.create({
     marginBottom: 15,
     color: '#198754',
   },
+  timelineWrapper: {
+    position: 'relative',
+    width: TIMELINE_WIDTH,
+    height: 120, // Aumentado para mejor espacio
+    marginHorizontal: 'auto',
+  },
+  // Escala de tiempo superior
   timeScale: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 5,
-    paddingHorizontal: 5,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 20,
   },
   timeLabel: {
+    position: 'absolute',
     fontSize: 8,
-    color: '#666',
+    color: '#555',
     textAlign: 'center',
-    minWidth: 35,
+    width: 40,
+    marginLeft: -20,
+    fontWeight: '500',
   },
+  timeTick: {
+    position: 'absolute',
+    top: 18,
+    width: 1,
+    height: 8,
+    backgroundColor: '#bbb',
+  },
+  // Barra principal de tiempo
   timelineTrack: {
-    position: 'relative',
-    height: 60,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 3,
-    marginBottom: 10,
+    position: 'absolute',
+    top: 35,
+    left: 0,
+    width: TIMELINE_WIDTH,
+    height: BAR_HEIGHT + 35, // Más espacio para nodos y conectores
   },
   timelineBar: {
     position: 'absolute',
-    top: 25,
-    left: 5,
-    right: 5,
-    height: 4,
-    backgroundColor: '#dee2e6',
-    borderRadius: 2,
+    top: 20, // Centrado verticalmente en el track
+    left: 0,
+    width: TIMELINE_WIDTH,
+    height: BAR_HEIGHT,
+    backgroundColor: '#e9ecef',
+    borderRadius: 4,
+    boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
   },
+  // Línea conectora horizontal entre nodos
+  nodeConnectorLine: {
+    position: 'absolute',
+    top: 20 + (BAR_HEIGHT / 2) - 1, // A la altura exacta de la barra
+    height: 2,
+    backgroundColor: '#198754',
+    borderRadius: 1,
+  },
+  // Intervalos de tiempo (dentro/fuera de geocerca)
   timeInterval: {
     position: 'absolute',
-    top: 25,
-    height: 4,
-    borderRadius: 2,
+    top: 20,
+    height: BAR_HEIGHT,
+    borderRadius: 4,
   },
   intervalInside: {
     backgroundColor: '#28a745',
+    boxShadow: '0 1px 3px rgba(40, 167, 69, 0.3)',
   },
   intervalOutside: {
     backgroundColor: '#dc3545',
+    boxShadow: '0 1px 3px rgba(220, 53, 69, 0.3)',
   },
+  // Nodos de eventos - SIMPLIFICADOS sin líneas duplicadas
   eventNode: {
     position: 'absolute',
-    top: 15,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    top: 20 + (BAR_HEIGHT / 2) - (NODE_SIZE / 2), // Centrado en la barra
+    width: NODE_SIZE,
+    height: NODE_SIZE,
+    borderRadius: NODE_SIZE/2,
     backgroundColor: '#198754',
-    border: '2px solid white',
-    zIndex: 2,
+    border: '3px solid white',
+    marginLeft: -NODE_SIZE/2,
+    boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
   },
-  eventNodeSpecial: {
+  eventNodeEntry: {
+    backgroundColor: '#28a745',
+    border: '3px solid #d4edda',
+  },
+  eventNodeExit: {
+    backgroundColor: '#dc3545',
+    border: '3px solid #f8d7da',
+  },
+  eventNodeBreak: {
     backgroundColor: '#ffc107',
+    border: '3px solid #fff3cd',
   },
+  eventNodeGeofence: {
+    backgroundColor: '#17a2b8',
+    border: '3px solid #d1ecf1',
+  },
+  // Conectores verticales - UNA SOLA LÍNEA POR EVENTO
+  eventConnector: {
+    position: 'absolute',
+    top: 20 + (BAR_HEIGHT / 2), // Desde el centro de la barra
+    width: 2,
+    backgroundColor: '#198754',
+    marginLeft: -1,
+    borderRadius: 1,
+  },
+  // Etiquetas de eventos - SOLO TEXTO PLANO, SIN SUPERPOSICIÓN
   eventLabel: {
     position: 'absolute',
-    fontSize: 7,
-    color: '#333',
+    fontSize: 9,
+    color: '#2c3e50',
+    fontWeight: 600,
     textAlign: 'center',
-    backgroundColor: 'white',
-    padding: 2,
-    borderRadius: 2,
-    minWidth: 60,
-    marginLeft: -30,
-    // El top se ajustará dinámicamente
+    width: 100, // Reducido para menos superposición
+    marginLeft: -50, // Centrado respecto al nodo
+    lineHeight: 1.2,
+    backgroundColor: 'rgba(255,255,255,0.9)', // Fondo semi-transparente para legibilidad
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+    borderRadius: 3,
   },
-  intervalLabels: {
-    flexDirection: 'row',
-    marginTop: 5,
-    paddingHorizontal: 5,
+  // Etiquetas de eventos arriba/abajo según posición
+  eventLabelAbove: {
+    top: 20 + (BAR_HEIGHT / 2) - 35, // Más separación arriba
+  },
+  eventLabelBelow: {
+    top: 20 + (BAR_HEIGHT / 2) + 20, // Más separación abajo
+  },
+  // Etiquetas de intervalos - CENTRADAS EN SU INTERVALO
+  intervalLabelsContainer: {
+    position: 'absolute',
+    top: 65, // Más abajo para evitar superposición
+    left: 0,
+    right: 0,
+    height: 28,
   },
   intervalLabel: {
     position: 'absolute',
-    fontSize: 6,
-    color: '#666',
+    fontSize: 9,
+    color: '#495057',
     textAlign: 'center',
     backgroundColor: '#f8f9fa',
-    padding: 1,
-    borderRadius: 2,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    border: '1px solid #dee2e6',
+    minWidth: 60,
+    fontWeight: '500',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+    lineHeight: 1.1,
+  },
+  // Leyenda mejorada
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 20,
+    gap: 25,
+    flexWrap: 'wrap',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 6,
+  },
+  legendColor: {
+    width: 12,
+    height: 12,
+    borderRadius: 3,
+    border: '1px solid rgba(0,0,0,0.1)',
+  },
+  legendText: {
+    fontSize: 9,
+    color: '#495057',
+    fontWeight: '500',
   },
 });
 
-function calculatePosition(time, startTime, endTime, containerWidth = 100) {
-  const totalMinutes = (endTime - startTime) / (1000 * 60);
-  const eventMinutes = (time - startTime) / (1000 * 60);
-  return Math.max(0, Math.min(containerWidth, (eventMinutes / totalMinutes) * containerWidth));
+// Función mejorada para calcular posición absoluta
+function calculateAbsolutePosition(time, startTime, endTime, containerWidth = TIMELINE_WIDTH) {
+  const totalMs = endTime - startTime;
+  const eventMs = time - startTime;
+  if (totalMs <= 0) return 0;
+  return Math.max(0, Math.min(containerWidth, (eventMs / totalMs) * containerWidth));
 }
 
+// Generar escala de tiempo con marcas cada hora
 function generateTimeScale(startTime, endTime) {
   const scale = [];
   const start = new Date(startTime);
   const end = new Date(endTime);
+  
+  // Redondear al inicio de la hora más cercana
   start.setMinutes(0, 0, 0);
   if (start < new Date(startTime)) {
     start.setHours(start.getHours() + 1);
   }
+  
   let current = new Date(start);
   while (current <= end) {
     scale.push(new Date(current));
     current.setHours(current.getHours() + 1);
   }
+  
   return scale;
 }
 
@@ -126,6 +239,29 @@ function formatTime(date) {
 function formatHora(fechaStr) {
   const fecha = new Date(fechaStr);
   return fecha.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+// Función para determinar el tipo de nodo
+function getNodeType(evento) {
+  switch (evento.tipo) {
+    case 'entrada': return 'entry';
+    case 'salida': return 'exit';
+    case 'descanso': return 'break';
+    case 'geocerca': return 'geofence';
+    default: return 'default';
+  }
+}
+
+// Función para obtener ícono del evento
+function getEventIcon(evento) {
+  switch (evento.tipo) {
+    case 'entrada': return '✓ ';
+    case 'salida': return '✗ ';
+    case 'geocerca': 
+      return evento.descripcion.includes('Entró') ? '→ ' : '← ';
+    case 'descanso': return '⏸ ';
+    default: return '';
+  }
 }
 
 // Función para generar eventos y intervalos basados en el resumen del día
@@ -250,10 +386,36 @@ function generarEventosYIntervalosDelResumen(actividades) {
   return { eventos, intervalos };
 }
 
+// Función mejorada para evitar superposición de etiquetas
+function calculateLabelPosition(eventos, currentIndex, basePosition) {
+  const MIN_DISTANCE = 120; // Aumentada la distancia mínima entre etiquetas
+  const LABEL_WIDTH = 100;
+  let isAbove = currentIndex % 2 === 0; // Alternar arriba/abajo
+  let horizontalOffset = 0;
+  
+  // Verificar superposición con eventos anteriores
+  for (let i = 0; i < currentIndex; i++) {
+    const prevPosition = eventos[i].__position;
+    const distance = Math.abs(basePosition - prevPosition);
+    
+    if (distance < MIN_DISTANCE) {
+      // Si hay superposición horizontal, aplicar desplazamiento
+      if (distance < LABEL_WIDTH / 2) {
+        horizontalOffset = basePosition > prevPosition ? 25 : -25;
+      }
+      // Forzar posición opuesta (arriba/abajo)
+      isAbove = !isAbove;
+      break;
+    }
+  }
+  
+  return { isAbove, horizontalOffset };
+}
+
 const TimelineComponent = ({ actividades, titulo = "LÍNEA DE TIEMPO DE LA JORNADA" }) => {
   if (!actividades || actividades.length === 0) {
     return (
-      <View style={timelineStyles.timelineContainer}>
+      <View style={timelineStyles.timelineContainer} wrap={false}>
         <Text style={timelineStyles.timelineTitle}>{titulo}</Text>
         <Text style={{ textAlign: 'center', color: '#666', fontSize: 10 }}>
           No hay actividades para mostrar
@@ -266,107 +428,197 @@ const TimelineComponent = ({ actividades, titulo = "LÍNEA DE TIEMPO DE LA JORNA
   const startTime = new Date(ordenadas[0].fecha_hora);
   const endTime = new Date(ordenadas[ordenadas.length - 1].fecha_hora);
   
-  // Margen de 30 minutos
-  const margin = 30 * 60 * 1000;
+  // Margen de 45 minutos para mejor visualización
+  const margin = 45 * 60 * 1000;
   const displayStart = new Date(startTime.getTime() - margin);
   const displayEnd = new Date(endTime.getTime() + margin);
   
   const timeScale = generateTimeScale(displayStart, displayEnd);
-
-  // Usar la función para generar solo los eventos del resumen
   const { eventos: eventosClave, intervalos } = generarEventosYIntervalosDelResumen(ordenadas);
 
+  // Calcular posiciones para línea conectora
+  const eventPositions = eventosClave.map(evento => 
+    calculateAbsolutePosition(evento.time, displayStart, displayEnd)
+  );
+
   return (
-    <View style={timelineStyles.timelineContainer}>
+    <View style={timelineStyles.timelineContainer} wrap={false}>
       <Text style={timelineStyles.timelineTitle}>{titulo}</Text>
-      
-      <View style={timelineStyles.timeScale}>
-        {timeScale.map((time, idx) => (
-          <Text key={idx} style={timelineStyles.timeLabel}>
-            {formatTime(time)}
-          </Text>
-        ))}
-      </View>
-      
-      <View style={timelineStyles.timelineTrack}>
-        <View style={timelineStyles.timelineBar} />
+      <View style={timelineStyles.timelineWrapper}>
+        {/* Escala de tiempo superior */}
+        <View style={timelineStyles.timeScale}>
+          {timeScale.map((time, idx) => {
+            const position = calculateAbsolutePosition(time, displayStart, displayEnd);
+            return (
+              <View key={idx}>
+                <Text style={[timelineStyles.timeLabel, { left: position }]}>
+                  {formatTime(time)}
+                </Text>
+                <View style={[timelineStyles.timeTick, { left: position }]} />
+              </View>
+            );
+          })}
+        </View>
         
-        {/* Intervalos de tiempo dentro/fuera */}
-        {intervalos.map((intervalo, idx) => {
-          const leftPos = calculatePosition(intervalo.inicio, displayStart, displayEnd, 90);
-          const rightPos = calculatePosition(intervalo.fin, displayStart, displayEnd, 90);
-          const width = rightPos - leftPos;
-          return (
+        {/* Track principal */}
+        <View style={timelineStyles.timelineTrack}>
+          {/* Barra base */}
+          <View style={timelineStyles.timelineBar} />
+          
+          {/* Línea conectora horizontal entre nodos */}
+          {eventPositions.length > 1 && (
             <View
-              key={`interval-${idx}`}
               style={[
-                timelineStyles.timeInterval,
-                intervalo.dentro ? timelineStyles.intervalInside : timelineStyles.intervalOutside,
+                timelineStyles.nodeConnectorLine,
                 {
-                  left: `${leftPos + 5}%`,
-                  width: `${width}%`,
+                  left: eventPositions[0],
+                  width: eventPositions[eventPositions.length - 1] - eventPositions[0],
                 },
               ]}
             />
-          );
-        })}
-        
-        {/* Eventos clave */}
-        {eventosClave.map((evento, idx) => {
-          const position = calculatePosition(evento.time, displayStart, displayEnd, 90);
-          // Alternar la posición vertical de las etiquetas para evitar encimado
-          const labelTop = idx % 2 === 0 ? -18 : 22; // alterna arriba y abajo de la línea
-          return (
-            <View key={`event-${idx}`}>
+          )}
+          
+          {/* Intervalos de tiempo dentro/fuera */}
+          {intervalos.map((intervalo, idx) => {
+            const startPos = calculateAbsolutePosition(intervalo.inicio, displayStart, displayEnd);
+            const endPos = calculateAbsolutePosition(intervalo.fin, displayStart, displayEnd);
+            const width = endPos - startPos;
+            
+            return (
               <View
+                key={`interval-${idx}`}
                 style={[
-                  timelineStyles.eventNode,
-                  (evento.tipo === 'entrada' || evento.tipo === 'salida') && timelineStyles.eventNodeSpecial,
-                  { left: `${position + 5}%` },
+                  timelineStyles.timeInterval,
+                  intervalo.dentro ? timelineStyles.intervalInside : timelineStyles.intervalOutside,
+                  {
+                    left: startPos,
+                    width: width,
+                  },
                 ]}
               />
+            );
+          })}
+          
+          {/* Eventos clave - SIN LÍNEAS DUPLICADAS Y SIN SUPERPOSICIÓN */}
+          {eventosClave.map((evento, idx) => {
+            const position = calculateAbsolutePosition(evento.time, displayStart, displayEnd);
+            const nodeType = getNodeType(evento);
+            const eventIcon = getEventIcon(evento);
+            
+            // Guardar posición para cálculos de superposición
+            evento.__position = position;
+            
+            // Calcular posición y desplazamiento de la etiqueta
+            const { isAbove, horizontalOffset } = calculateLabelPosition(eventosClave, idx, position);
+            
+            // Altura del conector - DESDE EL CENTRO EXACTO DEL NODO
+            const nodeCenter = 20 + (BAR_HEIGHT / 2); // Centro vertical del nodo
+            const connectorHeight = isAbove ? 35 : 20;
+            const connectorStartY = isAbove ? nodeCenter - connectorHeight : nodeCenter;
+            
+            return (
+              <View key={`event-${idx}`}>
+                {/* Conector vertical - DESDE EL CENTRO EXACTO DEL NODO */}
+                <View style={[
+                  timelineStyles.eventConnector,
+                  { 
+                    left: position, 
+                    height: connectorHeight,
+                    top: connectorStartY,
+                  },
+                ]} />
+                
+                {/* Nodo del evento */}
+                <View
+                  style={[
+                    timelineStyles.eventNode,
+                    nodeType === 'entry' && timelineStyles.eventNodeEntry,
+                    nodeType === 'exit' && timelineStyles.eventNodeExit,
+                    nodeType === 'break' && timelineStyles.eventNodeBreak,
+                    nodeType === 'geofence' && timelineStyles.eventNodeGeofence,
+                    { left: position },
+                  ]}
+                />
+                
+                {/* Etiqueta del evento - CON DESPLAZAMIENTO PARA EVITAR SUPERPOSICIÓN */}
+                <Text
+                  style={[
+                    timelineStyles.eventLabel,
+                    isAbove ? timelineStyles.eventLabelAbove : timelineStyles.eventLabelBelow,
+                    { 
+                      left: position + horizontalOffset, // Aplicar desplazamiento horizontal
+                      marginLeft: -50 - horizontalOffset, // Ajustar centrado
+                    },
+                  ]}
+                >
+                  {`${eventIcon}${evento.descripcion}\n(${evento.hora})`}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+        
+        {/* Etiquetas de intervalos - CENTRADAS EXACTAMENTE */}
+        <View style={timelineStyles.intervalLabelsContainer}>
+          {intervalos.map((intervalo, idx) => {
+            const startPos = calculateAbsolutePosition(intervalo.inicio, displayStart, displayEnd);
+            const endPos = calculateAbsolutePosition(intervalo.fin, displayStart, displayEnd);
+            const width = endPos - startPos;
+            const centerPos = startPos + (width / 2);
+            
+            // Ajustar posición si está muy cerca de un evento
+            let adjustedPos = centerPos;
+            const labelWidth = 60;
+            
+            eventosClave.forEach(evento => {
+              const eventPos = evento.__position;
+              if (Math.abs(centerPos - eventPos) < labelWidth / 2) {
+                // Desplazar la etiqueta para evitar superposición
+                adjustedPos = eventPos > centerPos ? eventPos - labelWidth : eventPos + labelWidth;
+                adjustedPos = Math.max(labelWidth/2, Math.min(TIMELINE_WIDTH - labelWidth/2, adjustedPos));
+              }
+            });
+            
+            return (
               <Text
+                key={`label-${idx}`}
                 style={[
-                  timelineStyles.eventLabel,
-                  { left: `${position + 5}%`, top: labelTop },
+                  timelineStyles.intervalLabel, 
+                  { 
+                    left: adjustedPos,
+                    marginLeft: -30, // Centrado respecto al punto calculado
+                  }
                 ]}
               >
-                {evento.hora} {evento.descripcion}
+                {intervalo.dentro ? 'Dentro' : 'Fuera'}{"\n"}
+                ({intervalo.duracionTexto})
               </Text>
-            </View>
-          );
-        })}
-      </View>
-      
-      {/* Etiquetas de intervalos */}
-      <View style={timelineStyles.intervalLabels}>
-        {intervalos.map((intervalo, idx) => {
-          const leftPos = calculatePosition(intervalo.inicio, displayStart, displayEnd, 90);
-          const rightPos = calculatePosition(intervalo.fin, displayStart, displayEnd, 90);
-          const centerPos = leftPos + (rightPos - leftPos) / 2;
-          return (
-            <Text
-              key={`label-${idx}`}
-              style={[
-                timelineStyles.intervalLabel,
-                { left: `${centerPos + 5}%` },
-              ]}
-            >
-              {intervalo.dentro ? 'Dentro' : 'Fuera'} ({intervalo.duracionTexto})
-            </Text>
-          );
-        })}
-      </View>
-      
-      {/* Leyenda */}
-      <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 10, fontSize: 8 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 15 }}>
-          <View style={{ width: 8, height: 8, backgroundColor: '#28a745', marginRight: 3, borderRadius: 1 }} />
-          <Text style={{ fontSize: 8, color: '#666' }}>Dentro de geocerca</Text>
+            );
+          })}
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <View style={{ width: 8, height: 8, backgroundColor: '#dc3545', marginRight: 3, borderRadius: 1 }} />
-          <Text style={{ fontSize: 8, color: '#666' }}>Fuera de geocerca</Text>
+      </View>
+      
+      {/* Leyenda mejorada */}
+      <View style={timelineStyles.legend}>
+        <View style={timelineStyles.legendItem}>
+          <View style={[timelineStyles.legendColor, { backgroundColor: '#28a745' }]} />
+          <Text style={timelineStyles.legendText}>🟢 Dentro de geocerca</Text>
+        </View>
+        <View style={timelineStyles.legendItem}>
+          <View style={[timelineStyles.legendColor, { backgroundColor: '#dc3545' }]} />
+          <Text style={timelineStyles.legendText}>🔴 Fuera de geocerca</Text>
+        </View>
+        <View style={timelineStyles.legendItem}>
+          <View style={[timelineStyles.legendColor, { backgroundColor: '#28a745' }]} />
+          <Text style={timelineStyles.legendText}>✓ Entrada</Text>
+        </View>
+        <View style={timelineStyles.legendItem}>
+          <View style={[timelineStyles.legendColor, { backgroundColor: '#dc3545' }]} />
+          <Text style={timelineStyles.legendText}>✗ Salida</Text>
+        </View>
+        <View style={timelineStyles.legendItem}>
+          <View style={[timelineStyles.legendColor, { backgroundColor: '#17a2b8' }]} />
+          <Text style={timelineStyles.legendText}>→← Geocerca</Text>
         </View>
       </View>
     </View>
