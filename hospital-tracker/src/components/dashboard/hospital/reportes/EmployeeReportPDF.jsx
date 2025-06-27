@@ -291,12 +291,12 @@ const DayTable = ({ fecha, actividades }) => {
   const ordenadas = actividades.slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
   const resumen = generarResumenDia(ordenadas);
   return (
-    <View style={styles.section} wrap={false}>
+    <View style={styles.section}>
       <Text style={styles.sectionTitle}>{format(parseISO(fecha), 'EEEE dd/MM/yyyy', { locale: es })}</Text>
       {/* Línea de tiempo visual y resumen del día */}
       <TimelineComponent actividades={ordenadas} />
       {resumen.length > 0 && (
-        <View style={{ marginTop: 10 }}>
+        <View style={{ marginTop: 0, paddingTop: 0 }}>
           <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>Resumen del día:</Text>
           {resumen.map((linea, idx) => (
             <Text key={idx} style={{ fontSize: 9 }}>{linea}</Text>

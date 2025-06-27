@@ -10,8 +10,13 @@ const NODE_SIZE = 12; // Aumentado ligeramente
 
 const timelineStyles = StyleSheet.create({
   timelineContainer: {
-    marginVertical: 20,
+    marginVertical: 0, // Eliminado margen arriba y abajo
     paddingHorizontal: TIMELINE_MARGIN,
+    backgroundColor: '#f8f9fa', // Cambiado al color de fondo general
+    minHeight: 100, 
+    maxHeight: 200, 
+    height: 150,    
+    overflow: 'hidden', // Oculta el contenido que se desborde
   },
   timelineTitle: {
     fontSize: 12,
@@ -20,15 +25,20 @@ const timelineStyles = StyleSheet.create({
     color: '#198754',
   },
   timelineWrapper: {
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center', // Centra verticalmente
+    alignItems: 'center', // Centra horizontalmente
     position: 'relative',
     width: TIMELINE_WIDTH,
-    height: 120, // Aumentado para mejor espacio
+    height: '100%', // Ocupa todo el alto del contenedor
     marginHorizontal: 'auto',
+    overflow: 'hidden',
   },
   // Escala de tiempo superior
   timeScale: {
     position: 'absolute',
-    top: 0,
+    top: -12,
     left: 0,
     right: 0,
     height: 20,
@@ -129,25 +139,25 @@ const timelineStyles = StyleSheet.create({
   },
   // Etiquetas de eventos - SOLO TEXTO PLANO, SIN SUPERPOSICIÓN
   eventLabel: {
-    position: 'absolute',
-    fontSize: 9,
-    color: '#2c3e50',
-    fontWeight: 600,
-    textAlign: 'center',
-    width: 100, // Reducido para menos superposición
-    marginLeft: -50, // Centrado respecto al nodo
-    lineHeight: 1.2,
-    backgroundColor: 'rgba(255,255,255,0.9)', // Fondo semi-transparente para legibilidad
-    paddingVertical: 2,
-    paddingHorizontal: 4,
-    borderRadius: 3,
-  },
+  position: 'absolute',
+  fontSize: 9,
+  color: '#2c3e50',
+  fontWeight: 600,
+  textAlign: 'center',
+  width: 100,
+  marginLeft: -50,
+  lineHeight: 1.2,
+  paddingVertical: 3,
+  paddingHorizontal: 6,
+  // Sin fondo, sin borde, sin borderRadius
+},
+
   // Etiquetas de eventos arriba/abajo según posición
   eventLabelAbove: {
-    top: 20 + (BAR_HEIGHT / 2) - 35, // Más separación arriba
+    top: 20 + (BAR_HEIGHT / 2) - 52, // 📏 Más separación arriba
   },
   eventLabelBelow: {
-    top: 20 + (BAR_HEIGHT / 2) + 20, // Más separación abajo
+    top: 20 + (BAR_HEIGHT / 2) + 28, // 📏 Más separación abajo
   },
   // Etiquetas de intervalos - CENTRADAS EN SU INTERVALO
   intervalLabelsContainer: {
@@ -162,40 +172,12 @@ const timelineStyles = StyleSheet.create({
     fontSize: 9,
     color: '#495057',
     textAlign: 'center',
-    backgroundColor: '#f8f9fa',
     paddingVertical: 4,
     paddingHorizontal: 8,
-    borderRadius: 4,
-    border: '1px solid #dee2e6',
     minWidth: 60,
     fontWeight: '500',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
     lineHeight: 1.1,
-  },
-  // Leyenda mejorada
-  legend: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 20,
-    gap: 25,
-    flexWrap: 'wrap',
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 6,
-  },
-  legendColor: {
-    width: 12,
-    height: 12,
-    borderRadius: 3,
-    border: '1px solid rgba(0,0,0,0.1)',
-  },
-  legendText: {
-    fontSize: 9,
-    color: '#495057',
-    fontWeight: '500',
+    // Sin fondo, sin borde, sin borderRadius, sin boxShadow
   },
 });
 
@@ -255,11 +237,11 @@ function getNodeType(evento) {
 // Función para obtener ícono del evento
 function getEventIcon(evento) {
   switch (evento.tipo) {
-    case 'entrada': return '✓ ';
-    case 'salida': return '✗ ';
+    case 'entrada': return '';
+    case 'salida': return '';
     case 'geocerca': 
-      return evento.descripcion.includes('Entró') ? '→ ' : '← ';
-    case 'descanso': return '⏸ ';
+      return evento.descripcion.includes('Entró') ? '' : '';
+    case 'descanso': return '';
     default: return '';
   }
 }
@@ -388,7 +370,7 @@ function generarEventosYIntervalosDelResumen(actividades) {
 
 // Función mejorada para evitar superposición de etiquetas
 function calculateLabelPosition(eventos, currentIndex, basePosition) {
-  const MIN_DISTANCE = 120; // Aumentada la distancia mínima entre etiquetas
+  const MIN_DISTANCE = 20; // Aumentada la distancia mínima entre etiquetas
   const LABEL_WIDTH = 100;
   let isAbove = currentIndex % 2 === 0; // Alternar arriba/abajo
   let horizontalOffset = 0;
@@ -504,18 +486,21 @@ const TimelineComponent = ({ actividades, titulo = "LÍNEA DE TIEMPO DE LA JORNA
             const position = calculateAbsolutePosition(evento.time, displayStart, displayEnd);
             const nodeType = getNodeType(evento);
             const eventIcon = getEventIcon(evento);
-            
             // Guardar posición para cálculos de superposición
             evento.__position = position;
-            
             // Calcular posición y desplazamiento de la etiqueta
             const { isAbove, horizontalOffset } = calculateLabelPosition(eventosClave, idx, position);
-            
             // Altura del conector - DESDE EL CENTRO EXACTO DEL NODO
             const nodeCenter = 20 + (BAR_HEIGHT / 2); // Centro vertical del nodo
-            const connectorHeight = isAbove ? 35 : 20;
-            const connectorStartY = isAbove ? nodeCenter - connectorHeight : nodeCenter;
-            
+      const connectorHeight = 25; // igual altura para ambos
+const connectorStartY = isAbove ? nodeCenter - 25 : nodeCenter;
+
+            // Determinar estilo de fondo según tipo de evento
+            let labelBgStyle = null;
+            if (nodeType === 'entry') labelBgStyle = timelineStyles.eventLabelEntry;
+            else if (nodeType === 'exit') labelBgStyle = timelineStyles.eventLabelExit;
+            else if (nodeType === 'geofence') labelBgStyle = timelineStyles.eventLabelGeofence;
+            else if (nodeType === 'break') labelBgStyle = timelineStyles.eventLabelBreak;
             return (
               <View key={`event-${idx}`}>
                 {/* Conector vertical - DESDE EL CENTRO EXACTO DEL NODO */}
@@ -527,7 +512,6 @@ const TimelineComponent = ({ actividades, titulo = "LÍNEA DE TIEMPO DE LA JORNA
                     top: connectorStartY,
                   },
                 ]} />
-                
                 {/* Nodo del evento */}
                 <View
                   style={[
@@ -539,11 +523,11 @@ const TimelineComponent = ({ actividades, titulo = "LÍNEA DE TIEMPO DE LA JORNA
                     { left: position },
                   ]}
                 />
-                
                 {/* Etiqueta del evento - CON DESPLAZAMIENTO PARA EVITAR SUPERPOSICIÓN */}
                 <Text
                   style={[
                     timelineStyles.eventLabel,
+                    labelBgStyle,
                     isAbove ? timelineStyles.eventLabelAbove : timelineStyles.eventLabelBelow,
                     { 
                       left: position + horizontalOffset, // Aplicar desplazamiento horizontal
@@ -560,66 +544,44 @@ const TimelineComponent = ({ actividades, titulo = "LÍNEA DE TIEMPO DE LA JORNA
         
         {/* Etiquetas de intervalos - CENTRADAS EXACTAMENTE */}
         <View style={timelineStyles.intervalLabelsContainer}>
-          {intervalos.map((intervalo, idx) => {
+        {intervalos.map((intervalo, idx) => {
             const startPos = calculateAbsolutePosition(intervalo.inicio, displayStart, displayEnd);
             const endPos = calculateAbsolutePosition(intervalo.fin, displayStart, displayEnd);
             const width = endPos - startPos;
             const centerPos = startPos + (width / 2);
             
-            // Ajustar posición si está muy cerca de un evento
-            let adjustedPos = centerPos;
+            let adjustedPos = Math.round(centerPos); // ✅ Redondeo para mayor precisión
             const labelWidth = 60;
-            
+
             eventosClave.forEach(evento => {
-              const eventPos = evento.__position;
-              if (Math.abs(centerPos - eventPos) < labelWidth / 2) {
-                // Desplazar la etiqueta para evitar superposición
-                adjustedPos = eventPos > centerPos ? eventPos - labelWidth : eventPos + labelWidth;
-                adjustedPos = Math.max(labelWidth/2, Math.min(TIMELINE_WIDTH - labelWidth/2, adjustedPos));
-              }
+            const eventPos = evento.__position;
+            // ✅ Solo mover si el intervalo es corto y está muy cerca del evento
+            if (width < 80 && Math.abs(centerPos - eventPos) < labelWidth / 2) {
+                adjustedPos += (eventPos > centerPos ? 20 : -20);
+            }
             });
-            
+
+            adjustedPos = Math.max(labelWidth, Math.min(TIMELINE_WIDTH - labelWidth, adjustedPos)); // Limitar el movimiento
+
             return (
-              <Text
+            <Text
                 key={`label-${idx}`}
                 style={[
-                  timelineStyles.intervalLabel, 
-                  { 
+                timelineStyles.intervalLabel, 
+                { 
                     left: adjustedPos,
                     marginLeft: -30, // Centrado respecto al punto calculado
-                  }
+                    color: intervalo.dentro ? '#198754' : '#dc3545',
+                }
                 ]}
-              >
+            >
                 {intervalo.dentro ? 'Dentro' : 'Fuera'}{"\n"}
                 ({intervalo.duracionTexto})
-              </Text>
+            </Text>
             );
-          })}
+        })}
         </View>
-      </View>
-      
-      {/* Leyenda mejorada */}
-      <View style={timelineStyles.legend}>
-        <View style={timelineStyles.legendItem}>
-          <View style={[timelineStyles.legendColor, { backgroundColor: '#28a745' }]} />
-          <Text style={timelineStyles.legendText}>🟢 Dentro de geocerca</Text>
-        </View>
-        <View style={timelineStyles.legendItem}>
-          <View style={[timelineStyles.legendColor, { backgroundColor: '#dc3545' }]} />
-          <Text style={timelineStyles.legendText}>🔴 Fuera de geocerca</Text>
-        </View>
-        <View style={timelineStyles.legendItem}>
-          <View style={[timelineStyles.legendColor, { backgroundColor: '#28a745' }]} />
-          <Text style={timelineStyles.legendText}>✓ Entrada</Text>
-        </View>
-        <View style={timelineStyles.legendItem}>
-          <View style={[timelineStyles.legendColor, { backgroundColor: '#dc3545' }]} />
-          <Text style={timelineStyles.legendText}>✗ Salida</Text>
-        </View>
-        <View style={timelineStyles.legendItem}>
-          <View style={[timelineStyles.legendColor, { backgroundColor: '#17a2b8' }]} />
-          <Text style={timelineStyles.legendText}>→← Geocerca</Text>
-        </View>
+
       </View>
     </View>
   );
