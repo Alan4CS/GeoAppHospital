@@ -52,6 +52,62 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     color: '#198754',
   },
+
+  // Nuevos estilos para el resumen del día
+  daySummaryContainer: {
+    backgroundColor: '#f8f9fa',
+    border: '1px solid #dee2e6',
+    borderRadius: 4,
+    padding: 10,
+    marginTop: 0,
+  },
+  daySummaryTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#198754',
+    marginBottom: 8,
+    paddingBottom: 4,
+    borderBottom: '1px solid #dee2e6',
+  },
+  summaryItemsContainer: {
+    gap: 3,
+  },
+  summaryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 3,
+    paddingLeft: 8,
+  },
+  summaryTime: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: '#495057',
+    minWidth: 45,
+  },
+  summaryDescription: {
+    fontSize: 9,
+    color: '#212529',
+    flex: 1,
+    marginLeft: 8,
+  },
+  summaryDuration: {
+    fontSize: 8,
+    color: '#6c757d',
+    fontStyle: 'italic',
+  },
+  // Estilos para diferentes tipos de eventos
+  eventEntry: {
+    color: '#28a745',
+  },
+  eventExit: {
+    color: '#dc3545',
+  },
+  eventBreak: {
+    color: '#ffc107',
+  },
+  eventGeofence: {
+    color: '#17a2b8',
+  },
   table: {
     width: '100%',
     marginTop: 10,
@@ -119,10 +175,9 @@ function formatHora(fechaStr) {
 function agrupaPorDia(actividades) {
   const porDia = {};
   actividades.forEach((act) => {
-    // Agrupar por la fecha original, sin ninguna conversión ni manipulación
     let dateStr = act.fecha_hora;
     if (typeof dateStr === 'string' && dateStr.length >= 10) {
-      dateStr = dateStr.substring(0, 10); // Solo YYYY-MM-DD
+      dateStr = dateStr.substring(0, 10);
     }
     if (!porDia[dateStr]) porDia[dateStr] = [];
     porDia[dateStr].push(act);
@@ -135,7 +190,6 @@ function calculaResumen(actividadesPorDia) {
   let diasTrabajados = 0;
   Object.values(actividadesPorDia).forEach((acts) => {
     if (acts.length > 1) {
-      // Ordenar por fecha
       const ordenadas = acts.slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
       const primera = ordenadas[0];
       const ultima = ordenadas[ordenadas.length - 1];
@@ -205,14 +259,44 @@ const PeriodSummary = ({ resumen }) => (
   </View>
 );
 
-// Genera un resumen detallado de los eventos y tiempos dentro/fuera por día
-function generarResumenDia(actividades) {
+// Componente mejorado para información del empleado
+const EmployeeInfo = ({ empleado }) => (
+  <View style={{
+    marginBottom: 12,
+    padding: 10,
+    backgroundColor: '#e9f7ef',
+    borderRadius: 5,
+    border: '1px solid #b2dfdb',
+    gap: 2,
+  }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+      <Text style={{ fontWeight: 'bold', color: '#14532d', fontSize: 11, minWidth: 70 }}>Empleado:</Text>
+      <Text style={{ fontSize: 11, color: '#14532d', fontWeight: 'bold' }}>{getEmpleadoNombre(empleado)}</Text>
+      <Text style={{ fontWeight: 'bold', color: '#14532d', fontSize: 11, marginLeft: 18, minWidth: 70 }}>Grupo:</Text>
+      <Text style={{ fontSize: 11, color: '#14532d' }}>{getGrupo(empleado)}</Text>
+    </View>
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+      <Text style={{ fontWeight: 'bold', color: '#198754', fontSize: 10, minWidth: 70 }}>Estado:</Text>
+      <Text style={{ fontSize: 10, color: '#198754', minWidth: 90 }}>{getEstado(empleado)}</Text>
+      <Text style={{ fontWeight: 'bold', color: '#198754', fontSize: 10, minWidth: 70 }}>Municipio:</Text>
+      <Text style={{ fontSize: 10, color: '#198754', minWidth: 90 }}>{getMunicipio(empleado)}</Text>
+      <Text style={{ fontWeight: 'bold', color: '#198754', fontSize: 10, minWidth: 70 }}>Hospital:</Text>
+      <Text style={{ fontSize: 10, color: '#198754' }}>{getHospital(empleado)}</Text>
+    </View>
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+      <Text style={{ fontWeight: 'bold', color: '#198754', fontSize: 10, minWidth: 70 }}>Horas al día:</Text>
+      <Text style={{ fontSize: 10, color: '#198754' }}>{getHorario(empleado)}</Text>
+    </View>
+  </View>
+);
+
+// Función mejorada para generar resumen del día con mejor formato
+function generarResumenDiaMejorado(actividades) {
   if (!actividades || actividades.length === 0) return [];
+  
   const eventos = [];
   let estadoGeocerca = null;
   let horaIntervalo = null;
-  let tipoUltimo = null;
-  let eventoUltimo = null;
 
   const formatIntervalo = (inicio, fin) => {
     const diffMs = new Date(fin) - new Date(inicio);
@@ -221,94 +305,180 @@ function generarResumenDia(actividades) {
     return `${hrs > 0 ? hrs + 'h ' : ''}${min}min`;
   };
 
-  const pushIntervalo = (inicio, fin, tipo) => {
-    if (inicio && fin && inicio !== fin) {
-      eventos.push(`${formatHora(inicio)} - ${formatHora(fin)} Tiempo ${tipo} (${formatIntervalo(inicio, fin)})`);
-    }
-  };
-
   const ordenadas = actividades.slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
 
   for (let i = 0; i < ordenadas.length; i++) {
     const act = ordenadas[i];
     const hora = formatHora(act.fecha_hora);
+    
     // Entrada laboral
     if (i === 0 && act.tipo_registro === 1) {
-      eventos.push(`${hora} Marco entrada laboral`);
+      eventos.push({
+        hora,
+        descripcion: 'Marcó entrada laboral',
+        tipo: 'entrada',
+        duracion: ''
+      });
       estadoGeocerca = act.dentro_geocerca;
       horaIntervalo = act.fecha_hora;
-      tipoUltimo = act.tipo_registro;
-      eventoUltimo = act.evento;
       continue;
     }
-    // Evento de geocerca
+    
+    // Eventos de geocerca
     if (typeof act.evento === 'number') {
       if (act.evento === 0) {
         // Salió de geocerca
         if (estadoGeocerca === true && horaIntervalo) {
-          pushIntervalo(horaIntervalo, act.fecha_hora, 'dentro');
-          eventos.push(`${hora} - Salió de geocerca`);
-          estadoGeocerca = false;
-          horaIntervalo = act.fecha_hora;
+          const duracion = formatIntervalo(horaIntervalo, act.fecha_hora);
+          eventos.push({
+            hora: `${formatHora(horaIntervalo)} - ${hora}`,
+            descripcion: `Tiempo dentro de geocerca`,
+            tipo: 'tiempo_dentro',
+            duracion: `(${duracion})`
+          });
         }
+        eventos.push({
+          hora,
+          descripcion: 'Salió de geocerca',
+          tipo: 'geocerca_salida',
+          duracion: ''
+        });
+        estadoGeocerca = false;
+        horaIntervalo = act.fecha_hora;
       } else if (act.evento === 1) {
         // Entró a la geocerca
         if (estadoGeocerca === false && horaIntervalo) {
-          pushIntervalo(horaIntervalo, act.fecha_hora, 'fuera');
-          eventos.push(`${hora} - Entró a la geocerca`);
-          estadoGeocerca = true;
-          horaIntervalo = act.fecha_hora;
+          const duracion = formatIntervalo(horaIntervalo, act.fecha_hora);
+          eventos.push({
+            hora: `${formatHora(horaIntervalo)} - ${hora}`,
+            descripcion: `Tiempo fuera de geocerca`,
+            tipo: 'tiempo_fuera',
+            duracion: `(${duracion})`
+          });
         }
+        eventos.push({
+          hora,
+          descripcion: 'Entró a geocerca',
+          tipo: 'geocerca_entrada',
+          duracion: ''
+        });
+        estadoGeocerca = true;
+        horaIntervalo = act.fecha_hora;
       } else if (act.evento === 2) {
-        eventos.push(`${hora} Inicio descanso`);
+        eventos.push({
+          hora,
+          descripcion: 'Inicio de descanso',
+          tipo: 'descanso_inicio',
+          duracion: ''
+        });
       } else if (act.evento === 3) {
-        eventos.push(`${hora} Fin descanso`);
+        eventos.push({
+          hora,
+          descripcion: 'Fin de descanso',
+          tipo: 'descanso_fin',
+          duracion: ''
+        });
       }
     }
-    // Si cambia el estado de geocerca sin evento explícito
-    if (i > 0 && act.dentro_geocerca !== undefined && act.dentro_geocerca !== estadoGeocerca) {
-      if (estadoGeocerca !== null && horaIntervalo) {
-        pushIntervalo(horaIntervalo, act.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
-      }
-      // Evento de cambio de estado
-      eventos.push(`${hora} - ${act.dentro_geocerca ? 'Entró a la geocerca' : 'Salió de geocerca'}`);
-      estadoGeocerca = act.dentro_geocerca;
-      horaIntervalo = act.fecha_hora;
-    }
+    
     // Salida laboral
     if (i === ordenadas.length - 1 && act.tipo_registro === 0) {
       if (horaIntervalo && act.fecha_hora !== horaIntervalo && estadoGeocerca !== null) {
-        pushIntervalo(horaIntervalo, act.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
+        const duracion = formatIntervalo(horaIntervalo, act.fecha_hora);
+        eventos.push({
+          hora: `${formatHora(horaIntervalo)} - ${hora}`,
+          descripcion: `Tiempo ${estadoGeocerca ? 'dentro' : 'fuera'} de geocerca`,
+          tipo: estadoGeocerca ? 'tiempo_dentro' : 'tiempo_fuera',
+          duracion: `(${duracion})`
+        });
       }
-      eventos.push(`${hora} Marco salida`);
+      eventos.push({
+        hora,
+        descripcion: 'Marcó salida laboral',
+        tipo: 'salida',
+        duracion: ''
+      });
     }
   }
+  
   return eventos;
 }
 
-const DayTable = ({ fecha, actividades }) => {
+// Componente mejorado para el resumen del día
+const DaySummary = ({ eventos }) => {
+  if (!eventos || eventos.length === 0) return null;
+
+  const getEventStyle = (tipo) => {
+    switch (tipo) {
+      case 'entrada':
+      case 'geocerca_entrada':
+        return styles.eventEntry;
+      case 'salida':
+      case 'geocerca_salida':
+        return styles.eventExit;
+      case 'descanso_inicio':
+      case 'descanso_fin':
+        return styles.eventBreak;
+      case 'tiempo_dentro':
+      case 'tiempo_fuera':
+        return styles.eventGeofence;
+      default:
+        return {};
+    }
+  };
+
+  return (
+    <View style={styles.daySummaryContainer}>
+      <Text style={styles.daySummaryTitle}>Resumen del dia</Text>
+      <View style={styles.summaryItemsContainer}>
+        {eventos.map((evento, idx) => (
+          <View key={idx} style={styles.summaryItem}>
+            <Text style={[styles.summaryTime, getEventStyle(evento.tipo)]}>
+              {evento.hora}
+            </Text>
+            <Text style={styles.summaryDescription}>
+              {evento.descripcion}
+            </Text>
+            {evento.duracion && (
+              <Text style={styles.summaryDuration}>
+                {evento.duracion}
+              </Text>
+            )}
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+};
+
+const DayTable = ({ fecha, actividades, empleado }) => {
   if (!actividades || actividades.length === 0) return null;
+  
   const ordenadas = actividades.slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
-  const resumen = generarResumenDia(ordenadas);
+  const eventosResumen = generarResumenDiaMejorado(ordenadas);
+  
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{format(parseISO(fecha), 'EEEE dd/MM/yyyy', { locale: es })}</Text>
-      {/* Línea de tiempo visual y resumen del día */}
+      <Text style={styles.sectionTitle}>
+        {format(parseISO(fecha), 'EEEE dd/MM/yyyy', { locale: es })}
+      </Text>
+      
+      {/* Información del empleado debajo del día */}
+      <EmployeeInfo empleado={empleado} />
+      
+      {/* Espacio extra antes de la línea de tiempo solo en PDF */}
+      <View style={{ marginTop: 18 }} /> {/* <-- Espacio agregado aquí */}
+      
+      {/* Línea de tiempo visual */}
       <TimelineComponent actividades={ordenadas} />
-      {resumen.length > 0 && (
-        <View style={{ marginTop: 0, paddingTop: 0 }}>
-          <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>Resumen del día:</Text>
-          {resumen.map((linea, idx) => (
-            <Text key={idx} style={{ fontSize: 9 }}>{linea}</Text>
-          ))}
-        </View>
-      )}
+      
+      {/* Resumen del día mejorado */}
+      <DaySummary eventos={eventosResumen} />
     </View>
   );
 };
 
 const ReportDocument = ({ empleado, startDate, endDate, eventsByDay }) => {
-  // DEBUG: Mostrar las fechas que llegan y el rango
   console.log('startDate:', startDate, 'endDate:', endDate);
   console.log('eventsByDay keys:', Object.keys(eventsByDay));
 
@@ -316,7 +486,6 @@ const ReportDocument = ({ empleado, startDate, endDate, eventsByDay }) => {
   const end = parseISO(endDate);
   const dias = Object.keys(eventsByDay)
     .filter((fecha) => {
-      // DEBUG: Mostrar cada fecha y su comparación
       const d = parseISO(fecha);
       console.log('Comparando:', fecha, '->', d, '>=', start, '&&', d, '<=', end, ':', d >= start && d <= end);
       return d >= start && d <= end;
@@ -330,6 +499,7 @@ const ReportDocument = ({ empleado, startDate, endDate, eventsByDay }) => {
       return acc;
     }, {})
   );
+  
   return (
     <Document>
       <Page size="LETTER" style={styles.page}>
@@ -339,7 +509,7 @@ const ReportDocument = ({ empleado, startDate, endDate, eventsByDay }) => {
         ) : (
           <>
             {dias.map((fecha) => (
-              <DayTable key={fecha} fecha={fecha} actividades={eventsByDay[fecha]} />
+              <DayTable key={fecha} fecha={fecha} actividades={eventsByDay[fecha]} empleado={empleado} />
             ))}
           </>
         )}

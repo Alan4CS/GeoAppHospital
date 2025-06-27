@@ -217,7 +217,7 @@ const generateEnhancedHourlyData = (dayData, employee) => {
   }
 }
 
-const EmployeeCalendarView = ({ employee, startDate, endDate }) => {
+const EmployeeCalendarView = ({ employee, startDate, endDate, filters }) => {
   const [calendarData, setCalendarData] = useState([])
   const [selectedDay, setSelectedDay] = useState(null)
   const [hourlyData, setHourlyData] = useState([])
@@ -348,10 +348,18 @@ const EmployeeCalendarView = ({ employee, startDate, endDate }) => {
                 name: `${employee.nombre || employee.name || ''} ${employee.ap_paterno || ''} ${employee.ap_materno || ''}`.trim(),
                 schedule: '45 horas semanales a cumplir',
                 grupo: employee.grupo || employee.nombre_grupo || '',
-                hospital: employee.hospital || employee.nombre_hospital || '',
-                estado: employee.estado || employee.nombre_estado || '',
-                municipio: employee.municipio || employee.nombre_municipio || '',
+                hospital: filters.nombre_hospital || employee.hospital || employee.nombre_hospital || '',
+                estado: filters.nombre_estado || employee.estado || employee.nombre_estado || '',
+                municipio: filters.nombre_municipio || employee.municipio || employee.nombre_municipio || '',
               }
+              // Debug: Mostrar datos antes de generar el PDF
+              console.log('Intentando generar PDF con:', {
+                empleado: empleadoPDF,
+                calendarData,
+                startDate,
+                endDate,
+                eventsByDay
+              });
               await generarReporteEmpleadoPDF({
                 empleado: empleadoPDF,
                 calendarData,
@@ -360,7 +368,8 @@ const EmployeeCalendarView = ({ employee, startDate, endDate }) => {
                 eventsByDay,
               })
             } catch (err) {
-              alert("Error al generar el PDF con datos reales")
+              console.error('Error real al generar el PDF:', err);
+              alert("Error al generar el PDF con datos reales. Revisa la consola para más detalles.");
             }
             setLoadingPDF(false)
           }}
@@ -1618,8 +1627,9 @@ const HospitalDashboard = () => {
 
                 {/* Vista condicional: Calendario para empleado individual o gráfica para múltiples */}
                 {selectedEmployeeData ? (
-                  <EmployeeCalendarView employee={selectedEmployeeData} startDate={fechaInicio} endDate={fechaFin} />
+                  <EmployeeCalendarView employee={selectedEmployeeData} startDate={fechaInicio} endDate={fechaFin} filters={filters} />
                 ) : (
+
                   <div className="h-[500px]">
                     <ResponsiveContainer>
                       <BarChart data={employeeHoursData}>

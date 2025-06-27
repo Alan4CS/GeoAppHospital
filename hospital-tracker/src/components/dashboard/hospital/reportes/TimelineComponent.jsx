@@ -16,7 +16,7 @@ const timelineStyles = StyleSheet.create({
     minHeight: 100, 
     maxHeight: 200, 
     height: 150,    
-    overflow: 'hidden', // Oculta el contenido que se desborde
+    overflow: 'visible', // <-- CAMBIO: antes 'hidden', ahora 'visible' para evitar recorte
   },
   timelineTitle: {
     fontSize: 12,
@@ -33,7 +33,7 @@ const timelineStyles = StyleSheet.create({
     width: TIMELINE_WIDTH,
     height: '100%', // Ocupa todo el alto del contenedor
     marginHorizontal: 'auto',
-    overflow: 'hidden',
+    overflow: 'visible', // <-- CAMBIO: antes 'hidden', ahora 'visible' para evitar recorte
   },
   // Escala de tiempo superior
   timeScale: {
@@ -394,7 +394,7 @@ function calculateLabelPosition(eventos, currentIndex, basePosition) {
   return { isAbove, horizontalOffset };
 }
 
-const TimelineComponent = ({ actividades, titulo = "LÍNEA DE TIEMPO DE LA JORNADA" }) => {
+const TimelineComponent = ({ actividades, titulo = "Cronologia" }) => {
   if (!actividades || actividades.length === 0) {
     return (
       <View style={timelineStyles.timelineContainer} wrap={false}>
