@@ -126,20 +126,21 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
   const [states, setStates] = useState([]);
   const [hospitalsByState, setHospitalsByState] = useState({});
 
-  // Dimensiones optimizadas para mejor rendimiento
+  // Estado para controlar si hay listas desplegadas
+  const [hasExpandedLists, setHasExpandedLists] = useState(false);
+
+  // Dimensiones optimizadas para mejor rendimiento y responsividad
   const mapContainerStyle = useMemo(() => ({
-    height: "calc(100vh - 64px - 10rem)", // Reducir altura considerando header, KPIs y padding
-    width: "95%", // Dejar un pequeño margen en los lados
+    height: hasExpandedLists 
+      ? "calc(100vh - 12rem)" // Más espacio cuando hay listas desplegadas
+      : "calc(100vh - 6rem)", // Ajustar para el nuevo tamaño del componente
+    width: "100%", // Ocupar todo el ancho disponible
     position: "relative",
     margin: "0 auto", // Centrar el mapa
-    maxWidth: "1800px", // Limitar el ancho máximo
-  }), []);
-
-  const kpiCardStyle = {
-    minHeight: "84px",
-    display: "flex",
-    alignItems: "center"
-  };
+    maxWidth: "100%", // Permitir que ocupe todo el ancho
+    minHeight: hasExpandedLists ? "500px" : "600px", // Reducir altura mínima cuando hay listas
+    transition: "height 0.3s ease-out", // Transición suave
+  }), [hasExpandedLists]);
 
   // Optimizar actualizaciones de estado
   const debouncedSetSearchTerm = useMemo(
@@ -154,9 +155,11 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
 
   // Precalcular dimensiones del contenedor de filtros
   const filterContainerStyle = useMemo(() => ({
-    transform: showFilters ? 'translateX(0)' : 'translateX(-100%)',
+    transform: showFilters ? 'translateX(0) translateY(0) scale(1)' : 'translateX(-100%) translateY(0) scale(0.95)',
     opacity: showFilters ? 1 : 0,
-    transition: 'transform 200ms ease-in-out, opacity 200ms ease-in-out'
+    transition: 'transform 400ms cubic-bezier(0.4, 0, 0.2, 1), opacity 300ms ease-out',
+    maxHeight: 'auto', // Quitar límite de altura
+    transformOrigin: 'left center' // Hacer que la animación salga desde el botón
   }), [showFilters]);
 
   // Función para obtener estados desde la API
@@ -488,6 +491,24 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
       console.log("Estado del administrador estatal establecido desde prop:", estadoNombre);
     }
   }, [modoEstadoAdmin, estadoNombre, selectedState]);
+
+  // Función auxiliar para verificar si hay listas abiertas
+  const checkExpandedLists = () => {
+    const openDetails = document.querySelectorAll('details[open]');
+    setHasExpandedLists(openDetails.length > 0);
+  };
+
+  // Efecto para invalidar el tamaño del mapa cuando cambie hasExpandedLists
+  useEffect(() => {
+    if (mapRef.current) {
+      // Pequeño delay para permitir que el DOM se actualice
+      const timer = setTimeout(() => {
+        mapRef.current.invalidateSize();
+      }, 350); // Un poco más que la duración de la transición CSS (300ms)
+      
+      return () => clearTimeout(timer);
+    }
+  }, [hasExpandedLists]);
 
   // Filtrar empleados según los criterios seleccionados y búsqueda
   const filteredEmployees = useMemo(() => {
@@ -1043,7 +1064,7 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
     hospitals.length === 0
   ) {
     return (
-      <div className="flex flex-col h-[calc(100vh-64px)] bg-gray-50 items-center justify-center">
+      <div className="flex flex-col h-screen bg-gray-50 items-center justify-center">
         <FaSpinner className="animate-spin text-4xl text-emerald-600 mb-4" />
         <p className="text-gray-600">
           Cargando datos de monitoreo y hospitales...
@@ -1053,153 +1074,226 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] bg-gray-50 overflow-hidden">
-      {/* KPIs con espaciado reducido */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-3 px-4 pt-2 pb-3 max-w-[1800px] mx-auto w-[95%]">
+    <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
+      {/* KPIs con diseño responsivo */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 px-2 sm:px-4 pt-1 pb-2 w-full">
         {/* Empleados Activos */}
-        <div className="flex flex-col p-3 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
-          <div className="flex items-center">
-            <div className="p-2.5 bg-emerald-50 rounded-full mr-3">
-              <FaUserCheck className="text-emerald-600 text-lg" />
+        <div className="relative overflow-hidden rounded-lg lg:rounded-xl border p-1.5 sm:p-2 lg:p-3 shadow-sm backdrop-blur-sm 
+                       transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer group
+                       bg-gradient-to-br from-emerald-50 to-emerald-100/50 text-emerald-700 border-emerald-200/60">
+          {/* Accent line */}
+          <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
+          
+          {/* Background decoration */}
+          <div className="absolute top-2 right-2 lg:top-3 lg:right-3 w-8 h-8 lg:w-12 lg:h-12 bg-emerald-500 
+                         rounded-full opacity-5 group-hover:opacity-8 transition-opacity duration-300"></div>
+          
+          <div className="relative z-10">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[10px] sm:text-xs font-semibold tracking-wide uppercase leading-tight">Empleados Activos</h3>
+              <div className="rounded-md lg:rounded-lg p-1.5 lg:p-2 shadow-md group-hover:scale-110 
+                             transition-transform duration-300 bg-emerald-500 text-white bg-opacity-50">
+                <FaUserCheck className="h-3 w-3 lg:h-4 lg:w-4" />
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Empleados Activos</h3>
-              <p className="text-xl font-bold text-gray-800">{connectedCount}</p>
+
+            <div className="mt-1.5 lg:mt-2">
+              <p className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">{connectedCount.toLocaleString()}</p>
               {selectedHospital && hospitalStats[selectedHospital] && (
-                <p className="text-xs text-emerald-600 mt-0.5">
+                <p className="text-[10px] lg:text-xs mt-1 text-emerald-600 leading-relaxed hidden sm:block">
                   {hospitalStats[selectedHospital].activos} en {hospitalStats[selectedHospital].nombre}
                 </p>
               )}
+              
+              {/* Lista desplegable de empleados activos - solo en pantallas grandes */}
+              <details 
+                className="mt-2 hidden lg:block"
+                onToggle={() => {
+                  // Usar setTimeout para permitir que el DOM se actualice
+                  setTimeout(checkExpandedLists, 0);
+                }}
+              >
+                <summary className="cursor-pointer text-xs text-emerald-700 hover:underline select-none font-medium">Ver empleados</summary>
+                <div className="mt-1 max-h-24 overflow-y-auto pr-1 custom-scrollbar">
+                  {filteredEmployees.filter(emp => emp.tipo_registro === 1).length === 0 ? (
+                    <div className="text-xs text-emerald-600/60 px-2 py-1">No hay empleados activos</div>
+                  ) : (
+                    filteredEmployees.filter(emp => emp.tipo_registro === 1).map(emp => (
+                      <div
+                        key={emp.id}
+                        className="flex items-center gap-1.5 py-1 px-1.5 hover:bg-emerald-200/30 rounded cursor-pointer transition-colors"
+                        onClick={() => handleEmployeeClick(emp.id)}
+                      >
+                        <div className={`w-5 h-5 rounded-full ${getAvatarColor(emp.name)} text-white flex items-center justify-center font-medium text-xs`}>
+                          {emp.avatar}
+                        </div>
+                        <div className="flex-1 truncate">
+                          <span className="text-xs text-emerald-800">{emp.name}</span>
+                          <span className="ml-1 text-[10px] text-emerald-600/70">{emp.hospital}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </details>
             </div>
           </div>
-          {/* Lista desplegable de empleados activos */}
-          <details className="mt-2">
-            <summary className="cursor-pointer text-xs text-emerald-700 hover:underline select-none">Ver empleados</summary>
-            <div className="mt-1 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
-              {employees.filter(emp => emp.tipo_registro === 1).length === 0 ? (
-                <div className="text-xs text-gray-400 px-2 py-2">No hay empleados activos</div>
-              ) : (
-                employees.filter(emp => emp.tipo_registro === 1).map(emp => (
-                  <div
-                    key={emp.id}
-                    className="flex items-center gap-2 py-1 px-2 hover:bg-emerald-50 rounded cursor-pointer"
-                    onClick={() => handleEmployeeClick(emp.id)}
-                  >
-                    <div className={`w-6 h-6 rounded-full ${getAvatarColor(emp.name)} text-white flex items-center justify-center font-medium text-xs`}>
-                      {emp.avatar}
-                    </div>
-                    <div className="flex-1 truncate">
-                      <span className="text-xs">{emp.name}</span>
-                      <span className="ml-2 text-[10px] text-gray-500">{emp.hospital}</span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </details>
         </div>
 
         {/* Empleados Inactivos */}
-        <div className="flex flex-col p-3 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
-          <div className="flex items-center">
-            <div className="p-2.5 bg-gray-50 rounded-full mr-3">
-              <FaUserTimes className="text-gray-600 text-lg" />
+        <div className="relative overflow-hidden rounded-lg lg:rounded-xl border p-1.5 sm:p-2 lg:p-3 shadow-sm backdrop-blur-sm 
+                       transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer group
+                       bg-gradient-to-br from-gray-50 to-gray-100/50 text-gray-700 border-gray-200/60">
+          {/* Accent line */}
+          <div className="absolute top-0 left-0 w-full h-1 bg-gray-500"></div>
+          
+          {/* Background decoration */}
+          <div className="absolute top-2 right-2 lg:top-3 lg:right-3 w-8 h-8 lg:w-12 lg:h-12 bg-gray-500 
+                         rounded-full opacity-5 group-hover:opacity-8 transition-opacity duration-300"></div>
+          
+          <div className="relative z-10">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[10px] sm:text-xs font-semibold tracking-wide uppercase leading-tight">Empleados Inactivos</h3>
+              <div className="rounded-md lg:rounded-lg p-1.5 lg:p-2 shadow-md group-hover:scale-110 
+                             transition-transform duration-300 bg-gray-500 text-white bg-opacity-50">
+                <FaUserTimes className="h-3 w-3 lg:h-4 lg:w-4" />
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Empleados Inactivos</h3>
-              <p className="text-xl font-bold text-gray-800">{disconnectedCount}</p>
+
+            <div className="mt-1.5 lg:mt-2">
+              <p className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">{disconnectedCount.toLocaleString()}</p>
               {selectedHospital && hospitalStats[selectedHospital] && (
-                <p className="text-xs text-gray-600 mt-0.5">
+                <p className="text-[10px] lg:text-xs mt-1 text-gray-600 leading-relaxed hidden sm:block">
                   {hospitalStats[selectedHospital].inactivos} en {hospitalStats[selectedHospital].nombre}
                 </p>
               )}
+              
+              {/* Lista desplegable de empleados inactivos - solo en pantallas grandes */}
+              <details 
+                className="mt-2 hidden lg:block"
+                onToggle={() => {
+                  // Usar setTimeout para permitir que el DOM se actualice
+                  setTimeout(checkExpandedLists, 0);
+                }}
+              >
+                <summary className="cursor-pointer text-xs text-gray-700 hover:underline select-none font-medium">Ver empleados</summary>
+                <div className="mt-1 max-h-24 overflow-y-auto pr-1 custom-scrollbar">
+                  {filteredEmployees.filter(emp => emp.tipo_registro === 0).length === 0 ? (
+                    <div className="text-xs text-gray-600/60 px-2 py-1">No hay empleados inactivos</div>
+                  ) : (
+                    filteredEmployees.filter(emp => emp.tipo_registro === 0).map(emp => (
+                      <div
+                        key={emp.id}
+                        className="flex items-center gap-1.5 py-1 px-1.5 hover:bg-gray-200/30 rounded cursor-pointer transition-colors"
+                        onClick={() => handleEmployeeClick(emp.id)}
+                      >
+                        <div className={`w-5 h-5 rounded-full ${getAvatarColor(emp.name)} text-white flex items-center justify-center font-medium text-xs`}>
+                          {emp.avatar}
+                        </div>
+                        <div className="flex-1 truncate">
+                          <span className="text-xs text-gray-800">{emp.name}</span>
+                          <span className="ml-1 text-[10px] text-gray-600/70">{emp.hospital}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </details>
             </div>
           </div>
-          {/* Lista desplegable de empleados inactivos */}
-          <details className="mt-2">
-            <summary className="cursor-pointer text-xs text-gray-700 hover:underline select-none">Ver empleados</summary>
-            <div className="mt-1 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
-              {employees.filter(emp => emp.tipo_registro === 0).length === 0 ? (
-                <div className="text-xs text-gray-400 px-2 py-2">No hay empleados inactivos</div>
-              ) : (
-                employees.filter(emp => emp.tipo_registro === 0).map(emp => (
-                  <div
-                    key={emp.id}
-                    className="flex items-center gap-2 py-1 px-2 hover:bg-gray-100 rounded cursor-pointer"
-                    onClick={() => handleEmployeeClick(emp.id)}
-                  >
-                    <div className={`w-6 h-6 rounded-full ${getAvatarColor(emp.name)} text-white flex items-center justify-center font-medium text-xs`}>
-                      {emp.avatar}
-                    </div>
-                    <div className="flex-1 truncate">
-                      <span className="text-xs">{emp.name}</span>
-                      <span className="ml-2 text-[10px] text-gray-500">{emp.hospital}</span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </details>
         </div>
 
         {/* Fuera de Geocerca */}
-        <div className="flex flex-col p-3 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
-          <div className="flex items-center">
-            <div className="p-2.5 bg-orange-50 rounded-full mr-3">
-              <FaExclamationTriangle className="text-orange-600 text-lg" />
+        <div className="relative overflow-hidden rounded-lg lg:rounded-xl border p-1.5 sm:p-2 lg:p-3 shadow-sm backdrop-blur-sm 
+                       transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer group
+                       bg-gradient-to-br from-amber-50 to-amber-100/50 text-amber-700 border-amber-200/60">
+          {/* Accent line */}
+          <div className="absolute top-0 left-0 w-full h-1 bg-amber-500"></div>
+          
+          {/* Background decoration */}
+          <div className="absolute top-2 right-2 lg:top-3 lg:right-3 w-8 h-8 lg:w-12 lg:h-12 bg-amber-500 
+                         rounded-full opacity-5 group-hover:opacity-8 transition-opacity duration-300"></div>
+          
+          <div className="relative z-10">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[10px] sm:text-xs font-semibold tracking-wide uppercase leading-tight">Fuera de Geocerca</h3>
+              <div className="rounded-md lg:rounded-lg p-1.5 lg:p-2 shadow-md group-hover:scale-110 
+                             transition-transform duration-300 bg-amber-500 text-white bg-opacity-50">
+                <FaExclamationTriangle className="h-3 w-3 lg:h-4 lg:w-4" />
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Fuera de Geocerca</h3>
-              <p className="text-xl font-bold text-gray-800">{outsideGeofenceCount}</p>
+
+            <div className="mt-1.5 lg:mt-2">
+              <p className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">{outsideGeofenceCount.toLocaleString()}</p>
               {selectedHospital && hospitalStats[selectedHospital] && (
-                <p className="text-xs text-orange-600 mt-0.5">
+                <p className="text-[10px] lg:text-xs mt-1 text-amber-600 leading-relaxed hidden sm:block">
                   {hospitalStats[selectedHospital].fueraGeocerca} en {hospitalStats[selectedHospital].nombre}
                 </p>
               )}
+              
+              {/* Lista desplegable de empleados fuera de geocerca - solo en pantallas grandes */}
+              <details 
+                className="mt-2 hidden lg:block"
+                onToggle={() => {
+                  // Usar setTimeout para permitir que el DOM se actualice
+                  setTimeout(checkExpandedLists, 0);
+                }}
+              >
+                <summary className="cursor-pointer text-xs text-amber-700 hover:underline select-none font-medium">Ver empleados</summary>
+                <div className="mt-1 max-h-24 overflow-y-auto pr-1 custom-scrollbar">
+                  {filteredEmployees.filter(emp => emp.dentro_geocerca === false).length === 0 ? (
+                    <div className="text-xs text-amber-600/60 px-2 py-1">No hay empleados fuera de geocerca</div>
+                  ) : (
+                    filteredEmployees.filter(emp => emp.dentro_geocerca === false).map(emp => (
+                      <div
+                        key={emp.id}
+                        className="flex items-center gap-1.5 py-1 px-1.5 hover:bg-amber-200/30 rounded cursor-pointer transition-colors"
+                        onClick={() => handleEmployeeClick(emp.id)}
+                      >
+                        <div className={`w-5 h-5 rounded-full ${getAvatarColor(emp.name)} text-white flex items-center justify-center font-medium text-xs`}>
+                          {emp.avatar}
+                        </div>
+                        <div className="flex-1 truncate">
+                          <span className="text-xs text-amber-800">{emp.name}</span>
+                          <span className="ml-1 text-[10px] text-amber-600/70">{emp.hospital}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </details>
             </div>
           </div>
-          {/* Lista desplegable de empleados fuera de geocerca */}
-          <details className="mt-2">
-            <summary className="cursor-pointer text-xs text-orange-700 hover:underline select-none">Ver empleados</summary>
-            <div className="mt-1 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
-              {employees.filter(emp => emp.dentro_geocerca === false).length === 0 ? (
-                <div className="text-xs text-gray-400 px-2 py-2">No hay empleados fuera de geocerca</div>
-              ) : (
-                employees.filter(emp => emp.dentro_geocerca === false).map(emp => (
-                  <div
-                    key={emp.id}
-                    className="flex items-center gap-2 py-1 px-2 hover:bg-orange-50 rounded cursor-pointer"
-                    onClick={() => handleEmployeeClick(emp.id)}
-                  >
-                    <div className={`w-6 h-6 rounded-full ${getAvatarColor(emp.name)} text-white flex items-center justify-center font-medium text-xs`}>
-                      {emp.avatar}
-                    </div>
-                    <div className="flex-1 truncate">
-                      <span className="text-xs">{emp.name}</span>
-                      <span className="ml-2 text-[10px] text-gray-500">{emp.hospital}</span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </details>
         </div>
 
         {/* Hospitales */}
-        <div className="flex flex-col p-3 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
-          <div className="flex items-center">
-            <div className="p-2.5 bg-blue-50 rounded-full mr-3">
-              <FaHospital className="text-blue-600 text-lg" />
+        <div className="relative overflow-hidden rounded-lg lg:rounded-xl border p-1.5 sm:p-2 lg:p-3 shadow-sm backdrop-blur-sm 
+                       transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer group
+                       bg-gradient-to-br from-blue-50 to-blue-100/50 text-blue-700 border-blue-200/60">
+          {/* Accent line */}
+          <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
+          
+          {/* Background decoration */}
+          <div className="absolute top-2 right-2 lg:top-3 lg:right-3 w-8 h-8 lg:w-12 lg:h-12 bg-blue-500 
+                         rounded-full opacity-5 group-hover:opacity-8 transition-opacity duration-300"></div>
+          
+          <div className="relative z-10">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[10px] sm:text-xs font-semibold tracking-wide uppercase leading-tight">Hospitales</h3>
+              <div className="rounded-md lg:rounded-lg p-1.5 lg:p-2 shadow-md group-hover:scale-110 
+                             transition-transform duration-300 bg-blue-500 text-white bg-opacity-50">
+                <FaHospital className="h-3 w-3 lg:h-4 lg:w-4" />
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Hospitales</h3>
-              <p className="text-xl font-bold text-gray-800">{hospitals.length}</p>
+
+            <div className="mt-1.5 lg:mt-2">
+              <p className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">{hospitals.length.toLocaleString()}</p>
               {selectedState ? (
-                <p className="text-xs text-blue-600 mt-0.5">
+                <p className="text-[10px] lg:text-xs mt-1 text-blue-600 leading-relaxed hidden sm:block">
                   {filteredHospitals.length} filtrados en {selectedState}
                 </p>
               ) : (
-                <p className="text-xs text-blue-600 mt-0.5">
+                <p className="text-[10px] lg:text-xs mt-1 text-blue-600 leading-relaxed hidden sm:block">
                   Promedio: {hospitals.length > 0 ? Math.round(totalEmployees / hospitals.length) : 0} emp/hospital
                 </p>
               )}
@@ -1208,16 +1302,29 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
         </div>
 
         {/* Total Empleados */}
-        <div className="flex flex-col p-3 bg-white rounded-xl shadow-sm border border-gray-100" style={kpiCardStyle}>
-          <div className="flex items-center">
-            <div className="p-2.5 bg-purple-50 rounded-full mr-3">
-              <FaUser className="text-purple-600 text-lg" />
+        <div className="relative overflow-hidden rounded-lg lg:rounded-xl border p-1.5 sm:p-2 lg:p-3 shadow-sm backdrop-blur-sm 
+                       transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer group
+                       bg-gradient-to-br from-purple-50 to-purple-100/50 text-purple-700 border-purple-200/60">
+          {/* Accent line */}
+          <div className="absolute top-0 left-0 w-full h-1 bg-purple-500"></div>
+          
+          {/* Background decoration */}
+          <div className="absolute top-2 right-2 lg:top-3 lg:right-3 w-8 h-8 lg:w-12 lg:h-12 bg-purple-500 
+                         rounded-full opacity-5 group-hover:opacity-8 transition-opacity duration-300"></div>
+          
+          <div className="relative z-10">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[10px] sm:text-xs font-semibold tracking-wide uppercase leading-tight">Total Empleados</h3>
+              <div className="rounded-md lg:rounded-lg p-1.5 lg:p-2 shadow-md group-hover:scale-110 
+                             transition-transform duration-300 bg-purple-500 text-white bg-opacity-50">
+                <FaUser className="h-3 w-3 lg:h-4 lg:w-4" />
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Total Empleados</h3>
-              <p className="text-xl font-bold text-gray-800">{totalEmployees}</p>
+
+            <div className="mt-1.5 lg:mt-2">
+              <p className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">{totalEmployees.toLocaleString()}</p>
               {selectedHospital && hospitalStats[selectedHospital] && (
-                <p className="text-xs text-purple-600 mt-0.5">
+                <p className="text-[10px] lg:text-xs mt-1 text-purple-600 leading-relaxed hidden sm:block">
                   {hospitalStats[selectedHospital].total} en {hospitalStats[selectedHospital].nombre}
                 </p>
               )}
@@ -1261,40 +1368,185 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
         </div>
       )}
 
-      {/* Mensaje informativo cuando se aplica filtro por estado */}
-      {selectedState && (
-        <div className="mx-4 mb-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
-          <div className="flex items-center">
-            <FaMapMarkerAlt className="text-blue-600 mr-1 text-xs" />
-            <span className="text-blue-800 text-sm">
-              Mostrando solo empleados y hospitales del estado: <strong>{selectedState}</strong>
-              {selectedHospital && (
-                <>
-                  {" "}• Hospital: <strong>{hospitals.find(h => h.id_hospital.toString() === selectedHospital)?.nombre_hospital || selectedHospital}</strong>
-                </>
-              )}
-            </span>
-            <button
-              onClick={clearFilters}
-              className="ml-auto text-blue-600 hover:text-blue-800 underline text-xs"
-              disabled={modoEstadoAdmin}
-            >
-              Limpiar filtro
-            </button>
+      {/* Contenedor principal responsivo */}
+      <div className="flex-1 px-2 sm:px-2 pt-1 pb-2 sm:pb-4 overflow-hidden flex justify-center relative">
+        {/* Mensaje informativo flotante - posición fija */}
+        {selectedState && (
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20 max-w-md w-full mx-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-3 shadow-lg">
+              <div className="flex items-center">
+                <FaMapMarkerAlt className="text-blue-600 mr-2 text-sm flex-shrink-0" />
+                <span className="text-blue-800 text-sm flex-1">
+                  Mostrando solo empleados y hospitales del estado: <strong>{selectedState}</strong>
+                  {selectedHospital && (
+                    <>
+                      {" "}• Hospital: <strong>{hospitals.find(h => h.id_hospital.toString() === selectedHospital)?.nombre_hospital || selectedHospital}</strong>
+                    </>
+                  )}
+                </span>
+                <button
+                  onClick={clearFilters}
+                  className="ml-2 text-blue-600 hover:text-blue-800 underline text-xs flex-shrink-0"
+                  disabled={modoEstadoAdmin}
+                >
+                  Limpiar filtro
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Contenedor principal optimizado */}
-      <div className="flex-1 px-4 pt-2 pb-4 overflow-hidden flex justify-center">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative" style={mapContainerStyle}>
-          {/* Barra de herramientas flotante con posición fija */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative w-full" style={mapContainerStyle}>
+          {/* Barra de herramientas flotante responsiva */}
           <div
-            className="absolute bottom-3 left-14 z-[10] bg-white rounded-lg shadow-lg border border-gray-200 transform-gpu"
+            className={`absolute ${showFilters ? 'bottom-16 sm:bottom-20' : 'bottom-16 sm:bottom-20'} left-16 sm:left-20 z-[10] bg-white rounded-lg shadow-lg border border-gray-200 transform-gpu transition-all duration-300 max-w-[calc(100vw-6rem)] sm:max-w-none ${
+              showFilters ? 'rounded-tl-md' : ''
+            }`}
             style={filterContainerStyle}
           >
-            <div className="px-3 py-2">
-              <div className="flex items-center gap-3">
+            {/* Indicador visual mejorado que conecta con el botón */}
+            {showFilters && (
+              <div className="absolute bottom-1/2 -left-1 transform translate-y-1/2 w-3 h-3 bg-white border-l border-t border-gray-200 rotate-45 z-[-1] shadow-sm"></div>
+            )}
+            <div className="px-2 sm:px-3 py-2">
+              {/* Versión móvil - layout vertical */}
+              <div className="flex flex-col gap-2 sm:hidden">
+                {/* Primera fila */}
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                      <FaSearch className="text-gray-400 text-sm" />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Buscar empleado..."
+                      value={searchTerm}
+                      onChange={handleSearchChange}
+                      className="w-full pl-7 pr-8 py-1.5 border border-gray-200 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                    />
+                    {searchTerm && (
+                      <button
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs"
+                        onClick={() => setSearchTerm("")}
+                        tabIndex={-1}
+                        type="button"
+                        aria-label="Limpiar búsqueda"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                  <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-md whitespace-nowrap">
+                    {filteredEmployees.length} emp.
+                  </span>
+                </div>
+
+                {/* Segunda fila */}
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <select
+                      className={`w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                        modoEstadoAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
+                      }`}
+                      value={selectedState}
+                      onChange={(e) => handleStateChange(e.target.value)}
+                      disabled={modoEstadoAdmin}
+                    >
+                      <option value="">Todos los estados</option>
+                      {states.map((state) => (
+                        <option key={state.id_estado} value={state.nombre_estado}>
+                          {state.nombre_estado}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedState && !modoEstadoAdmin && (
+                      <button
+                        className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs"
+                        onClick={() => setSelectedState("")}
+                        tabIndex={-1}
+                        type="button"
+                        aria-label="Limpiar estado"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Hospital para móvil */}
+                  {selectedState && hospitalsByState[selectedState] && (
+                    <div className="relative flex-1">
+                      <select
+                        className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        value={selectedHospital}
+                        onChange={(e) => handleHospitalChange(e.target.value)}
+                      >
+                        <option value="">Todos los hospitales</option>
+                        {hospitalsByState[selectedState].map((hospital) => (
+                          <option key={hospital.id} value={hospital.id}>
+                            {hospital.nombre}
+                          </option>
+                        ))}
+                      </select>
+                      {selectedHospital && (
+                        <button
+                          className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs"
+                          onClick={() => setSelectedHospital("")}
+                          tabIndex={-1}
+                          type="button"
+                          aria-label="Limpiar hospital"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Tercera fila */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 bg-gray-50 px-2 py-1 rounded-md">
+                    <label className="flex items-center gap-1 text-xs text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={showGeofences}
+                        onChange={(e) => setShowGeofences(e.target.checked)}
+                        className="h-3 w-3 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                      />
+                      Geocercas
+                    </label>
+                    <label className="flex items-center gap-1 text-xs text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={showHospitals}
+                        onChange={(e) => setShowHospitals(e.target.checked)}
+                        className="h-3 w-3 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                      />
+                      Hospitales
+                    </label>
+                  </div>
+                  
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={updateMapView}
+                      className="bg-emerald-600 text-white px-2 py-1 rounded-md hover:bg-emerald-700 transition-colors text-xs"
+                    >
+                      Aplicar
+                    </button>
+                    <button
+                      onClick={clearFilters}
+                      className={`border border-gray-200 bg-white text-gray-700 px-2 py-1 rounded-md hover:bg-gray-50 transition-colors text-xs ${
+                        modoEstadoAdmin ? 'cursor-not-allowed opacity-50' : ''
+                      }`}
+                      disabled={modoEstadoAdmin}
+                    >
+                      Limpiar
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Versión desktop - layout horizontal */}
+              <div className="hidden sm:flex items-center gap-3 flex-wrap">
                 {/* Buscador optimizado */}
                 <div className="relative w-48">
                   <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
@@ -1303,42 +1555,80 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
                   <input
                     type="text"
                     placeholder="Buscar empleado..."
+                    value={searchTerm}
                     onChange={handleSearchChange}
-                    className="w-full pl-7 pr-3 py-1.5 border border-gray-200 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                    className="w-full pl-7 pr-8 py-1.5 border border-gray-200 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
                   />
+                  {searchTerm && (
+                    <button
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs"
+                      onClick={() => setSearchTerm("")}
+                      tabIndex={-1}
+                      type="button"
+                      aria-label="Limpiar búsqueda"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
 
                 {/* Estado */}
-                <select
-                  className={`w-48 border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                    modoEstadoAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
-                  }`}
-                  value={selectedState}
-                  onChange={(e) => handleStateChange(e.target.value)}
-                  disabled={modoEstadoAdmin}
-                >
-                  <option value="">Todos los estados</option>
-                  {states.map((state) => (
-                    <option key={state.id_estado} value={state.nombre_estado}>
-                      {state.nombre_estado}
-                    </option>
-                  ))}
-                </select>
-
-                {/* Hospital */}
-                {selectedState && hospitalsByState[selectedState] && (
+                <div className="relative w-48">
                   <select
-                    className="w-48 border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                    value={selectedHospital}
-                    onChange={(e) => handleHospitalChange(e.target.value)}
+                    className={`w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                      modoEstadoAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
+                    }`}
+                    value={selectedState}
+                    onChange={(e) => handleStateChange(e.target.value)}
+                    disabled={modoEstadoAdmin}
                   >
-                    <option value="">Todos los hospitales</option>
-                    {hospitalsByState[selectedState].map((hospital) => (
-                      <option key={hospital.id} value={hospital.id}>
-                        {hospital.nombre}
+                    <option value="">Todos los estados</option>
+                    {states.map((state) => (
+                      <option key={state.id_estado} value={state.nombre_estado}>
+                        {state.nombre_estado}
                       </option>
                     ))}
                   </select>
+                  {selectedState && !modoEstadoAdmin && (
+                    <button
+                      className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs"
+                      onClick={() => setSelectedState("")}
+                      tabIndex={-1}
+                      type="button"
+                      aria-label="Limpiar estado"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+
+                {/* Hospital */}
+                {selectedState && hospitalsByState[selectedState] && (
+                  <div className="relative w-48">
+                    <select
+                      className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      value={selectedHospital}
+                      onChange={(e) => handleHospitalChange(e.target.value)}
+                    >
+                      <option value="">Todos los hospitales</option>
+                      {hospitalsByState[selectedState].map((hospital) => (
+                        <option key={hospital.id} value={hospital.id}>
+                          {hospital.nombre}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedHospital && (
+                      <button
+                        className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs"
+                        onClick={() => setSelectedHospital("")}
+                        tabIndex={-1}
+                        type="button"
+                        aria-label="Limpiar hospital"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
                 )}
 
                 {/* Capas */}
@@ -1366,7 +1656,7 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
                 <div className="h-5 border-l border-gray-200 mx-1"></div>
 
                 {/* Contadores */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-md">
                     {filteredEmployees.length} emp.
                   </span>
@@ -1408,13 +1698,15 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
             </div>
           </div>
 
-          {/* Botón para mostrar/ocultar filtros */}
+          {/* Botón para mostrar/ocultar filtros - responsivo */}
           <button
-            className="absolute bottom-4 left-4 z-[11] bg-white text-emerald-600 p-3 rounded-full shadow-md hover:bg-emerald-50 transition-transform duration-200 transform-gpu"
+            className={`absolute bottom-16 sm:bottom-20 left-4 z-[11] bg-white text-emerald-600 p-2 sm:p-3 rounded-full shadow-md hover:bg-emerald-50 transition-all duration-300 transform-gpu ${
+              showFilters ? 'shadow-lg scale-105 bg-emerald-50' : 'hover:shadow-lg hover:scale-105'
+            }`}
             onClick={() => setShowFilters(!showFilters)}
           >
             <FaFilter 
-              className={`transform transition-transform duration-200 ${
+              className={`h-4 w-4 sm:h-5 sm:w-5 transform transition-transform duration-300 ${
                 showFilters ? 'rotate-180' : 'rotate-0'
               }`}
             />

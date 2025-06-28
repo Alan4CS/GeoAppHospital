@@ -3,8 +3,8 @@ import EstadoSidebar from "../components/estado/EstadoSidebar";
 import HospitalList from "../components/estado/HospitalList";
 import GrupoList from "../components/estado/GrupoList";
 import EmpleadoList from "../components/estado/EmpleadoList";
-import Monitoreo from "../components/estado/Monitoreo";
 import DashboardEstado from "../components/estado/Dashboard";
+import EstatalDashboard from "../components/dashboard/estatal/EstatalDashboard";
 import MonitoreoMap from "../components/admin/MonitoreoMap";
 
 export default function EstadoAdminDashboard() {
@@ -76,7 +76,7 @@ export default function EstadoAdminDashboard() {
         </header>
         {/* CONTENIDO */}
         <main className="p-6">
-          {activeTab === "dashboard" && <DashboardEstado />}
+          {activeTab === "dashboard" && <EstatalDashboard />}
           {activeTab === "hospitales" && (
             <HospitalList 
               estadoNombre={estadoNombre} 
