@@ -12,32 +12,43 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
   header: {
-    backgroundColor: '#198754',
+    backgroundColor: '#21996f',
     color: 'white',
-    padding: 15,
-    marginBottom: 20,
-    borderRadius: 3,
+    padding: 14,
+    marginBottom: 14,
+    borderRadius: 7,
+    boxShadow: '0 1px 4px #0001',
+    border: '1px solid #198754',
+    minHeight: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   headerInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     fontSize: 9,
-    marginTop: 10,
-    gap: 10,
+    marginTop: 0,
+    gap: 8,
+    borderTop: '2px solid #157347', // Verde oscuro
+    paddingTop: 6,
   },
   headerColumn: {
     flex: 1,
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
-    marginRight: 10,
-    marginLeft: 10,
+    marginRight: 6,
+    marginLeft: 6,
     lineHeight: 1.3,
+    gap: 2,
   },
   section: {
     marginBottom: 20,
@@ -75,8 +86,13 @@ const styles = StyleSheet.create({
   summaryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 3,
+    marginBottom: 0,
     paddingLeft: 8,
+    paddingTop: 2,
+    paddingBottom: 2,
+  },
+  summaryItemAlt: {
+    backgroundColor: '#e0e3e7', // gris más notorio
   },
   summaryTime: {
     fontSize: 9,
@@ -211,22 +227,22 @@ const Header = ({ empleado, startDate, endDate }) => (
     <Text style={styles.headerTitle}>REPORTE DE ASISTENCIA</Text>
     <View style={styles.headerInfo}>
       <View style={styles.headerColumn}>
-        <Text>Empleado: {getEmpleadoNombre(empleado)}</Text>
-        <Text>Horario: {getHorario(empleado)}</Text>
-        <Text>Estado: {getEstado(empleado)}</Text>
-        <Text>Municipio: {getMunicipio(empleado)}</Text>
-        <Text>Fecha de reporte: {format(new Date(), 'dd/MM/yyyy', { locale: es })}</Text>
+        <Text><Text style={{ fontWeight: 'bold' }}>Empleado:</Text> {getEmpleadoNombre(empleado)}</Text>
+        <Text><Text style={{ fontWeight: 'bold' }}>Horario:</Text> {getHorario(empleado)}</Text>
+        <Text><Text style={{ fontWeight: 'bold' }}>Estado:</Text> {getEstado(empleado)}</Text>
+        <Text><Text style={{ fontWeight: 'bold' }}>Municipio:</Text> {getMunicipio(empleado)}</Text>
+        <Text><Text style={{ fontWeight: 'bold' }}>Fecha de reporte:</Text> {format(new Date(), 'dd/MM/yyyy', { locale: es })}</Text>
       </View>
       <View style={styles.headerColumn}>
-        <Text>Período: {format(parseISO(startDate), 'dd/MM/yyyy', { locale: es })} al {format(parseISO(endDate), 'dd/MM/yyyy', { locale: es })}</Text>
-        <Text>Grupo: {getGrupo(empleado) || 'N/A'}</Text>
-        <Text>Hospital: {getHospital(empleado) || 'N/A'}</Text>
+        <Text><Text style={{ fontWeight: 'bold' }}>Período:</Text> {format(parseISO(startDate), 'dd/MM/yyyy', { locale: es })} al {format(parseISO(endDate), 'dd/MM/yyyy', { locale: es })}</Text>
+        <Text><Text style={{ fontWeight: 'bold' }}>Grupo:</Text> {getGrupo(empleado) || 'N/A'}</Text>
+        <Text><Text style={{ fontWeight: 'bold' }}>Hospital:</Text> {getHospital(empleado) || 'N/A'}</Text>
       </View>
     </View>
   </View>
 );
 
-const PeriodSummary = ({ resumen }) => (
+const PeriodSummary = ({ resumen, totalDiasPeriodo }) => (
   <View style={styles.section}>
     <Text style={styles.sectionTitle}>RESUMEN DEL PERÍODO</Text>
     <View style={styles.table}>
@@ -242,8 +258,8 @@ const PeriodSummary = ({ resumen }) => (
       </View>
       <View style={styles.tableRow}>
         <Text style={styles.tableCell}>Días laborados</Text>
-        <Text style={styles.tableCell}>{resumen.diasTrabajados}</Text>
-        <Text style={styles.tableCell}>Días con actividad</Text>
+        <Text style={styles.tableCell}>{resumen.diasTrabajados} de {totalDiasPeriodo}</Text>
+        <Text style={styles.tableCell}>Días con actividad / Días del periodo</Text>
       </View>
       <View style={styles.tableRow}>
         <Text style={styles.tableCell}>Promedio diario</Text>
@@ -260,35 +276,81 @@ const PeriodSummary = ({ resumen }) => (
 );
 
 // Componente mejorado para información del empleado
-const EmployeeInfo = ({ empleado }) => (
-  <View style={{
-    marginBottom: 12,
-    padding: 10,
-    backgroundColor: '#e9f7ef',
-    borderRadius: 5,
-    border: '1px solid #b2dfdb',
-    gap: 2,
-  }}>
-    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
-      <Text style={{ fontWeight: 'bold', color: '#14532d', fontSize: 11, minWidth: 70 }}>Empleado:</Text>
-      <Text style={{ fontSize: 11, color: '#14532d', fontWeight: 'bold' }}>{getEmpleadoNombre(empleado)}</Text>
-      <Text style={{ fontWeight: 'bold', color: '#14532d', fontSize: 11, marginLeft: 18, minWidth: 70 }}>Grupo:</Text>
-      <Text style={{ fontSize: 11, color: '#14532d' }}>{getGrupo(empleado)}</Text>
+const EmployeeInfo = ({ empleado, actividades }) => {
+  // Calcular tiempo total dentro y fuera de geocerca
+  let totalDentro = 0;
+  let totalFuera = 0;
+  let estadoGeocerca = null;
+  let horaIntervalo = null;
+  const ordenadas = (actividades || []).slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
+  for (let i = 0; i < ordenadas.length; i++) {
+    const act = ordenadas[i];
+    if (i === 0) {
+      estadoGeocerca = act.dentro_geocerca;
+      horaIntervalo = act.fecha_hora;
+      continue;
+    }
+    if (typeof act.evento === 'number') {
+      if (act.evento === 0 && estadoGeocerca === true && horaIntervalo) {
+        totalDentro += (new Date(act.fecha_hora) - new Date(horaIntervalo));
+        estadoGeocerca = false;
+        horaIntervalo = act.fecha_hora;
+      } else if (act.evento === 1 && estadoGeocerca === false && horaIntervalo) {
+        totalFuera += (new Date(act.fecha_hora) - new Date(horaIntervalo));
+        estadoGeocerca = true;
+        horaIntervalo = act.fecha_hora;
+      }
+    }
+    if (i === ordenadas.length - 1 && horaIntervalo && estadoGeocerca !== null) {
+      if (estadoGeocerca) {
+        totalDentro += (new Date(act.fecha_hora) - new Date(horaIntervalo));
+      } else {
+        totalFuera += (new Date(act.fecha_hora) - new Date(horaIntervalo));
+      }
+    }
+  }
+  const msToHM = (ms) => {
+    const min = Math.floor(ms / 60000) % 60;
+    const hrs = Math.floor(ms / 3600000);
+    return `${hrs > 0 ? hrs + 'h ' : ''}${min}min`;
+  };
+
+  return (
+    <View style={{
+      marginBottom: 12,
+      padding: 10,
+      backgroundColor: '#e9f7ef',
+      borderRadius: 5,
+      border: '1px solid #b2dfdb',
+      gap: 2,
+    }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+        <Text style={{ fontWeight: 'bold', color: '#14532d', fontSize: 11, minWidth: 70 }}>Empleado:</Text>
+        <Text style={{ fontSize: 11, color: '#14532d', fontWeight: 'bold' }}>{getEmpleadoNombre(empleado)}</Text>
+        <Text style={{ fontWeight: 'bold', color: '#14532d', fontSize: 11, marginLeft: 18, minWidth: 70 }}>Grupo:</Text>
+        <Text style={{ fontSize: 11, color: '#14532d' }}>{getGrupo(empleado)}</Text>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+        <Text style={{ fontWeight: 'bold', color: '#198754', fontSize: 10, minWidth: 70 }}>Estado:</Text>
+        <Text style={{ fontSize: 10, color: '#198754', minWidth: 90 }}>{getEstado(empleado)}</Text>
+        <Text style={{ fontWeight: 'bold', color: '#198754', fontSize: 10, minWidth: 70 }}>Municipio:</Text>
+        <Text style={{ fontSize: 10, color: '#198754', minWidth: 90 }}>{getMunicipio(empleado)}</Text>
+        <Text style={{ fontWeight: 'bold', color: '#198754', fontSize: 10, minWidth: 70 }}>Hospital:</Text>
+        <Text style={{ fontSize: 10, color: '#198754' }}>{getHospital(empleado)}</Text>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+        <Text style={{ fontWeight: 'bold', color: '#198754', fontSize: 10, minWidth: 70 }}>Horas al día:</Text>
+        <Text style={{ fontSize: 10, color: '#198754' }}>{getHorario(empleado)}</Text>
+        {/* Totales dentro/fuera */}
+        {(totalDentro > 0 || totalFuera > 0) && (
+          <Text style={{ fontSize: 10, color: '#198754', marginLeft: 18 }}>
+            <Text style={{ fontWeight: 'bold', color: '#198754' }}>Total dentro:</Text> {msToHM(totalDentro)}   <Text style={{ fontWeight: 'bold', color: '#dc3545', marginLeft: 8 }}>Fuera:</Text> {msToHM(totalFuera)}
+          </Text>
+        )}
+      </View>
     </View>
-    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
-      <Text style={{ fontWeight: 'bold', color: '#198754', fontSize: 10, minWidth: 70 }}>Estado:</Text>
-      <Text style={{ fontSize: 10, color: '#198754', minWidth: 90 }}>{getEstado(empleado)}</Text>
-      <Text style={{ fontWeight: 'bold', color: '#198754', fontSize: 10, minWidth: 70 }}>Municipio:</Text>
-      <Text style={{ fontSize: 10, color: '#198754', minWidth: 90 }}>{getMunicipio(empleado)}</Text>
-      <Text style={{ fontWeight: 'bold', color: '#198754', fontSize: 10, minWidth: 70 }}>Hospital:</Text>
-      <Text style={{ fontSize: 10, color: '#198754' }}>{getHospital(empleado)}</Text>
-    </View>
-    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-      <Text style={{ fontWeight: 'bold', color: '#198754', fontSize: 10, minWidth: 70 }}>Horas al día:</Text>
-      <Text style={{ fontSize: 10, color: '#198754' }}>{getHorario(empleado)}</Text>
-    </View>
-  </View>
-);
+  );
+};
 
 // Función mejorada para generar resumen del día con mejor formato
 function generarResumenDiaMejorado(actividades) {
@@ -432,7 +494,7 @@ const DaySummary = ({ eventos }) => {
       <Text style={styles.daySummaryTitle}>Resumen del dia</Text>
       <View style={styles.summaryItemsContainer}>
         {eventos.map((evento, idx) => (
-          <View key={idx} style={styles.summaryItem}>
+          <View key={idx} style={[styles.summaryItem, idx % 2 === 1 && styles.summaryItemAlt]}>
             <Text style={[styles.summaryTime, getEventStyle(evento.tipo)]}>
               {evento.hora}
             </Text>
@@ -452,8 +514,26 @@ const DaySummary = ({ eventos }) => {
 };
 
 const DayTable = ({ fecha, actividades, empleado }) => {
-  if (!actividades || actividades.length === 0) return null;
-  
+  // Si no hay actividades, mostrar un recuadro compacto de "Sin actividad"
+  if (!actividades || actividades.length === 0) {
+    return (
+      <View style={{
+        marginBottom: 12,
+        padding: 10,
+        backgroundColor: '#f8f9fa',
+        borderRadius: 5,
+        border: '1px solid #e0e0e0',
+        alignItems: 'center',
+        minHeight: 40,
+        justifyContent: 'center',
+        marginTop: 8,
+      }}>
+        <Text style={{ color: '#64748b', fontSize: 11, fontWeight: 'bold' }}>
+          {format(parseISO(fecha), 'EEEE dd/MM/yyyy', { locale: es })}: Sin actividad registrada
+        </Text>
+      </View>
+    );
+  }
   const ordenadas = actividades.slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
   const eventosResumen = generarResumenDiaMejorado(ordenadas);
   
@@ -464,7 +544,7 @@ const DayTable = ({ fecha, actividades, empleado }) => {
       </Text>
       
       {/* Información del empleado debajo del día */}
-      <EmployeeInfo empleado={empleado} />
+      <EmployeeInfo empleado={empleado} actividades={ordenadas} />
       
       {/* Espacio extra antes de la línea de tiempo solo en PDF */}
       <View style={{ marginTop: 18 }} /> {/* <-- Espacio agregado aquí */}
@@ -479,23 +559,14 @@ const DayTable = ({ fecha, actividades, empleado }) => {
 };
 
 const ReportDocument = ({ empleado, startDate, endDate, eventsByDay }) => {
-  console.log('startDate:', startDate, 'endDate:', endDate);
-  console.log('eventsByDay keys:', Object.keys(eventsByDay));
-
-  const start = parseISO(startDate);
-  const end = parseISO(endDate);
-  const dias = Object.keys(eventsByDay)
-    .filter((fecha) => {
-      const d = parseISO(fecha);
-      console.log('Comparando:', fecha, '->', d, '>=', start, '&&', d, '<=', end, ':', d >= start && d <= end);
-      return d >= start && d <= end;
-    })
-    .sort();
-  console.log('dias filtrados:', dias);
+  // Generar todos los días del rango
+  const allDays = eachDayOfInterval({ start: parseISO(startDate), end: parseISO(endDate) });
+  const dias = allDays.map((date) => format(date, 'yyyy-MM-dd'));
+  const totalDiasPeriodo = dias.length;
 
   const resumen = calculaResumen(
     dias.reduce((acc, fecha) => {
-      acc[fecha] = eventsByDay[fecha];
+      acc[fecha] = eventsByDay[fecha] || [];
       return acc;
     }, {})
   );
@@ -504,16 +575,16 @@ const ReportDocument = ({ empleado, startDate, endDate, eventsByDay }) => {
     <Document>
       <Page size="LETTER" style={styles.page}>
         <Header empleado={empleado} startDate={startDate} endDate={endDate} />
+        <PeriodSummary resumen={resumen} totalDiasPeriodo={totalDiasPeriodo} />
         {dias.length === 0 ? (
           <Text style={styles.noData}>No hay actividades registradas en el rango seleccionado.</Text>
         ) : (
           <>
             {dias.map((fecha) => (
-              <DayTable key={fecha} fecha={fecha} actividades={eventsByDay[fecha]} empleado={empleado} />
+              <DayTable key={fecha} fecha={fecha} actividades={eventsByDay[fecha] || []} empleado={empleado} />
             ))}
           </>
         )}
-        <PeriodSummary resumen={resumen} />
       </Page>
     </Document>
   );
