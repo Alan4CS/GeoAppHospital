@@ -332,10 +332,16 @@ export default function SuperadminGeoApp() {
       let endpoint =
         "https://geoapphospital.onrender.com/api/superadmin/create-admin";
 
-      // Si es superadmin, usar el endpoint específico
+      // Seleccionar endpoint según el tipo de admin
       if (nuevoAdmin.role_name === "superadmin") {
         endpoint =
           "https://geoapphospital.onrender.com/api/superadmin/create-superadmin";
+      } else if (nuevoAdmin.role_name === "municipioadmin") {
+        endpoint =
+          "https://geoapphospital.onrender.com/api/municipioadmin/create-municipioadmin";
+      } else if (nuevoAdmin.role_name === "hospitaladmin") {
+        endpoint =
+          "https://geoapphospital.onrender.com/api/hospitaladmin/create-hospitaladmin";
       }
 
       const response = await fetch(endpoint, {

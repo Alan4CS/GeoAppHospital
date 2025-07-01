@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { ChevronRight, Hospital, Users, User } from "lucide-react";
 import StatsCardEstado from "./StatsCardEstado";
 
-export default function HospitalList({ estadoNombre = "Nombre del Estado", hospitales = [], loading = false }) {
+export default function HospitalList({ estadoNombre = "Nombre del Estado", hospitales = [], loading = false, municipioNombre }) {
   const [paginaActual, setPaginaActual] = useState(1);
   const hospitalesPorPagina = 20;
   const [stats, setStats] = useState(null);
@@ -40,7 +40,7 @@ export default function HospitalList({ estadoNombre = "Nombre del Estado", hospi
   const totalPaginas = Math.ceil(hospitalesFiltrados.length / hospitalesPorPagina);
 
   if (loading) return <div className="text-center text-gray-500">Cargando hospitales...</div>;
-  if (!hospitales.length) return <div className="text-center text-gray-500">No hay hospitales registrados en tu estado.</div>;
+  if (!hospitales.length) return <div className="text-center text-gray-500">No hay hospitales registrados en {municipioNombre ? 'tu municipio' : 'tu estado'}.</div>;
 
   return (
     <div className="bg-white shadow-md rounded-xl overflow-hidden">

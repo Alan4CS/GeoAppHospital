@@ -11,6 +11,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const EstadoadminGeoApp = lazy(() => import("./pages/EstadoadminGeoApp"));
 const HospitalAdminGeoApp = lazy(() => import("./pages/HospitalAdminGeoApp"));
 const GroupadminGeoApp = lazy(() => import("./pages/GroupadminGeoApp"));
+const MunicipioadminGeoApp = lazy(() => import("./pages/MunicipioadminGeoApp"));
 
 // Solo para superadmin: ruta protegida con ActivityLog
 const ProtectedRouteWithActivityLog = ({ children }) => (
@@ -61,6 +62,14 @@ function App() {
                 element={
                   <ProtectedRouteOnly>
                     <GroupadminGeoApp />
+                  </ProtectedRouteOnly>
+                }
+              />
+              <Route
+                path="/municipioadmin-geoapp"
+                element={
+                  <ProtectedRouteOnly>
+                    <MunicipioadminGeoApp />
                   </ProtectedRouteOnly>
                 }
               />

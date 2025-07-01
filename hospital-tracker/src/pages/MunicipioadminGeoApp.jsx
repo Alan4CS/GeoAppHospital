@@ -1,50 +1,50 @@
 import React, { useState, useEffect } from "react";
-import EstadoSidebar from "../components/estado/EstadoSidebar";
-import HospitalList from "../components/estado/HospitalListEstado";
+import MunicipalDashboard from "../components/dashboard/municipal/MunicipalDashboard";
+// TODO: Crear este componente similar a EstadoSidebar
+import MunicipalSidebar from "../components/municipal/MunicipalSidebar";
+import HospitalList from "../components/municipal/HospitalListMunicipio";
 import GrupoList from "../components/estado/GrupoList";
 import EmpleadoList from "../components/estado/EmpleadoList";
-import DashboardEstado from "../components/estado/Dashboard";
-import EstatalDashboard from "../components/dashboard/estatal/EstatalDashboard";
-import MonitoreoMap from "../components/admin/MonitoreoMap";
 
-export default function EstadoAdminDashboard() {
+export default function MunicipioAdminDashboard() {
   const [activeTab, setActiveTab] = useState("hospitales");
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [estadoNombre, setEstadoNombre] = useState("");
+  const [municipioNombre, setMunicipioNombre] = useState("");
   const [hospitales, setHospitales] = useState([]);
   const [hospitalesLoading, setHospitalesLoading] = useState(true);
-  // Obtener el id_user desde localStorage (ajusta si lo tienes en contexto)
+  // Obtener el id_user desde localStorage
   const id_user = localStorage.getItem("userId");
 
   useEffect(() => {
-    const fetchHospitalesYEstado = async () => {
+    const fetchHospitalesYMunicipio = async () => {
       try {
         setHospitalesLoading(true);
-        const response = await fetch(`https://geoapphospital.onrender.com/api/estadoadmin/hospitals-by-user/${id_user}?source=hospitals`);
+        // Endpoint para hospitales por municipioadmin
+        const response = await fetch(`https://geoapphospital.onrender.com/api/municipioadmin/hospitals-by-user/${id_user}`);
         const data = await response.json();
         setHospitales(data);
-        // Si hay hospitales, toma el nombre_estado del primero
+        // Si hay hospitales, toma el nombre_municipio del primero
         if (Array.isArray(data) && data.length > 0) {
-          setEstadoNombre(data[0].nombre_estado || "");
+          setMunicipioNombre(data[0].nombre_municipio || "");
         } else {
-          setEstadoNombre("");
+          setMunicipioNombre("");
         }
       } catch (error) {
-        setEstadoNombre("");
+        setMunicipioNombre("");
         setHospitales([]);
       } finally {
         setHospitalesLoading(false);
       }
     };
     if (id_user) {
-      fetchHospitalesYEstado();
+      fetchHospitalesYMunicipio();
     }
   }, [id_user]);
 
   return (
     <div className="flex h-screen bg-gray-50">
       {/* SIDEBAR */}
-      <EstadoSidebar
+      <MunicipalSidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         sidebarOpen={sidebarOpen}
@@ -59,41 +59,31 @@ export default function EstadoAdminDashboard() {
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold text-gray-800">
               {activeTab === "hospitales"
-                ? `Hospitales en ${estadoNombre || "..."}`
+                ? `Hospitales en ${municipioNombre || "..."}`
                 : activeTab === "grupos"
-                ? `Grupos en ${estadoNombre || "..."}`
+                ? `Grupos en ${municipioNombre || "..."}`
                 : activeTab === "empleados"
-                ? `Empleados en ${estadoNombre || "..."}`
-                : activeTab === "monitoreo"
-                ? "Monitoreo de grupos"
-                : activeTab === "monitoreomap"
-                ? "Monitoreo estatal"
+                ? `Empleados en ${municipioNombre || "..."}`
                 : activeTab === "dashboard"
-                ? "Dashboard estatal"
-                : "Estado Admin"}
+                ? "Dashboard municipal"
+                : "Municipio Admin"}
             </h1>
           </div>
         </header>
         {/* CONTENIDO */}
         <main className="p-6">
-          {activeTab === "dashboard" && <EstatalDashboard />}
+          {activeTab === "dashboard" && <MunicipalDashboard municipio={municipioNombre} />}
           {activeTab === "hospitales" && (
             <HospitalList 
-              estadoNombre={estadoNombre} 
+              municipioNombre={municipioNombre} 
               hospitales={hospitales} 
               loading={hospitalesLoading}
             />
           )}
           {activeTab === "grupos" && <GrupoList id_user={id_user} />}
           {activeTab === "empleados" && <EmpleadoList id_user={id_user} />}
-          {activeTab === "monitoreo" && (
-            <MonitoreoMap modoEstadoAdmin={true} estadoId={id_user} />
-          )}
-          {activeTab === "monitoreomap" && (
-            <MonitoreoMap modoEstadoAdmin={true} estadoId={id_user} estadoNombre={estadoNombre} />
-          )}
         </main>
       </div>
     </div>
   );
-}
+} 
