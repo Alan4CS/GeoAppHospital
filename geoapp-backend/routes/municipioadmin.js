@@ -189,4 +189,64 @@ router.get("/stats-by-user/:id_user", async (req, res) => {
   }
 });
 
+// Obtener empleados del municipio del municipioadmin
+router.get("/empleados-by-user/:id_user", async (req, res) => {
+  const { id_user } = req.params;
+  try {
+    // 1. Obtener el municipio del admin
+    const userResult = await pool.query(
+      `SELECT id_municipio FROM user_data WHERE id_user = $1`,
+      [id_user]
+    );
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+    const id_municipio = userResult.rows[0].id_municipio;
+
+    // 2. Obtener empleados de ese municipio
+    const empleadosResult = await pool.query(
+      `SELECT u.id_user, u.nombre, u.ap_paterno, u.ap_materno, u.curp_user, u.id_estado, u.id_municipio, uc.user
+       FROM user_data u
+       JOIN user_roles ur ON u.id_user = ur.id_user
+       JOIN roles r ON ur.id_role = r.id_role
+       LEFT JOIN user_credentials uc ON u.id_user = uc.id_user
+       WHERE r.role_name = 'empleado' AND u.id_municipio = $1`,
+      [id_municipio]
+    );
+    res.json(empleadosResult.rows);
+  } catch (error) {
+    console.error("❌ Error al obtener empleados por municipioadmin:", error);
+    res.status(500).json({ error: "Error al obtener empleados" });
+  }
+});
+
+// Obtener grupos del municipio del municipioadmin
+router.get("/grupos-by-user/:id_user", async (req, res) => {
+  const { id_user } = req.params;
+  try {
+    // 1. Obtener el municipio del admin
+    const userResult = await pool.query(
+      `SELECT id_municipio FROM user_data WHERE id_user = $1`,
+      [id_user]
+    );
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+    const id_municipio = userResult.rows[0].id_municipio;
+
+    // 2. Obtener grupos de hospitales de ese municipio
+    const gruposResult = await pool.query(
+      `SELECT g.id_group, g.nombre_grupo, g.id_hospital, h.nombre_hospital
+       FROM groups g
+       JOIN hospitals h ON g.id_hospital = h.id_hospital
+       WHERE h.id_municipio = $1`,
+      [id_municipio]
+    );
+    res.json(gruposResult.rows);
+  } catch (error) {
+    console.error("❌ Error al obtener grupos por municipioadmin:", error);
+    res.status(500).json({ error: "Error al obtener grupos" });
+  }
+});
+
 export default router;

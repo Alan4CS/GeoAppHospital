@@ -3,8 +3,8 @@ import MunicipalDashboard from "../components/dashboard/municipal/MunicipalDashb
 // TODO: Crear este componente similar a EstadoSidebar
 import MunicipalSidebar from "../components/municipal/MunicipalSidebar";
 import HospitalList from "../components/municipal/HospitalListMunicipio";
-import GrupoList from "../components/estado/GrupoList";
-import EmpleadoList from "../components/estado/EmpleadoList";
+import GrupoList from "../components/municipal/GrupoListMunicipio";
+import EmpleadoList from "../components/municipal/EmpleadoListMunicipio";
 
 export default function MunicipioAdminDashboard() {
   const [activeTab, setActiveTab] = useState("hospitales");
