@@ -1,8 +1,6 @@
 "use client"
-
-import React, { useState } from "react"
+import React from "react"
 import { Calendar, MapPin, Building2, Check, Users, TrendingUp, Clock } from "lucide-react"
-import { format } from "date-fns"
 import {
   ResponsiveContainer,
   BarChart,
@@ -33,16 +31,11 @@ export default function GrupoDashboard({
   limpiarFiltros,
   applyChanges,
   isValidRange,
-  daysDifference,
   cardData,
   groupDistributionData,
   hoursData,
 }) {
-  // --- Calendar and PDF state/logic ---
-  const [loadingPDF, setLoadingPDF] = useState(false)
-  const [calendarData, setCalendarData] = useState([])
-  const [selectedDay, setSelectedDay] = useState(null)
-  const [hourlyData, setHourlyData] = useState([])
+
 
   // Función para limpiar filtros localmente y notificar al padre
   const handleLimpiarFiltros = () => {
@@ -240,3 +233,4 @@ export default function GrupoDashboard({
     </div>
   )
 }
+  
