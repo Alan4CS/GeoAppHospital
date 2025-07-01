@@ -142,4 +142,51 @@ router.get("/hospitals-by-user/:id_user", async (req, res) => {
   }
 });
 
+// Endpoint de estadísticas para municipioadmin
+router.get("/stats-by-user/:id_user", async (req, res) => {
+  const { id_user } = req.params;
+  try {
+    // 1. Obtener el municipio del admin
+    const userResult = await pool.query(
+      `SELECT id_municipio FROM user_data WHERE id_user = $1`,
+      [id_user]
+    );
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+    const id_municipio = userResult.rows[0].id_municipio;
+
+    // 2. Total hospitales en el municipio
+    const hospitalesResult = await pool.query(
+      `SELECT COUNT(*) AS total_hospitales FROM hospitals WHERE id_municipio = $1`,
+      [id_municipio]
+    );
+    const total_hospitales = parseInt(hospitalesResult.rows[0].total_hospitales, 10);
+
+    // 3. Total grupos en hospitales del municipio
+    const gruposResult = await pool.query(
+      `SELECT COUNT(*) AS total_grupos FROM groups g
+       JOIN hospitals h ON g.id_hospital = h.id_hospital
+       WHERE h.id_municipio = $1`,
+      [id_municipio]
+    );
+    const total_grupos = parseInt(gruposResult.rows[0].total_grupos, 10);
+
+    // 4. Total empleados en hospitales del municipio
+    const empleadosResult = await pool.query(
+      `SELECT COUNT(*) AS total_empleados FROM user_data u
+       JOIN user_roles ur ON u.id_user = ur.id_user
+       JOIN roles r ON ur.id_role = r.id_role
+       WHERE r.role_name = 'empleado' AND u.id_municipio = $1`,
+      [id_municipio]
+    );
+    const total_empleados = parseInt(empleadosResult.rows[0].total_empleados, 10);
+
+    res.json({ total_hospitales, total_grupos, total_empleados });
+  } catch (error) {
+    console.error("❌ Error al obtener estadísticas de municipioadmin:", error);
+    res.status(500).json({ error: "Error al obtener estadísticas" });
+  }
+});
+
 export default router;

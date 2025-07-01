@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import MunicipalDashboard from "../components/dashboard/municipal/MunicipalDashboard";
 // TODO: Crear este componente similar a EstadoSidebar
 import MunicipalSidebar from "../components/municipal/MunicipalSidebar";
-import HospitalList from "../components/estado/HospitalList";
+import HospitalList from "../components/municipal/HospitalListMunicipio";
 import GrupoList from "../components/estado/GrupoList";
 import EmpleadoList from "../components/estado/EmpleadoList";
 
