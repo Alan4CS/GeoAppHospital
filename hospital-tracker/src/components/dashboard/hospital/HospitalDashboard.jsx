@@ -33,6 +33,8 @@ import {
 import { es } from "date-fns/locale"
 import "react-calendar/dist/Calendar.css"
 import { generarReporteEmpleadoPDF } from "./reportes/EmployeeReportPDF"
+import GrupoDashboard from './GrupoDashboard'
+import EmpleadoDashboard from './EmpleadoDashboard'
 
 const customScrollbarStyles = `
   .custom-scrollbar::-webkit-scrollbar {
@@ -542,7 +544,6 @@ const EmployeeCalendarView = ({ employee, startDate, endDate, filters }) => {
                             <span>Fuera</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                             <span>Evento</span>
                           </div>
                         </div>
@@ -986,11 +987,24 @@ const HospitalDashboard = () => {
   }
 
   const limpiarFiltros = () => {
-    setSelectedGrupo("")
-    setSelectedEmpleado("")
-    setFechaInicio(format(subDays(new Date(), 30), "yyyy-MM-dd"))
-    setFechaFin(format(new Date(), "yyyy-MM-dd"))
-    setEmpleadosFiltrados(empleados)
+    setSelectedGrupo("");
+    setSelectedEmpleado("");
+    setSelectedPreset(""); // Limpiar periodo rápido
+    setTempDateRange({
+      startDate: "",
+      endDate: "",
+    });
+    setFechaInicio("");
+    setFechaFin("");
+    setFilters({
+      id_estado: "",
+      id_municipio: "",
+      id_hospital: "",
+      nombre_estado: "",
+      nombre_municipio: "",
+      nombre_hospital: "",
+    });
+    setEmpleadosFiltrados(empleados); // Mostrar todos de nuevo
   }
 
   // Datos dummy para las tarjetas
@@ -1029,624 +1043,86 @@ const HospitalDashboard = () => {
   // Obtener el empleado seleccionado para mostrar el calendario
   const selectedEmployeeData = selectedEmpleado ? empleados.find((emp) => emp.id === Number(selectedEmpleado)) : null
 
+  const [view, setView] = useState('grupos')
+
   return (
     <>
-      <style jsx global>
+      <style>
         {customScrollbarStyles}
       </style>
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-slate-100 to-blue-50">
         <div className="max-w-7xl mx-auto pt-10 px-6 pb-10">
-          {/* Filtros Integrados */}
-          <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl p-6 border border-white/50 hover:shadow-2xl transition-all duration-300 mb-8">
-            <div className="flex flex-col gap-6">
-              {/* Título principal */}
-              <div className="flex items-center">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 flex items-center justify-center mr-3">
-                  <Calendar className="h-5 w-5 text-white" />
-                </div>
-                <h3 className="text-lg font-bold text-gray-800">Filtros de Análisis</h3>
-              </div>
-
-              {/* Primera fila: Período, Fecha inicio, Fecha fin */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-end">
-                {/* Selector de presets */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Período</label>
-                  <select
-                    value={selectedPreset}
-                    onChange={(e) => handlePresetChange(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="">Selección rápida</option>
-                    {datePresets.map((preset) => (
-                      <option key={preset.value} value={preset.value}>
-                        {preset.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {/* Fecha inicio */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Fecha inicio</label>
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center mr-2">
-                      <Calendar className="h-4 w-4 text-emerald-500" />
-                    </div>
-                    <input
-                      type="date"
-                      value={tempDateRange.startDate}
-                      onChange={(e) => handleDateChange('startDate', e.target.value)}
-                      className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-                </div>
-                {/* Fecha fin */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Fecha fin</label>
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
-                      <Calendar className="h-4 w-4 text-blue-500" />
-                    </div>
-                    <input
-                      type="date"
-                      value={tempDateRange.endDate}
-                      onChange={(e) => handleDateChange('endDate', e.target.value)}
-                      className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Segunda fila: Estado, Municipio, Hospital y botones */}
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-end mt-4">
-                {/* Estado */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center mr-2">
-                      <MapPin className="h-4 w-4 text-indigo-500" />
-                    </div>
-                    <select
-                      value={filters.id_estado}
-                      onChange={handleEstadoChange}
-                      className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="">Seleccionar Estado</option>
-                      {estados.map((estado) => (
-                        <option key={estado.id_estado} value={estado.id_estado}>
-                          {estado.nombre_estado}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                {/* Municipio */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Municipio</label>
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center mr-2">
-                      <MapPin className="h-4 w-4 text-purple-500" />
-                    </div>
-                    <select
-                      value={filters.id_municipio}
-                      onChange={handleMunicipioChange}
-                      disabled={!filters.id_estado}
-                      className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    >
-                      <option value="">Seleccionar Municipio</option>
-                      {municipios.map((municipio) => (
-                        <option key={municipio.id_municipio} value={municipio.id_municipio}>
-                          {municipio.nombre_municipio}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                {/* Hospital */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Hospital</label>
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
-                      <Building2 className="h-4 w-4 text-blue-500" />
-                    </div>
-                    <select
-                      value={filters.id_hospital}
-                      onChange={handleHospitalChange}
-                      disabled={!filters.id_municipio}
-                      className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Seleccionar Hospital</option>
-                      {hospitales.map((hospital) => (
-                        <option key={hospital.id_hospital} value={hospital.id_hospital}>
-                          {hospital.nombre_hospital}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                {/* Botones */}
-                <div className="flex gap-2 justify-end mt-6 lg:mt-0">
-                  <button
-                    onClick={limpiarFiltros}
-                    className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 text-sm"
-                  >
-                    Limpiar Filtros
-                  </button>
-                  <button
-                    onClick={() => {
-                      applyChanges();
-                    }}
-                    className="px-3 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center text-sm"
-                    style={{ minHeight: '44px' }}
-                  >
-                    <Check className="h-4 w-4 mr-1" />
-                    Aplicar Filtros
-                  </button>
-                </div>
-              </div>
-
-              {/* Mensajes informativos */}
-              <div className="space-y-2">
-                {/* Mensaje de rango seleccionado */}
-                {isValidRange && (
-                  <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3 flex items-center">
-                    <Check className="h-4 w-4 text-emerald-500 mr-2" />
-                    <span className="text-sm text-emerald-800">
-                      Rango seleccionado: {daysDifference + 1} días (
-                      {format(new Date(tempDateRange.startDate), "dd/MM/yyyy")} -{" "}
-                      {format(new Date(tempDateRange.endDate), "dd/MM/yyyy")})
-                    </span>
-                  </div>
-                )}
-
-                {/* Mensaje de error */}
-                {tempDateRange.startDate && tempDateRange.endDate && !isValidRange && (
-                  <div className="bg-red-50 border border-red-100 rounded-lg p-3 flex items-center">
-                    <Calendar className="h-4 w-4 text-red-500 mr-2" />
-                    <span className="text-sm text-red-800">La fecha de inicio debe ser anterior a la fecha final</span>
-                  </div>
-                )}
-              </div>
-            </div>
+          {/* View Selector */}
+          <div className="flex space-x-4 mb-6">
+            <button
+              onClick={() => setView('grupos')}
+              className={`px-4 py-2 rounded-lg ${view === 'grupos' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+            >
+              Grupos
+            </button>
+            <button
+              onClick={() => setView('empleados')}
+              className={`px-4 py-2 rounded-lg ${view === 'empleados' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+            >
+              Empleados
+            </button>
           </div>
 
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
-            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white flex flex-col shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
-              <div className="flex items-center justify-between mb-2">
-                <Users className="h-8 w-8 opacity-90" />
-                <TrendingUp className="h-4 w-4 text-blue-200" />
-              </div>
-              <span className="text-sm text-blue-100">Total Grupos</span>
-              <span className="text-2xl font-bold">{cardData.totalGroups}</span>
-            </div>
-            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-6 text-white flex flex-col shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
-              <div className="flex items-center justify-between mb-2">
-                <Users className="h-8 w-8 opacity-90" />
-                <TrendingUp className="h-4 w-4 text-emerald-200" />
-              </div>
-              <span className="text-sm text-emerald-100">Total Empleados</span>
-              <span className="text-2xl font-bold">{cardData.totalEmployees}</span>
-            </div>
-            <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-2xl p-6 text-white flex flex-col shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
-              <div className="flex items-center justify-between mb-2">
-                <MapPin className="h-8 w-8 opacity-90" />
-                <TrendingUp className="h-4 w-4 text-red-200" />
-              </div>
-              <span className="text-sm text-red-100">Salidas Totales</span>
-              <span className="text-2xl font-bold">{cardData.totalExits}</span>
-            </div>
-            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 text-white flex flex-col shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
-              <div className="flex items-center justify-between mb-2">
-                <Clock className="h-8 w-8 opacity-90" />
-                <TrendingUp className="h-4 w-4 text-purple-200" />
-              </div>
-              <span className="text-sm text-purple-100">Horas Totales</span>
-              <span className="text-2xl font-bold">{cardData.totalHours}</span>
-            </div>
-          </div>
-
-          {/* Gráficas */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Gráfica de Barras */}
-            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-gray-100/50 hover:shadow-2xl transition-all duration-300">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-lg font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                    Métricas por Grupo
-                  </h3>
-                  <p className="text-sm text-gray-500">Comparación de empleados y salidas</p>
-                </div>
-              </div>
-              <div className="h-[500px]">
-                <ResponsiveContainer>
-                  <BarChart
-                    data={groupDistributionData}
-                    layout="vertical"
-                    margin={{ top: 5, right: 30, left: 20, bottom: 25 }}
-                  >
-                    <defs>
-                      <linearGradient id="employeeGradient" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="#6366f1" />
-                        <stop offset="100%" stopColor="#4f46e5" />
-                      </linearGradient>
-                      <linearGradient id="exitGradient" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="#ef4444" />
-                        <stop offset="100%" stopColor="#dc2626" />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E5E7EB" />
-                    <XAxis
-                      type="number"
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{
-                        fill: "#4B5563",
-                        fontSize: 12,
-                      }}
-                    />
-                    <YAxis
-                      dataKey="group"
-                      type="category"
-                      width={120}
-                      tick={{
-                        fill: "#1F2937",
-                        fontSize: 13,
-                        fontWeight: 500,
-                      }}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "white",
-                        borderRadius: "8px",
-                        border: "1px solid #e5e7eb",
-                        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                        padding: "12px",
-                      }}
-                    />
-                    <Legend
-                      verticalAlign="bottom"
-                      align="center"
-                      height={36}
-                      iconType="square"
-                      iconSize={10}
-                      wrapperStyle={{
-                        paddingTop: "20px",
-                      }}
-                    />
-                    <Bar dataKey="employees" name="Empleados" fill="#4F46E5" radius={[0, 4, 4, 0]}>
-                      <LabelList dataKey="employees" position="right" fill="#4f46e5" fontSize={12} fontWeight={600} />
-                    </Bar>
-                    <Bar dataKey="exits" name="Salidas" fill="#EF4444" radius={[0, 4, 4, 0]}>
-                      <LabelList dataKey="exits" position="right" fill="#dc2626" fontSize={12} fontWeight={600} />
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Gráfica de Líneas */}
-            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-gray-100/50 hover:shadow-2xl transition-all duration-300">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-lg font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                    Tendencia de Horas por Grupo
-                  </h3>
-                  <p className="text-sm text-gray-500">Distribución de horas trabajadas</p>
-                </div>
-              </div>
-              <div className="h-[500px]">
-                <ResponsiveContainer>
-                  <LineChart data={hoursData} margin={{ top: 5, right: 30, left: 20, bottom: 25 }}>
-                    <defs>
-                      <linearGradient id="hoursGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2} />
-                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="#8b5cf6" />
-                        <stop offset="100%" stopColor="#6366f1" />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis
-                      dataKey="group"
-                      angle={-45}
-                      textAnchor="end"
-                      height={60}
-                      tick={{
-                        fill: "#4B5563",
-                        fontSize: 12,
-                      }}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      tick={{
-                        fill: "#4B5563",
-                        fontSize: 12,
-                      }}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "white",
-                        borderRadius: "8px",
-                        border: "1px solid #e5e7eb",
-                        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                        padding: "12px",
-                      }}
-                      formatter={(value) => [`${value} horas`, "Horas Trabajadas"]}
-                    />
-                    <Area type="monotone" dataKey="hours" stroke="none" fillOpacity={1} fill="url(#hoursGradient)" />
-                    <Line
-                      type="linear"
-                      dataKey="hours"
-                      name="Horas trabajadas"
-                      stroke="url(#lineGradient)"
-                      strokeWidth={3}
-                      dot={{
-                        fill: "white",
-                        stroke: "#8b5cf6",
-                        strokeWidth: 2,
-                        r: 4,
-                      }}
-                      activeDot={{
-                        fill: "#8b5cf6",
-                        stroke: "white",
-                        strokeWidth: 2,
-                        r: 6,
-                      }}
-                    />
-                    <Legend
-                      verticalAlign="bottom"
-                      align="center"
-                      height={36}
-                      iconType="square"
-                      iconSize={10}
-                      wrapperStyle={{
-                        paddingTop: "20px",
-                      }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-
-          {/* Nueva sección de análisis detallado */}
-          <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl p-6 border border-white/50 hover:shadow-2xl transition-all duration-300 mb-8 mt-12">
-            <div className="flex flex-col gap-6">
-              {/* Título principal */}
-              <div className="flex items-center">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center mr-3">
-                  <TrendingUp className="h-5 w-5 text-white" />
-                </div>
-                <h3 className="text-lg font-bold text-gray-800">Análisis Detallado</h3>
-              </div>
-
-              {/* Filtros */}
-              {/* Primera fila: Fechas */}
-              <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 items-end">
-                <div className="lg:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Período</label>
-                  <select
-                    className={`w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${!filters.id_hospital ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''}`}
-                    disabled={!filters.id_hospital}
-                  >
-                    <option value="">Selección rápida</option>
-                    <option value="7d">Últimos 7 días</option>
-                    <option value="15d">Últimos 15 días</option>
-                    <option value="30d">Últimos 30 días</option>
-                    <option value="60d">Últimos 60 días</option>
-                    <option value="90d">Últimos 90 días</option>
-                    <option value="3m">Último trimestre</option>
-                    <option value="6m">Últimos 6 meses</option>
-                    <option value="1y">Último año</option>
-                    <option value="custom">Personalizado</option>
-                  </select>
-                </div>
-                <div className="lg:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Fecha inicio</label>
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center mr-2">
-                      <Calendar className="h-4 w-4 text-emerald-500" />
-                    </div>
-                    <input
-                      type="date"
-                      value={fechaInicio}
-                      onChange={handleFechaInicioChange}
-                      disabled={!filters.id_hospital}
-                      className={`flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${!filters.id_hospital ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''}`}
-                    />
-                  </div>
-                </div>
-                <div className="lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Fecha fin</label>
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
-                      <Calendar className="h-4 w-4 text-blue-500" />
-                    </div>
-                    <input
-                      type="date"
-                      value={fechaFin}
-                      onChange={handleFechaFinChange}
-                      disabled={!filters.id_hospital}
-                      className={`flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${!filters.id_hospital ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''}`}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Segunda fila: Grupo y Empleado */}
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-end mt-2">
-                <div className="lg:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Grupo</label>
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
-                      <Users className="h-4 w-4 text-blue-500" />
-                    </div>
-                    <select
-                      value={selectedGrupo}
-                      onChange={handleGrupoChange}
-                      disabled={!filters.id_hospital}
-                      className={`flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${!filters.id_hospital ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''}`}
-                    >
-                      <option value="">Todos los grupos</option>
-                      {grupos.map((grupo) => (
-                        <option key={grupo.nombre} value={grupo.nombre}>
-                          {grupo.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div className="lg:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Empleado</label>
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center mr-2">
-                      <Users className="h-4 w-4 text-purple-500" />
-                    </div>
-                    <select
-                      value={selectedEmpleado}
-                      onChange={handleEmpleadoChange}
-                      disabled={!filters.id_hospital}
-                      className={`flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 ${!filters.id_hospital ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''}`}
-                    >
-                      <option value="">Todos los empleados</option>
-                      {empleados
-                        .filter((emp) => !selectedGrupo || emp.grupo === selectedGrupo)
-                        .map((emp) => (
-                          <option key={emp.id} value={emp.id}>
-                            {emp.name}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Botones de acción */}
-              <div className="flex gap-2 justify-end">
-                <button
-                  onClick={limpiarFiltros}
-                  className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 text-sm"
-                >
-                  Limpiar Filtros
-                </button>
-                <button
-                  onClick={() => filtrarEmpleados(selectedGrupo, selectedEmpleado, fechaInicio, fechaFin)}
-                  className="px-3 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center text-sm"
-                >
-                  <Check className="h-4 w-4 mr-1" />
-                  Aplicar Filtros
-                </button>
-              </div>
-
-              {/* Tarjetas de información */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-                <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-4 text-white flex flex-col shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
-                  <div className="flex items-center justify-between mb-2">
-                    <MapPin className="h-6 w-6 opacity-90" />
-                    <TrendingUp className="h-4 w-4 text-red-200" />
-                  </div>
-                  <span className="text-sm text-red-100">Tiempo Fuera</span>
-                  <span className="text-xl font-bold">8 hrs</span>
-                </div>
-                <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white flex flex-col shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
-                  <div className="flex items-center justify-between mb-2">
-                    <Clock className="h-6 w-6 opacity-90" />
-                    <TrendingUp className="h-4 w-4 text-purple-200" />
-                  </div>
-                  <span className="text-sm text-purple-100">Horas Trabajadas</span>
-                  <span className="text-xl font-bold">136 hrs</span>
-                </div>
-              </div>
-
-              {/* Mensaje informativo */}
-              <div className="space-y-2">
-                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 flex items-center">
-                  <Check className="h-4 w-4 text-blue-500 mr-2" />
-                  <span className="text-sm text-blue-800">
-                    Mostrando {empleadosFiltrados.length} empleado(s)
-                    {selectedGrupo ? ` del grupo ${selectedGrupo}` : ""}
-                    {selectedEmpleado ? ` (filtrado por empleado específico)` : ""}
-                    en el período del {format(new Date(fechaInicio), "dd/MM/yyyy")}
-                    al {format(new Date(fechaFin), "dd/MM/yyyy")}
-                  </span>
-                </div>
-              </div>
-
-              {/* Contenedor para tabla y gráfica o calendario */}
-              <div className={selectedEmployeeData ? "space-y-6 mt-6" : "grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6"}>
-                {/* Tabla de empleados - solo mostrar si no hay empleado seleccionado */}
-                {!selectedEmployeeData && (
-                  <div className="bg-white rounded-lg shadow-sm w-full">
-                    <div className="max-h-[500px] overflow-y-auto custom-scrollbar w-full">
-                      <table className="w-full table-fixed">
-                        <thead className="bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0 z-10">
-                          <tr>
-                            <th className="w-1/4 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Nombre
-                            </th>
-                            <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Horario
-                            </th>
-                            <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Hrs Plan
-                            </th>
-                            <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Hrs Efec
-                            </th>
-                            <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Hrs Fuera
-                            </th>
-                            <th className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Hrs Just
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {empleadosFiltrados.map((employee) => (
-                            <tr key={employee.id} className="hover:bg-gray-50/50 transition-colors duration-200">
-                              <td className="px-4 py-4 text-sm font-medium text-gray-900 truncate">{employee.name}</td>
-                              <td className="px-4 py-4 text-sm text-gray-500">{employee.schedule}</td>
-                              <td className="px-4 py-4 text-sm text-gray-500">{employee.plannedHours}</td>
-                              <td className="px-4 py-4 text-sm text-emerald-600 font-medium">{employee.workedHours}</td>
-                              <td className="px-4 py-4 text-sm text-red-600 font-medium">{employee.outsideHours}</td>
-                              <td className="px-4 py-4 text-sm text-blue-600 font-medium">{employee.justifiedHours}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {/* Vista condicional: Calendario para empleado individual o gráfica para múltiples */}
-                {selectedEmployeeData ? (
-                  <EmployeeCalendarView employee={selectedEmployeeData} startDate={fechaInicio} endDate={fechaFin} filters={filters} />
-                ) : (
-
-                  <div className="h-[500px]">
-                    <ResponsiveContainer>
-                      <BarChart data={employeeHoursData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="horasTrabajadas" name="Horas Trabajadas" fill="#10B981" />
-                        <Bar dataKey="horasAfuera" name="Horas Fuera" fill="#EF4444" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          {/* Conditional Dashboards */}
+          {view === 'grupos' ? (
+            <GrupoDashboard
+              datePresets={datePresets}
+              selectedPreset={selectedPreset}
+              handlePresetChange={handlePresetChange}
+              tempDateRange={tempDateRange}
+              handleDateChange={handleDateChange}
+              filters={filters}
+              estados={estados}
+              municipios={municipios}
+              hospitales={hospitales}
+              handleEstadoChange={handleEstadoChange}
+              handleMunicipioChange={handleMunicipioChange}
+              handleHospitalChange={handleHospitalChange}
+              limpiarFiltros={limpiarFiltros}
+              applyChanges={applyChanges}
+              isValidRange={isValidRange}
+              daysDifference={daysDifference}
+              cardData={cardData}
+              groupDistributionData={groupDistributionData}
+              hoursData={hoursData}
+            />
+          ) : (
+            <EmpleadoDashboard
+              datePresets={datePresets}
+              selectedPreset={selectedPreset}
+              handlePresetChange={handlePresetChange}
+              tempDateRange={tempDateRange}
+              handleDateChange={handleDateChange}
+              filters={filters}
+              estados={estados}
+              municipios={municipios}
+              hospitales={hospitales}
+              handleEstadoChange={handleEstadoChange}
+              handleMunicipioChange={handleMunicipioChange}
+              handleHospitalChange={handleHospitalChange}
+              limpiarFiltros={limpiarFiltros}
+              applyChanges={applyChanges}
+              isValidRange={isValidRange}
+              daysDifference={daysDifference}
+              grupos={grupos}
+              empleados={empleados}
+              empleadosFiltrados={empleadosFiltrados}
+              selectedGrupo={selectedGrupo}
+              selectedEmpleado={selectedEmpleado}
+              fechaInicio={fechaInicio}
+              fechaFin={fechaFin}
+              handleGrupoChange={handleGrupoChange}
+              handleEmpleadoChange={handleEmpleadoChange}
+              handleFechaInicioChange={handleFechaInicioChange}
+              handleFechaFinChange={handleFechaFinChange}
+              filtrarEmpleados={filtrarEmpleados}
+            />
+          )}
         </div>
       </div>
     </>

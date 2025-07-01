@@ -227,16 +227,16 @@ const Header = ({ empleado, startDate, endDate }) => (
     <Text style={styles.headerTitle}>REPORTE DE ASISTENCIA</Text>
     <View style={styles.headerInfo}>
       <View style={styles.headerColumn}>
-        <Text><Text style={{ fontWeight: 'bold' }}>Empleado:</Text> {getEmpleadoNombre(empleado)}</Text>
-        <Text><Text style={{ fontWeight: 'bold' }}>Horario:</Text> {getHorario(empleado)}</Text>
-        <Text><Text style={{ fontWeight: 'bold' }}>Estado:</Text> {getEstado(empleado)}</Text>
-        <Text><Text style={{ fontWeight: 'bold' }}>Municipio:</Text> {getMunicipio(empleado)}</Text>
-        <Text><Text style={{ fontWeight: 'bold' }}>Fecha de reporte:</Text> {format(new Date(), 'dd/MM/yyyy', { locale: es })}</Text>
+        <Text><Text style={{ fontWeight: 'bold' }}>Empleado:</Text>{' '}{getEmpleadoNombre(empleado)}</Text>
+        <Text><Text style={{ fontWeight: 'bold' }}>Horario:</Text>{' '}{getHorario(empleado)}</Text>
+        <Text><Text style={{ fontWeight: 'bold' }}>Estado:</Text>{' '}{getEstado(empleado)}</Text>
+        <Text><Text style={{ fontWeight: 'bold' }}>Municipio:</Text>{' '}{getMunicipio(empleado)}</Text>
+        <Text><Text style={{ fontWeight: 'bold' }}>Fecha de reporte:</Text>{' '}{format(new Date(), 'dd/MM/yyyy', { locale: es })}</Text>
       </View>
       <View style={styles.headerColumn}>
-        <Text><Text style={{ fontWeight: 'bold' }}>Período:</Text> {format(parseISO(startDate), 'dd/MM/yyyy', { locale: es })} al {format(parseISO(endDate), 'dd/MM/yyyy', { locale: es })}</Text>
-        <Text><Text style={{ fontWeight: 'bold' }}>Grupo:</Text> {getGrupo(empleado) || 'N/A'}</Text>
-        <Text><Text style={{ fontWeight: 'bold' }}>Hospital:</Text> {getHospital(empleado) || 'N/A'}</Text>
+        <Text><Text style={{ fontWeight: 'bold' }}>Período:</Text>{' '}{format(parseISO(startDate), 'dd/MM/yyyy', { locale: es })} al {format(parseISO(endDate), 'dd/MM/yyyy', { locale: es })}</Text>
+        <Text><Text style={{ fontWeight: 'bold' }}>Grupo:</Text>{' '}{getGrupo(empleado) || 'N/A'}</Text>
+        <Text><Text style={{ fontWeight: 'bold' }}>Hospital:</Text>{' '}{getHospital(empleado) || 'N/A'}</Text>
       </View>
     </View>
   </View>
