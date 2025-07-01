@@ -112,4 +112,34 @@ router.post("/create-municipioadmin", async (req, res) => {
   }
 });
 
+// Obtener hospitales del municipio del municipioadmin
+router.get("/hospitals-by-user/:id_user", async (req, res) => {
+  const { id_user } = req.params;
+  try {
+    // 1. Obtener el municipio del admin
+    const userResult = await pool.query(
+      `SELECT id_municipio FROM user_data WHERE id_user = $1`,
+      [id_user]
+    );
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+    const id_municipio = userResult.rows[0].id_municipio;
+
+    // 2. Obtener hospitales de ese municipio
+    const hospitalsResult = await pool.query(
+      `SELECT h.*, e.nombre_estado, m.nombre_municipio
+       FROM hospitals h
+       LEFT JOIN estados e ON h.estado_id = e.id_estado
+       LEFT JOIN municipios m ON h.id_municipio = m.id_municipio
+       WHERE h.id_municipio = $1`,
+      [id_municipio]
+    );
+    res.json(hospitalsResult.rows);
+  } catch (error) {
+    console.error("❌ Error al obtener hospitales por municipioadmin:", error);
+    res.status(500).json({ error: "Error al obtener hospitales" });
+  }
+});
+
 export default router;

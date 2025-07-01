@@ -21,6 +21,8 @@ export default function Login() {
         navigate("/hospitaladmin-geoapp");
       } else if (role === "grupoadmin") {
         navigate("/grupoadmin-geoapp");
+      } else if (role === "municipioadmin") {
+        navigate("/municipioadmin-geoapp");
       }
     }
   }, [navigate]);
@@ -65,6 +67,8 @@ export default function Login() {
         navigate("/hospitaladmin-geoapp");
       } else if (data.role === "grupoadmin") {
         navigate("/grupoadmin-geoapp");
+      } else if (data.role === "municipioadmin") {
+        navigate("/municipioadmin-geoapp");
       } else {
         setError("Rol no reconocido");
       }
