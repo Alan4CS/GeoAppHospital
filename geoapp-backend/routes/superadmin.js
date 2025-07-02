@@ -16,9 +16,11 @@ router.get("/hospitals", async (req, res) => {
         h.longitud_hospital,
         h.radio_geo,
         h.tipo_hospital,
-        e.nombre_estado AS estado
+        e.nombre_estado AS estado,
+        m.nombre_municipio AS municipio
       FROM hospitals h
       LEFT JOIN estados e ON h.estado_id = e.id_estado
+      LEFT JOIN municipios m ON h.id_municipio = m.id_municipio
       ORDER BY h.id_hospital
     `);
     res.json(result.rows);
