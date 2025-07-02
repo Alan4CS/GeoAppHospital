@@ -12,6 +12,7 @@ import empleados from "./routes/empleados.js";
 import mobileRoutes from "./routes/mobile.js";
 import emailRoutes from "./routes/email.js";
 import reportesRoutes from "./routes/reportes.js";
+import dashboardsRoutes from "./routes/dashboards.js";
 
 dotenv.config();
 const app = express();
@@ -29,6 +30,7 @@ app.use("/api/employees", empleados);
 app.use("/api/mobile", mobileRoutes);
 app.use("/api/email", emailRoutes);
 app.use("/api/reportes", reportesRoutes);
+app.use("/api/dashboards", dashboardsRoutes);
 
 // Usa el puerto asignado por Render
 const PORT = process.env.PORT || 4000;
