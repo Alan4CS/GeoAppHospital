@@ -63,7 +63,7 @@ export default function EmpleadoDashboard({
           fechaInicio: `${tempDateRange.startDate} 00:00:00`,
           fechaFin: `${tempDateRange.endDate} 23:59:59`,
         };
-        const res = await fetch("http://localhost:4000/api/dashboards/grupo", {
+        const res = await fetch("https://geoapphospital.onrender.com/api/dashboards/grupo", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
