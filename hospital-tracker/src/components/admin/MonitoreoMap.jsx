@@ -292,7 +292,8 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
           id: hospital.id_hospital,
           nombre: hospital.nombre_hospital,
           latitud: hospital.latitud_hospital,
-          longitud: hospital.longitud_hospital
+          longitud: hospital.longitud_hospital,
+          municipio: hospital.municipio // <-- nuevo
         });
       }
       
@@ -512,10 +513,12 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
     
     // Si es modo administrador municipal, obtener el municipio automáticamente
     if (modoMunicipioAdmin) {
-      if (municipioNombre) {
-        // Si ya tenemos el nombre del municipio, usarlo directamente
+      if (municipioNombre && estadoNombre) {
+        // Si ya tenemos el nombre del municipio y del estado, usarlos directamente
         setSelectedMunicipio(municipioNombre);
+        setSelectedState(estadoNombre);
         console.log("Municipio del administrador municipal establecido:", municipioNombre);
+        console.log("Estado del administrador municipal detectado:", estadoNombre);
       } else if (municipioId) {
         // Si no tenemos el nombre pero sí el ID, obtenerlo de la API
         fetchMunicipioAdmin();
@@ -1619,16 +1622,19 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
                   {selectedState && municipiosByState.length > 0 && (
                     <div className="relative flex-1">
                       <select
-                        className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        className={`w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                          modoMunicipioAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
+                        }`}
                         value={selectedMunicipio}
                         onChange={e => setSelectedMunicipio(e.target.value)}
+                        disabled={modoMunicipioAdmin}
                       >
                         <option value="">Todos los municipios</option>
                         {municipiosByState.map(mun => (
                           <option key={mun} value={mun}>{mun}</option>
                         ))}
                       </select>
-                      {selectedMunicipio && (
+                      {selectedMunicipio && !modoMunicipioAdmin && (
                         <button
                           className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs"
                           onClick={() => setSelectedMunicipio("")}
@@ -1652,7 +1658,7 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
                       >
                         <option value="">Todos los hospitales</option>
                         {hospitalsByState[selectedState]
-                          .filter(h => !selectedMunicipio || hospitals.find(hosp => hosp.id === h.id && hosp.municipio === selectedMunicipio))
+                          .filter(h => !selectedMunicipio || h.municipio === selectedMunicipio)
                           .map((hospital) => (
                             <option key={hospital.id} value={hospital.id}>
                               {hospital.nombre}
@@ -1778,16 +1784,19 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
                 {selectedState && municipiosByState.length > 0 && (
                   <div className="relative w-48">
                     <select
-                      className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      className={`w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                        modoMunicipioAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
+                      }`}
                       value={selectedMunicipio}
                       onChange={e => setSelectedMunicipio(e.target.value)}
+                      disabled={modoMunicipioAdmin}
                     >
                       <option value="">Todos los municipios</option>
                       {municipiosByState.map(mun => (
                         <option key={mun} value={mun}>{mun}</option>
                       ))}
                     </select>
-                    {selectedMunicipio && (
+                    {selectedMunicipio && !modoMunicipioAdmin && (
                       <button
                         className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs"
                         onClick={() => setSelectedMunicipio("")}
@@ -1811,7 +1820,7 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
                     >
                       <option value="">Todos los hospitales</option>
                       {hospitalsByState[selectedState]
-                        .filter(h => !selectedMunicipio || hospitals.find(hosp => hosp.id === h.id && hosp.municipio === selectedMunicipio))
+                        .filter(h => !selectedMunicipio || h.municipio === selectedMunicipio)
                         .map((hospital) => (
                           <option key={hospital.id} value={hospital.id}>
                             {hospital.nombre}
