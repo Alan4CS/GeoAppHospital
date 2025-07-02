@@ -9,8 +9,6 @@ const Login = lazy(() => import("./pages/Login"));
 const SuperadminGeoApp = lazy(() => import("./pages/SuperadminGeoApp"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const EstadoadminGeoApp = lazy(() => import("./pages/EstadoadminGeoApp"));
-const HospitalAdminGeoApp = lazy(() => import("./pages/HospitalAdminGeoApp"));
-const GroupadminGeoApp = lazy(() => import("./pages/GroupadminGeoApp"));
 const MunicipioadminGeoApp = lazy(() => import("./pages/MunicipioadminGeoApp"));
 
 // Solo para superadmin: ruta protegida con ActivityLog
