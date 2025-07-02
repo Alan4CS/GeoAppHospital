@@ -48,22 +48,6 @@ function App() {
                 }
               />
               <Route
-                path="/hospitaladmin-geoapp"
-                element={
-                  <ProtectedRouteOnly>
-                    <HospitalAdminGeoApp />
-                  </ProtectedRouteOnly>
-                }
-              />
-              <Route
-                path="/grupoadmin-geoapp"
-                element={
-                  <ProtectedRouteOnly>
-                    <GroupadminGeoApp />
-                  </ProtectedRouteOnly>
-                }
-              />
-              <Route
                 path="/municipioadmin-geoapp"
                 element={
                   <ProtectedRouteOnly>
