@@ -5,6 +5,7 @@ import MunicipalSidebar from "../components/municipal/MunicipalSidebar";
 import HospitalList from "../components/municipal/HospitalListMunicipio";
 import GrupoList from "../components/municipal/GrupoListMunicipio";
 import EmpleadoList from "../components/municipal/EmpleadoListMunicipio";
+import MonitoreoMap from "../components/admin/MonitoreoMap";
 
 export default function MunicipioAdminDashboard() {
   const [activeTab, setActiveTab] = useState("hospitales");
@@ -64,6 +65,8 @@ export default function MunicipioAdminDashboard() {
                 ? `Grupos en ${municipioNombre || "..."}`
                 : activeTab === "empleados"
                 ? `Empleados en ${municipioNombre || "..."}`
+                : activeTab === "monitoreo"
+                ? "Monitoreo municipal"
                 : activeTab === "dashboard"
                 ? "Dashboard municipal"
                 : "Municipio Admin"}
@@ -82,6 +85,13 @@ export default function MunicipioAdminDashboard() {
           )}
           {activeTab === "grupos" && <GrupoList id_user={id_user} />}
           {activeTab === "empleados" && <EmpleadoList id_user={id_user} />}
+          {activeTab === "monitoreo" && (
+            <MonitoreoMap 
+              modoMunicipioAdmin={true} 
+              municipioId={id_user} 
+              municipioNombre={municipioNombre} 
+            />
+          )}
         </main>
       </div>
     </div>

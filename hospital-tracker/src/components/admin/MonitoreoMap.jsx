@@ -100,12 +100,13 @@ const connectedIcon = createCustomIcon("#4CAF50"); // Verde para conectados
 const outsideGeofenceIcon = createCustomIcon("#FF5722", "#FFF"); // Naranja para fuera de geocerca
 const inactiveIcon = createCustomIcon("#DC2626", "#FFF"); // Rojo para inactivos
 
-const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre = "" }) => {
+const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre = "", modoMunicipioAdmin = false, municipioId = null, municipioNombre = "" }) => {
   const [showFilters, setShowFilters] = useState(true);
   const [selectedLevel, setSelectedLevel] = useState("hospital");
   const [selectedState, setSelectedState] = useState("");
   const [selectedMunicipality, setSelectedMunicipality] = useState("");
   const [selectedHospital, setSelectedHospital] = useState("");
+  const [selectedMunicipio, setSelectedMunicipio] = useState("");
   const [selectedHospitalDetail, setSelectedHospitalDetail] = useState(null);
   const [mapCenter, setMapCenter] = useState([23.6345, -102.5528]); // Centro de México
   const [mapZoom, setMapZoom] = useState(5);
@@ -125,6 +126,7 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
   // Estados y hospitales por estado
   const [states, setStates] = useState([]);
   const [hospitalsByState, setHospitalsByState] = useState({});
+  const [hospitalsByMunicipio, setHospitalsByMunicipio] = useState({});
 
   // Estado para controlar si hay listas desplegadas
   const [hasExpandedLists, setHasExpandedLists] = useState(false);
@@ -213,6 +215,37 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
     }
   };
 
+  // Función para obtener el municipio del administrador municipal
+  const fetchMunicipioAdmin = async () => {
+    if (!modoMunicipioAdmin || !municipioId) return;
+    
+    try {
+      const response = await fetch(
+        `https://geoapphospital.onrender.com/api/municipioadmin/hospitals-by-user/${municipioId}?source=hospitals`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      // Si hay hospitales, tomar el nombre_municipio del primero
+      if (Array.isArray(data) && data.length > 0) {
+        const nombreMunicipio = data[0].nombre_municipio || "";
+        const nombreEstado = data[0].nombre_estado || "";
+        if (nombreMunicipio) {
+          setSelectedMunicipio(nombreMunicipio);
+          setSelectedState(nombreEstado);
+          console.log("Municipio del administrador municipal detectado:", nombreMunicipio);
+          console.log("Estado del administrador municipal detectado:", nombreEstado);
+        }
+      }
+    } catch (err) {
+      console.error("Error al obtener municipio del administrador:", err);
+    }
+  };
+
   // Función para obtener datos de hospitales desde la API
   const fetchHospitalsData = async () => {
     try {
@@ -241,12 +274,16 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
     }
   };
 
-  // Función para actualizar hospitales por estado
+  // Función para actualizar hospitales por estado y municipio
   const updateHospitalsByState = (hospitalData) => {
     const hospitalsByStateMap = {};
+    const hospitalsByMunicipioMap = {};
 
     hospitalData.forEach((hospital) => {
       const state = hospital.estado;
+      const municipio = hospital.municipio;
+      
+      // Agrupar por estado
       if (state) {
         if (!hospitalsByStateMap[state]) {
           hospitalsByStateMap[state] = [];
@@ -258,9 +295,23 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
           longitud: hospital.longitud_hospital
         });
       }
+      
+      // Agrupar por municipio
+      if (municipio) {
+        if (!hospitalsByMunicipioMap[municipio]) {
+          hospitalsByMunicipioMap[municipio] = [];
+        }
+        hospitalsByMunicipioMap[municipio].push({
+          id: hospital.id_hospital,
+          nombre: hospital.nombre_hospital,
+          latitud: hospital.latitud_hospital,
+          longitud: hospital.longitud_hospital
+        });
+      }
     });
 
     setHospitalsByState(hospitalsByStateMap);
+    setHospitalsByMunicipio(hospitalsByMunicipioMap);
   };
 
   // Función para obtener datos de monitoreo desde la API
@@ -459,6 +510,18 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
       }
     }
     
+    // Si es modo administrador municipal, obtener el municipio automáticamente
+    if (modoMunicipioAdmin) {
+      if (municipioNombre) {
+        // Si ya tenemos el nombre del municipio, usarlo directamente
+        setSelectedMunicipio(municipioNombre);
+        console.log("Municipio del administrador municipal establecido:", municipioNombre);
+      } else if (municipioId) {
+        // Si no tenemos el nombre pero sí el ID, obtenerlo de la API
+        fetchMunicipioAdmin();
+      }
+    }
+    
     const hospitalsInterval = setInterval(fetchHospitalsData, 3600000); // Actualizar hospitales cada hora
     if (mapRef.current) {
       mapRef.current.setView([23.6345, -102.5528], 5);
@@ -466,7 +529,7 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
     return () => {
       clearInterval(hospitalsInterval);
     };
-  }, [modoEstadoAdmin, estadoId, estadoNombre]);
+  }, [modoEstadoAdmin, estadoId, estadoNombre, modoMunicipioAdmin, municipioId, municipioNombre]);
 
   // Efecto para manejar el cambio automático de estado en modo administrador estatal
   useEffect(() => {
@@ -491,6 +554,30 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
       console.log("Estado del administrador estatal establecido desde prop:", estadoNombre);
     }
   }, [modoEstadoAdmin, estadoNombre, selectedState]);
+
+  // Efecto para manejar el cambio automático de municipio en modo administrador municipal
+  useEffect(() => {
+    if (modoMunicipioAdmin && selectedMunicipio && mapRef.current) {
+      // Esperar un poco para que los hospitales se carguen
+      setTimeout(() => {
+        const municipioHospitals = hospitalsByMunicipio[selectedMunicipio] || [];
+        if (municipioHospitals.length > 0) {
+          const bounds = L.latLngBounds(
+            municipioHospitals.map(h => [h.latitud, h.longitud])
+          );
+          mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+        }
+      }, 1000);
+    }
+  }, [modoMunicipioAdmin, selectedMunicipio, hospitalsByMunicipio]);
+
+  // Efecto para establecer el municipio cuando municipioNombre cambia
+  useEffect(() => {
+    if (modoMunicipioAdmin && municipioNombre && !selectedMunicipio) {
+      setSelectedMunicipio(municipioNombre);
+      console.log("Municipio del administrador municipal establecido desde prop:", municipioNombre);
+    }
+  }, [modoMunicipioAdmin, municipioNombre, selectedMunicipio]);
 
   // Función auxiliar para verificar si hay listas abiertas
   const checkExpandedLists = () => {
@@ -536,6 +623,17 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
           return false;
         }
         
+        // Filtro adicional por municipio si está seleccionado
+        if (selectedMunicipio) {
+          const hospitalInMunicipio = hospitals.find(h => 
+            h.id_hospital === emp.hospitalId && 
+            h.municipio === selectedMunicipio
+          );
+          if (!hospitalInMunicipio) {
+            return false;
+          }
+        }
+        
         // Filtro adicional por hospital específico si está seleccionado
         if (selectedHospital && emp.hospitalId.toString() !== selectedHospital) {
           return false;
@@ -544,7 +642,7 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
       
       return true;
     });
-  }, [employees, searchTerm, selectedState, selectedHospital, hospitals]);
+  }, [employees, searchTerm, selectedState, selectedMunicipio, selectedHospital, hospitals]);
 
   // Filtrar hospitales según los criterios seleccionados
   const filteredHospitals = useMemo(() => {
@@ -552,9 +650,10 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
     
     return hospitals.filter(hospital => 
       hospital.estado === selectedState && 
+      (!selectedMunicipio || hospital.municipio === selectedMunicipio) &&
       (!selectedHospital || hospital.id_hospital.toString() === selectedHospital)
     );
-  }, [hospitals, selectedState, selectedHospital]);
+  }, [hospitals, selectedState, selectedMunicipio, selectedHospital]);
 
   // Calcular KPIs
   const connectedCount = useMemo(() => {
@@ -659,6 +758,10 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
     if (!modoEstadoAdmin) {
       setSelectedState("");
     }
+    // No limpiar el municipio si estamos en modo administrador municipal
+    if (!modoMunicipioAdmin) {
+      setSelectedMunicipio("");
+    }
     setSelectedMunicipality("");
     setSelectedHospital("");
     setSearchTerm("");
@@ -702,7 +805,7 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
     }
   };
 
-  // Validar hospitales por estado
+  // Validar hospitales por estado y municipio
   const getHospitalsStatus = useMemo(() => {
     if (!selectedState) {
       return { 
@@ -711,24 +814,35 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
       };
     }
     
-    const stateHospitals = hospitals.filter(h => h.estado === selectedState);
+    let filteredHospitals = hospitals.filter(h => h.estado === selectedState);
     
-    if (stateHospitals.length === 0) {
+    // Filtrar por municipio si está seleccionado
+    if (selectedMunicipio) {
+      filteredHospitals = filteredHospitals.filter(h => h.municipio === selectedMunicipio);
+    }
+    
+    if (filteredHospitals.length === 0) {
+      const message = selectedMunicipio 
+        ? `No hay hospitales registrados en ${selectedMunicipio}, ${selectedState}`
+        : `No hay hospitales registrados en ${selectedState}`;
       return { 
         status: 'no_hospitals',
-        message: `No hay hospitales registrados en ${selectedState}`,
+        message,
         hospitals: []
       };
     }
 
-    const hospitalsWithCoords = stateHospitals.filter(
+    const hospitalsWithCoords = filteredHospitals.filter(
       h => h.latitud_hospital && h.longitud_hospital
     );
 
     if (hospitalsWithCoords.length === 0) {
+      const message = selectedMunicipio
+        ? `Los hospitales en ${selectedMunicipio}, ${selectedState} no tienen coordenadas registradas`
+        : `Los hospitales en ${selectedState} no tienen coordenadas registradas`;
       return { 
         status: 'no_coordinates',
-        message: `Los hospitales en ${selectedState} no tienen coordenadas registradas`,
+        message,
         hospitals: []
       };
     }
@@ -737,7 +851,7 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
       status: 'ok',
       hospitals: hospitalsWithCoords
     };
-  }, [selectedState, hospitals]);
+  }, [selectedState, selectedMunicipio, hospitals]);
 
   // Memoizar los datos filtrados para evitar recálculos innecesarios
   const filteredEmployeesData = useMemo(() => {
@@ -762,6 +876,17 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
           return false;
         }
         
+        // Filtro adicional por municipio si está seleccionado
+        if (selectedMunicipio) {
+          const hospitalInMunicipio = hospitals.find(h => 
+            h.id_hospital === emp.hospitalId && 
+            h.municipio === selectedMunicipio
+          );
+          if (!hospitalInMunicipio) {
+            return false;
+          }
+        }
+        
         // Filtro adicional por hospital específico si está seleccionado
         if (selectedHospital && emp.hospitalId.toString() !== selectedHospital) {
           return false;
@@ -775,7 +900,7 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
         employee.location[0] &&
         employee.location[1]
     );
-  }, [employees, searchTerm, selectedState, selectedHospital, hospitals]);
+  }, [employees, searchTerm, selectedState, selectedMunicipio, selectedHospital, hospitals]);
 
   // Memoizar los hospitales filtrados y sus geocercas
   const hospitalAndGeofenceData = useMemo(() => {
@@ -1371,13 +1496,19 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
       {/* Contenedor principal responsivo */}
       <div className="flex-1 px-2 sm:px-2 pt-1 pb-2 sm:pb-4 overflow-hidden flex justify-center relative">
         {/* Mensaje informativo flotante - posición fija */}
-        {selectedState && (
+        {(selectedState || selectedMunicipio) && (
           <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20 max-w-md w-full mx-4">
             <div className="bg-blue-50 border border-blue-200 rounded-md p-3 shadow-lg">
               <div className="flex items-center">
                 <FaMapMarkerAlt className="text-blue-600 mr-2 text-sm flex-shrink-0" />
                 <span className="text-blue-800 text-sm flex-1">
-                  Mostrando solo empleados y hospitales del estado: <strong>{selectedState}</strong>
+                  Mostrando solo empleados y hospitales
+                  {selectedState && (
+                    <> del estado: <strong>{selectedState}</strong></>
+                  )}
+                  {selectedMunicipio && (
+                    <> del municipio: <strong>{selectedMunicipio}</strong></>
+                  )}
                   {selectedHospital && (
                     <>
                       {" "}• Hospital: <strong>{hospitals.find(h => h.id_hospital.toString() === selectedHospital)?.nombre_hospital || selectedHospital}</strong>
@@ -1387,7 +1518,7 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
                 <button
                   onClick={clearFilters}
                   className="ml-2 text-blue-600 hover:text-blue-800 underline text-xs flex-shrink-0"
-                  disabled={modoEstadoAdmin}
+                  disabled={modoEstadoAdmin || modoMunicipioAdmin}
                 >
                   Limpiar filtro
                 </button>
@@ -1446,11 +1577,11 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
                   <div className="relative flex-1">
                     <select
                       className={`w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                        modoEstadoAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
+                        modoEstadoAdmin || modoMunicipioAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
                       }`}
                       value={selectedState}
                       onChange={(e) => handleStateChange(e.target.value)}
-                      disabled={modoEstadoAdmin}
+                      disabled={modoEstadoAdmin || modoMunicipioAdmin}
                     >
                       <option value="">Todos los estados</option>
                       {states.map((state) => (
@@ -1459,7 +1590,7 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
                         </option>
                       ))}
                     </select>
-                    {selectedState && !modoEstadoAdmin && (
+                    {selectedState && !modoEstadoAdmin && !modoMunicipioAdmin && (
                       <button
                         className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs"
                         onClick={() => setSelectedState("")}
@@ -1535,9 +1666,9 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
                     <button
                       onClick={clearFilters}
                       className={`border border-gray-200 bg-white text-gray-700 px-2 py-1 rounded-md hover:bg-gray-50 transition-colors text-xs ${
-                        modoEstadoAdmin ? 'cursor-not-allowed opacity-50' : ''
+                        modoEstadoAdmin || modoMunicipioAdmin ? 'cursor-not-allowed opacity-50' : ''
                       }`}
-                      disabled={modoEstadoAdmin}
+                      disabled={modoEstadoAdmin || modoMunicipioAdmin}
                     >
                       Limpiar
                     </button>
@@ -1576,11 +1707,11 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
                 <div className="relative w-48">
                   <select
                     className={`w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                      modoEstadoAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
+                      modoEstadoAdmin || modoMunicipioAdmin ? 'bg-gray-100 cursor-not-allowed' : ''
                     }`}
                     value={selectedState}
                     onChange={(e) => handleStateChange(e.target.value)}
-                    disabled={modoEstadoAdmin}
+                    disabled={modoEstadoAdmin || modoMunicipioAdmin}
                   >
                     <option value="">Todos los estados</option>
                     {states.map((state) => (
@@ -1589,7 +1720,7 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
                       </option>
                     ))}
                   </select>
-                  {selectedState && !modoEstadoAdmin && (
+                  {selectedState && !modoEstadoAdmin && !modoMunicipioAdmin && (
                     <button
                       className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs"
                       onClick={() => setSelectedState("")}
@@ -1666,10 +1797,22 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
                       {selectedState}
                     </span>
                   )}
+                  {selectedMunicipio && (
+                    <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-md flex items-center gap-1">
+                      <FaBuilding className="text-xs" />
+                      {selectedMunicipio}
+                    </span>
+                  )}
                   {modoEstadoAdmin && (
                     <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-md flex items-center gap-1">
                       <FaUser className="text-xs" />
                       Admin Estatal
+                    </span>
+                  )}
+                  {modoMunicipioAdmin && (
+                    <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-md flex items-center gap-1">
+                      <FaBuilding className="text-xs" />
+                      Admin Municipal
                     </span>
                   )}
                 </div>
@@ -1686,10 +1829,14 @@ const MonitoreoMap = ({ modoEstadoAdmin = false, estadoId = null, estadoNombre =
                   <button
                     onClick={clearFilters}
                     className={`border border-gray-200 bg-white text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-colors text-sm ${
-                      modoEstadoAdmin ? 'cursor-not-allowed opacity-50' : ''
+                      modoEstadoAdmin || modoMunicipioAdmin ? 'cursor-not-allowed opacity-50' : ''
                     }`}
-                    title={modoEstadoAdmin ? "El estado no se puede limpiar en modo administrador estatal" : "Limpiar todos los filtros"}
-                    disabled={modoEstadoAdmin}
+                    title={
+                      modoEstadoAdmin ? "El estado no se puede limpiar en modo administrador estatal" :
+                      modoMunicipioAdmin ? "El municipio no se puede limpiar en modo administrador municipal" :
+                      "Limpiar todos los filtros"
+                    }
+                    disabled={modoEstadoAdmin || modoMunicipioAdmin}
                   >
                     Limpiar
                   </button>

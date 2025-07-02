@@ -63,8 +63,6 @@ export default function EstadoAdminDashboard() {
                 ? `Grupos en ${estadoNombre || "..."}`
                 : activeTab === "empleados"
                 ? `Empleados en ${estadoNombre || "..."}`
-                : activeTab === "monitoreo"
-                ? "Monitoreo de grupos"
                 : activeTab === "monitoreomap"
                 ? "Monitoreo estatal"
                 : activeTab === "dashboard"

@@ -28,6 +28,11 @@ export default function MunicipalSidebar({
       tab: "empleados",
     },
     {
+      label: "Monitoreo",
+      icon: <Map className= "h-5 w-5" />,
+      tab: "monitoreo",
+    },
+    {
       label: "Dashboard",
       icon: <BarChart3 className="h-5 w-5" />,
       tab: "dashboard",

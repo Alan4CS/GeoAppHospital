@@ -33,8 +33,17 @@ const GrupoList = ({ id_user }) => {
         const res = await fetch(`https://geoapphospital.onrender.com/api/municipioadmin/grupos-by-user/${id_user}?source=groups`);
         if (!res.ok) throw new Error("No se pudieron obtener los grupos de estadoadmin");
         const data = await res.json();
-        setGrupos(data.grupos || []);
-        setMunicipios(data.municipios || []);
+        // Adaptar para aceptar tanto array plano como objeto con 'grupos'
+        let grupos = [];
+        let municipios = [];
+        if (Array.isArray(data)) {
+          grupos = data;
+        } else if (data && Array.isArray(data.grupos)) {
+          grupos = data.grupos;
+          municipios = data.municipios || [];
+        }
+        setGrupos(grupos);
+        setMunicipios(municipios);
       } catch (err) {
         setGrupos([]);
         setMunicipios([]);
