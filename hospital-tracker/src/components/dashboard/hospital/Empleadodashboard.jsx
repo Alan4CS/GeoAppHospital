@@ -44,12 +44,6 @@ export default function EmpleadoDashboard({
 
   const selectedEmployeeData = selectedEmpleado ? empleados.find(emp => emp.id === Number(selectedEmpleado)) : null
 
-  const employeeHoursData = empleadosFiltrados.map(emp => ({
-    name: emp.name?.split(" ")[0] || emp.name,
-    horasTrabajadas: emp.workedHours,
-    horasAfuera: emp.outsideHours,
-  }))
-
   // --- Calendar and PDF state/logic ---
   const [loadingPDF, setLoadingPDF] = useState(false)
   const [calendarData, setCalendarData] = useState([])
@@ -194,6 +188,18 @@ export default function EmpleadoDashboard({
   const formatHora = (fechaStr) => {
     const fecha = new Date(fechaStr);
     return fecha.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+
+  // Función para formatear horas decimales a 'Xh Ymin'
+  function formatHorasMinutos(horasDecimales) {
+    // Verificar si el valor es válido
+    if (typeof horasDecimales !== 'number' || isNaN(horasDecimales) || horasDecimales < 0) {
+      return '0h 0min';
+    }
+    
+    const horas = Math.floor(horasDecimales);
+    const minutos = Math.round((horasDecimales - horas) * 60);
+    return `${horas}h ${minutos}min`;
   }
 
   // Función mejorada para generar resumen del día (igual que en PDF)
@@ -461,6 +467,31 @@ export default function EmpleadoDashboard({
     }
   }
 
+  // Nueva función: sumar estadísticas por empleado usando lógica diaria
+  function calcularEstadisticasEmpleadoPorDias(registros = []) {
+    // Agrupar registros por día local
+    const actividadesPorDia = {};
+    registros.forEach((registro) => {
+      const fecha = getLocalDateString(registro.fecha_hora);
+      if (!actividadesPorDia[fecha]) actividadesPorDia[fecha] = [];
+      actividadesPorDia[fecha].push(registro);
+    });
+    let totalTrabajadas = 0;
+    let totalFuera = 0;
+    let totalDescanso = 0;
+    Object.values(actividadesPorDia).forEach(acts => {
+      const stats = calcularEstadisticasDia(acts);
+      totalTrabajadas += stats.horasTrabajadas || 0;
+      totalFuera += stats.horasFuera || 0;
+      totalDescanso += stats.horasDescanso || 0;
+    });
+    return {
+      workedHours: totalTrabajadas,
+      outsideHours: totalFuera,
+      restHours: totalDescanso,
+    };
+  }
+
   // Resetear currentMonth cuando cambien las fechas - abrir en el mes de la fecha inicial
   useEffect(() => {
     if (startDate && endDate) {
@@ -497,6 +528,34 @@ export default function EmpleadoDashboard({
     }
     setEmpleadosFiltrados(filtrados);
   }, [empleados, selectedGrupo, selectedEmpleado]);
+
+  const employeeHoursData = empleadosFiltrados.map(emp => {
+    // Usar la nueva función para sumar correctamente por días
+    const stats = calcularEstadisticasEmpleadoPorDias(emp.registros || []);
+    return {
+      name: emp.name?.split(" ")[0] || emp.name,
+      horasTrabajadas: stats.workedHours,
+      horasAfuera: stats.outsideHours,
+      horasDescanso: stats.restHours,
+    };
+  })
+
+  // Componente Tooltip personalizado
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+          <p className="font-semibold text-gray-800 mb-2">{label}</p>
+          {payload.map((entry, index) => (
+            <p key={index} style={{ color: entry.color }} className="text-sm">
+              {entry.name}: {formatHorasMinutos(entry.value)}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <>
@@ -639,17 +698,21 @@ export default function EmpleadoDashboard({
                           </tr>
                         </thead>
                         <tbody>
-                          {empleadosFiltrados.map((emp, idx) => (
-                            <tr key={emp.id} className={
-                              `transition-colors border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50`
-                            }>
-                              <td className="px-6 py-3 text-sm text-gray-900 font-medium">{emp.name}</td>
-                              <td className="px-4 py-3 text-sm font-semibold text-green-600 text-center">{emp.workedHours}</td>
-                              <td className="px-4 py-3 text-sm font-semibold text-blue-600 text-center">{emp.justifiedHours ?? 0}</td>
-                              <td className="px-4 py-3 text-sm font-semibold text-red-600 text-center">{emp.outsideHours}</td>
-                              <td className="px-4 py-3 text-sm font-semibold text-indigo-600 text-center">{emp.totalExits ?? 0}</td>
-                            </tr>
-                          ))}
+                          {empleadosFiltrados.map((emp, idx) => {
+                            // Calcular estadísticas correctas para cada empleado
+                            const stats = calcularEstadisticasEmpleadoPorDias(emp.registros || []);
+                            return (
+                              <tr key={emp.id} className={
+                                `transition-colors border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50`
+                              }>
+                                <td className="px-6 py-3 text-sm text-gray-900 font-medium">{emp.name}</td>
+                                <td className="px-4 py-3 text-sm font-semibold text-green-600 text-center">{formatHorasMinutos(stats.workedHours || 0)}</td>
+                                <td className="px-4 py-3 text-sm font-semibold text-blue-600 text-center">{formatHorasMinutos(stats.restHours || 0)}</td>
+                                <td className="px-4 py-3 text-sm font-semibold text-red-600 text-center">{formatHorasMinutos(stats.outsideHours || 0)}</td>
+                                <td className="px-4 py-3 text-sm font-semibold text-indigo-600 text-center">{emp.totalExits ?? 0}</td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -679,14 +742,7 @@ export default function EmpleadoDashboard({
                                 height={employeeHoursData.length > 6 ? 60 : 30}
                               />
                               <YAxis tick={{ fontSize: 12 }} />
-                              <Tooltip 
-                                contentStyle={{ 
-                                  backgroundColor: '#fff', 
-                                  border: '1px solid #e5e7eb', 
-                                  borderRadius: '8px',
-                                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                                }}
-                              />
+                              <Tooltip content={<CustomTooltip />} />
                               <Legend />
                               <Bar dataKey="horasTrabajadas" fill="#10b981" name="Hrs Efec" radius={[4, 4, 0, 0]} />
                               <Bar dataKey="horasAfuera" fill="#ef4444" name="Hrs Fuera" radius={[4, 4, 0, 0]} />
@@ -947,7 +1003,7 @@ export default function EmpleadoDashboard({
                                                             : "bg-green-600 text-white"
                                                       }`}>
                                                         <div className="font-semibold">
-                                                          {dayStats.horasTrabajadas.toFixed(1)}h trabajadas
+                                                          {formatHorasMinutos(dayStats.horasTrabajadas)} trabajadas
                                                         </div>
                                                       </div>
                                                       {dayStats.horasFuera > 0 && (
@@ -958,7 +1014,7 @@ export default function EmpleadoDashboard({
                                                               ? "bg-white/20 text-white" 
                                                               : "bg-red-500 text-white"
                                                         }`}>
-                                                          {dayStats.horasFuera.toFixed(1)}h fuera
+                                                          {formatHorasMinutos(dayStats.horasFuera)} fuera
                                                         </div>
                                                       )}
                                                     </>
@@ -998,15 +1054,15 @@ export default function EmpleadoDashboard({
                                             return (
                                               <>
                                                 <div className="bg-yellow-50 rounded-lg p-2 text-center border border-yellow-200">
-                                                  <div className="text-lg font-bold text-yellow-700">{dayStats.horasDescanso.toFixed(1)}h</div>
+                                                  <div className="text-lg font-bold text-yellow-700">{formatHorasMinutos(dayStats.horasDescanso)}</div>
                                                   <div className="text-sm text-yellow-600">Hrs Descanso</div>
                                                 </div>
                                                 <div className="bg-green-50 rounded-lg p-2 text-center border border-green-200">
-                                                  <div className="text-lg font-bold text-green-700">{dayStats.horasTrabajadas.toFixed(1)}h</div>
+                                                  <div className="text-lg font-bold text-green-700">{formatHorasMinutos(dayStats.horasTrabajadas)}</div>
                                                   <div className="text-sm text-green-600">Hrs Trabajadas</div>
                                                 </div>
                                                 <div className="bg-red-50 rounded-lg p-2 text-center border border-red-200">
-                                                  <div className="text-lg font-bold text-red-700">{dayStats.horasFuera.toFixed(1)}h</div>
+                                                  <div className="text-lg font-bold text-red-700">{formatHorasMinutos(dayStats.horasFuera)}</div>
                                                   <div className="text-sm text-red-600">Hrs Fuera</div>
                                                 </div>
                                               </>
