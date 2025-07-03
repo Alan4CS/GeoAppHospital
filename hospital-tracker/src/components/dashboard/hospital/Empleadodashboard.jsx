@@ -113,15 +113,12 @@ export default function EmpleadoDashboard({
   const canNavigatePrevious = currentMonth > minMonth
   const canNavigateNext = currentMonth < maxMonth
 
-  // Función helper para extraer fecha local de un timestamp
+  // Función helper para extraer fecha local de un timestamp - usando el mismo método que MonitoreoMap
   const getLocalDateString = (fechaHora) => {
-    // Crear fecha considerando zona horaria local
+    // Crear fecha usando el mismo método que MonitoreoMap
     const fecha = new Date(fechaHora)
-    // Obtener fecha en formato YYYY-MM-DD usando la zona horaria local
-    const year = fecha.getFullYear()
-    const month = String(fecha.getMonth() + 1).padStart(2, '0')
-    const day = String(fecha.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
+    // Usar date-fns para formatear de manera consistente
+    return format(fecha, "yyyy-MM-dd", { locale: es })
   }
 
   // Fetch calendar data when employee or date range changes
@@ -184,10 +181,10 @@ export default function EmpleadoDashboard({
     return 'Actividad registrada'
   }
 
-  // Función para formatear hora
+  // Función para formatear hora - usando el mismo método que MonitoreoMap
   const formatHora = (fechaStr) => {
     const fecha = new Date(fechaStr);
-    return fecha.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    return format(fecha, "HH:mm", { locale: es });
   }
 
   // Función para formatear horas decimales a 'Xh Ymin'

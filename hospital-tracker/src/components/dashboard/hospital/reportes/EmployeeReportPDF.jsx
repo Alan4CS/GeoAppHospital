@@ -185,7 +185,7 @@ function getMunicipio(empleado) {
 
 function formatHora(fechaStr) {
   const fecha = new Date(fechaStr);
-  return fecha.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  return format(fecha, "HH:mm", { locale: es });
 }
 
 function agrupaPorDia(actividades) {
