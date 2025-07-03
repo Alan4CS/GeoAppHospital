@@ -48,3 +48,25 @@ export function calcularEstadisticasEmpleado(registros = []) {
     totalExits: totalSalidas,
   };
 }
+
+// Agrupa registros por día y suma horas por día (para evitar duplicar horas)
+export function calcularEstadisticasEmpleadoPorDias(registros = []) {
+  // Agrupar registros por día local
+  const actividadesPorDia = {};
+  registros.forEach((registro) => {
+    const fecha = registro.fecha_hora.slice(0, 10); // yyyy-MM-dd
+    if (!actividadesPorDia[fecha]) actividadesPorDia[fecha] = [];
+    actividadesPorDia[fecha].push(registro);
+  });
+  let totalTrabajadas = 0;
+  let totalFuera = 0;
+  Object.values(actividadesPorDia).forEach(acts => {
+    const stats = calcularEstadisticasEmpleado(acts);
+    totalTrabajadas += stats.workedHours || 0;
+    totalFuera += stats.outsideHours || 0;
+  });
+  return {
+    workedHours: totalTrabajadas,
+    outsideHours: totalFuera,
+  };
+}
