@@ -605,32 +605,38 @@ export default function GrupoDashboard({
             </div>
           </div>
         </div>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={stackedGroupData} margin={{ top: 20, right: 30, left: 0, bottom: 0}}> 
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis 
-              dataKey="grupo" 
-              tick={{ fontSize: 11 }}
-              axisLine={{ stroke: '#e0e0e0' }}
-              tickFormatter={(value) => value.length > 15 ? `${value.substring(0, 15)}...` : value}
-            />
-            <YAxis 
-              tick={{ fontSize: 12 }}
-              axisLine={{ stroke: '#e0e0e0' }}
-            />
-            <Tooltip 
-              contentStyle={{ 
-                backgroundColor: '#fefefe', 
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-              }}
-            />
-            <Legend />
-            <Bar dataKey="Activos" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
-            <Bar dataKey="Inactivos" stackId="a" fill="#f87171" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+        {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) ? (
+          <div className="text-center text-gray-500 py-16 text-lg">
+            Selecciona un hospital y un período para ver la información de grupos.
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={stackedGroupData} margin={{ top: 20, right: 30, left: 0, bottom: 0}}> 
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis 
+                dataKey="grupo" 
+                tick={{ fontSize: 11 }}
+                axisLine={{ stroke: '#e0e0e0' }}
+                tickFormatter={(value) => value.length > 15 ? `${value.substring(0, 15)}...` : value}
+              />
+              <YAxis 
+                tick={{ fontSize: 12 }}
+                axisLine={{ stroke: '#e0e0e0' }}
+              />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: '#fefefe', 
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                }}
+              />
+              <Legend />
+              <Bar dataKey="Activos" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="Inactivos" stackId="a" fill="#f87171" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {/* Gráficas de análisis de grupos */}
@@ -648,46 +654,52 @@ export default function GrupoDashboard({
               </div>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={280} minWidth={200} minHeight={200}>
-            <PieChart>
-              <Pie
-                data={groupDistributionData}
-                dataKey="cantidad"
-                nameKey="grupo"
-                cx="50%"
-                cy="50%"
-                outerRadius={110}
-                innerRadius={40}
-                label={({ grupo, cantidad, percent }) => `${(percent * 100).toFixed(1)}%`}
-                labelLine={false}
-              >
-                {groupDistributionData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
-                ))}
-              </Pie>
-              <Tooltip 
-                formatter={(value, name) => [`${value} empleados`, name]}
-                contentStyle={{ 
-                  backgroundColor: '#fefefe', 
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-                }}
-              />
-              <Legend 
-                layout="vertical" 
-                align="right" 
-                verticalAlign="middle" 
-                wrapperStyle={{ 
-                  maxHeight: 200, 
-                  overflowY: 'auto',
-                  fontSize: '11px',
-                  paddingLeft: '15px'
-                }}
-                iconType="circle"
-              />
-            </PieChart>
-          </ResponsiveContainer>
+          {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) ? (
+            <div className="text-center text-gray-500 py-16 text-lg w-full">
+              Selecciona un hospital y un período para ver la información de grupos.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={280} minWidth={200} minHeight={200}>
+              <PieChart>
+                <Pie
+                  data={groupDistributionData}
+                  dataKey="cantidad"
+                  nameKey="grupo"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={110}
+                  innerRadius={40}
+                  label={({ grupo, cantidad, percent }) => `${(percent * 100).toFixed(1)}%`}
+                  labelLine={false}
+                >
+                  {groupDistributionData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  formatter={(value, name) => [`${value} empleados`, name]}
+                  contentStyle={{ 
+                    backgroundColor: '#fefefe', 
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                  }}
+                />
+                <Legend 
+                  layout="vertical" 
+                  align="right" 
+                  verticalAlign="middle" 
+                  wrapperStyle={{ 
+                    maxHeight: 200, 
+                    overflowY: 'auto',
+                    fontSize: '11px',
+                    paddingLeft: '15px'
+                  }}
+                  iconType="circle"
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
           {/* Tooltip explicativo */}
           <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100">
             <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -710,53 +722,59 @@ export default function GrupoDashboard({
               </div>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart
-              data={stackedGroupData.map((g, index) => {
-                // Buscar el grupo en groupHoursData para obtener horas dentro y fuera
-                const groupHours = groupHoursData.find(gh => gh.grupo === g.grupo);
-                const totalHoras = groupHours ? (groupHours.horas + groupHours.horasFuera) : 0;
-                const promedioHoras = g.Activos ? totalHoras / g.Activos : 0;
-                return {
-                  ...g,
-                  grupoIndex: String.fromCharCode(65 + index),
-                  Promedio: promedioHoras
-                };
-              })}
-              margin={{ top: 20, right: 30, left: 10, bottom: 30 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis 
-                dataKey="grupoIndex" 
-                interval={0} 
-                tick={{ fontSize: 12 }}
-                axisLine={{ stroke: '#e0e0e0' }}
-              />
-              <YAxis tick={{ fontSize: 12 }} axisLine={{ stroke: '#e0e0e0' }} tickFormatter={v => formatHorasMinutos(v)} />
-              <Tooltip 
-                labelFormatter={(label) => {
-                  const item = stackedGroupData[label.charCodeAt(0) - 65];
-                  return item ? item.grupo : label;
-                }}
-                formatter={(value) => formatHorasMinutos(value)}
-                contentStyle={{ 
-                  backgroundColor: '#f8fafc', 
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-                }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="Promedio" 
-                stroke="#f59e42" 
-                strokeWidth={3} 
-                activeDot={{ r: 6, fill: '#f59e42', strokeWidth: 2, stroke: '#fff' }}
-                dot={{ r: 4, fill: '#f59e42' }}
-                label={({ value }) => formatHorasMinutos(value)}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) ? (
+            <div className="text-center text-gray-500 py-16 text-lg w-full">
+              Selecciona un hospital y un período para ver la información de grupos.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart
+                data={stackedGroupData.map((g, index) => {
+                  // Buscar el grupo en groupHoursData para obtener horas dentro y fuera
+                  const groupHours = groupHoursData.find(gh => gh.grupo === g.grupo);
+                  const totalHoras = groupHours ? (groupHours.horas + groupHours.horasFuera) : 0;
+                  const promedioHoras = g.Activos ? totalHoras / g.Activos : 0;
+                  return {
+                    ...g,
+                    grupoIndex: String.fromCharCode(65 + index),
+                    Promedio: promedioHoras
+                  };
+                })}
+                margin={{ top: 20, right: 30, left: 10, bottom: 30 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis 
+                  dataKey="grupoIndex" 
+                  interval={0} 
+                  tick={{ fontSize: 12 }}
+                  axisLine={{ stroke: '#e0e0e0' }}
+                />
+                <YAxis tick={{ fontSize: 12 }} axisLine={{ stroke: '#e0e0e0' }} tickFormatter={v => formatHorasMinutos(v)} />
+                <Tooltip 
+                  labelFormatter={(label) => {
+                    const item = stackedGroupData[label.charCodeAt(0) - 65];
+                    return item ? item.grupo : label;
+                  }}
+                  formatter={(value) => formatHorasMinutos(value)}
+                  contentStyle={{ 
+                    backgroundColor: '#f8fafc', 
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                  }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="Promedio" 
+                  stroke="#f59e42" 
+                  strokeWidth={3} 
+                  activeDot={{ r: 6, fill: '#f59e42', strokeWidth: 2, stroke: '#fff' }}
+                  dot={{ r: 4, fill: '#f59e42' }}
+                  label={({ value }) => formatHorasMinutos(value)}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
           {/* Leyenda de grupos mejorada */}
           <div className="mt-4 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl border border-gray-200">
             <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
@@ -790,58 +808,64 @@ export default function GrupoDashboard({
               </div>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={250}>
-            <AreaChart
-              data={stackedGroupData.map((g, index) => ({ 
-                ...g, 
-                grupoIndex: String.fromCharCode(65 + index),
-                Porcentaje: g.Total ? ((g.Activos / g.Total) * 100).toFixed(1) : 0 
-              }))}
-              margin={{ top: 20, right: 30, left: 10, bottom: 30 }}
-            >
-              <defs>
-                <linearGradient id="colorPorc" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.3}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis 
-                dataKey="grupoIndex" 
-                interval={0} 
-                tick={{ fontSize: 12 }}
-                axisLine={{ stroke: '#e0e0e0' }}
-              />
-              <YAxis 
-                domain={[0, 100]} 
-                tickFormatter={v => `${v}%`} 
-                tick={{ fontSize: 12 }}
-                axisLine={{ stroke: '#e0e0e0' }}
-              />
-              <Tooltip 
-                formatter={v => [`${v}%`, 'Porcentaje activo']}
-                labelFormatter={(label) => {
-                  const item = stackedGroupData[label.charCodeAt(0) - 65];
-                  return item ? item.grupo : label;
-                }}
-                contentStyle={{ 
-                  backgroundColor: '#f0fdf4', 
-                  border: '1px solid #bbf7d0',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-                }}
-              />
-              <Area 
-                type="monotone" 
-                dataKey="Porcentaje" 
-                stroke="#10b981" 
-                strokeWidth={2}
-                fillOpacity={1} 
-                fill="url(#colorPorc)"
-                activeDot={{ r: 5, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) ? (
+            <div className="text-center text-gray-500 py-16 text-lg w-full">
+              Selecciona un hospital y un período para ver la información de grupos.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={250}>
+              <AreaChart
+                data={stackedGroupData.map((g, index) => ({ 
+                  ...g, 
+                  grupoIndex: String.fromCharCode(65 + index),
+                  Porcentaje: g.Total ? ((g.Activos / g.Total) * 100).toFixed(1) : 0 
+                }))}
+                margin={{ top: 20, right: 30, left: 10, bottom: 30 }}
+              >
+                <defs>
+                  <linearGradient id="colorPorc" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.3}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis 
+                  dataKey="grupoIndex" 
+                  interval={0} 
+                  tick={{ fontSize: 12 }}
+                  axisLine={{ stroke: '#e0e0e0' }}
+                />
+                <YAxis 
+                  domain={[0, 100]} 
+                  tickFormatter={v => `${v}%`} 
+                  tick={{ fontSize: 12 }}
+                  axisLine={{ stroke: '#e0e0e0' }}
+                />
+                <Tooltip 
+                  formatter={v => [`${v}%`, 'Porcentaje activo']}
+                  labelFormatter={(label) => {
+                    const item = stackedGroupData[label.charCodeAt(0) - 65];
+                    return item ? item.grupo : label;
+                  }}
+                  contentStyle={{ 
+                    backgroundColor: '#f0fdf4', 
+                    border: '1px solid #bbf7d0',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                  }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="Porcentaje" 
+                  stroke="#10b981" 
+                  strokeWidth={2}
+                  fillOpacity={1} 
+                  fill="url(#colorPorc)"
+                  activeDot={{ r: 5, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
           {/* Leyenda de grupos mejorada */}
           <div className="mt-4 p-4 bg-gradient-to-r from-gray-50 to-green-50 rounded-xl border border-gray-200">
             <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
@@ -873,89 +897,100 @@ export default function GrupoDashboard({
               </div>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart
-              data={[...stackedGroupData].sort((a, b) => b.Activos - a.Activos).slice(0, 8)}
-              margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
-              layout="vertical"
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis 
-                type="number" 
-                tick={{ fontSize: 12 }}
-                axisLine={{ stroke: '#e0e0e0' }}
-              />
-              <YAxis 
-                dataKey="grupo" 
-                type="category" 
-                width={140} 
-                tick={{ fontSize: 11 }}
-                axisLine={{ stroke: '#e0e0e0' }}
-                tickFormatter={(value) => value.length > 20 ? `${value.substring(0, 20)}...` : value}
-              />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#fefbff', 
-                  border: '1px solid #e0e7ff',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-                }}
-                formatter={(value, name) => [`${value} empleados`, 'Empleados activos']}
-              />
-              <Bar 
-                dataKey="Activos" 
-                fill="url(#gradientBar)" 
-                barSize={20}
-                radius={[0, 4, 4, 0]}
-              />
-              <defs>
-                <linearGradient id="gradientBar" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor="#a855f7" stopOpacity={0.8}/>
-                </linearGradient>
-              </defs>
-            </BarChart>
-          </ResponsiveContainer>
+          {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) ? (
+            <div className="text-center text-gray-500 py-16 text-lg w-full">
+              Selecciona un hospital y un período para ver la información de grupos.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart
+                data={[...stackedGroupData].sort((a, b) => b.Activos - a.Activos).slice(0, 8)}
+                margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
+                layout="vertical"
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis 
+                  type="number" 
+                  tick={{ fontSize: 12 }}
+                  axisLine={{ stroke: '#e0e0e0' }}
+                />
+                <YAxis 
+                  dataKey="grupo" 
+                  type="category" 
+                  width={140} 
+                  tick={{ fontSize: 11 }}
+                  axisLine={{ stroke: '#e0e0e0' }}
+                  tickFormatter={(value) => value.length > 20 ? `${value.substring(0, 20)}...` : value}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#fefbff', 
+                    border: '1px solid #e0e7ff',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                  }}
+                  formatter={(value, name) => [`${value} empleados`, 'Empleados activos']}
+                />
+                <Bar 
+                  dataKey="Activos" 
+                  fill="url(#gradientBar)" 
+                  barSize={20}
+                  radius={[0, 4, 4, 0]}
+                />
+                <defs>
+                  <linearGradient id="gradientBar" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#a855f7" stopOpacity={0.8}/>
+                  </linearGradient>
+                </defs>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
-
       {/* Nueva gráfica: Grupos con más horas trabajadas */}
       <div className="bg-white rounded-2xl shadow-md p-6 mb-8 border border-gray-200">
         <div className="flex items-center gap-2 mb-4">
           <h3 className="text-lg font-semibold text-gray-800">Top grupos con más horas trabajadas (en geocerca y fuera)</h3>
         </div>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={[...groupHoursData].sort((a, b) => (b.horas + b.horasFuera) - (a.horas + a.horasFuera)).slice(0, 8)} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="grupo" tick={{ fontSize: 11 }} axisLine={{ stroke: '#e0e0e0' }} tickFormatter={(value) => value.length > 15 ? `${value.substring(0, 15)}...` : value} />
-            <YAxis 
-              tick={{ fontSize: 12 }} 
-              axisLine={{ stroke: '#e0e0e0' }}
-              tickFormatter={v => formatHorasMinutos(v)}
-            />
-            <Tooltip 
-              content={({ active, payload, label }) => {
-                if (active && payload && payload.length) {
-                  return (
-                    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-                      <div style={{ fontWeight: 600, marginBottom: 4 }}>{label}</div>
-                      <div style={{ color: '#6366f1', fontWeight: 500 }}>
-                        Horas en geocerca: {formatHorasMinutos(payload[0].payload.horas)}
+        {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) ? (
+          <div className="text-center text-gray-500 py-16 text-lg w-full">
+            Selecciona un hospital y un período para ver la información de grupos.
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={[...groupHoursData].sort((a, b) => (b.horas + b.horasFuera) - (a.horas + a.horasFuera)).slice(0, 8)} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="grupo" tick={{ fontSize: 11 }} axisLine={{ stroke: '#e0e0e0' }} tickFormatter={(value) => value.length > 15 ? `${value.substring(0, 15)}...` : value} />
+              <YAxis 
+                tick={{ fontSize: 12 }} 
+                axisLine={{ stroke: '#e0e0e0' }}
+                tickFormatter={v => formatHorasMinutos(v)}
+              />
+              <Tooltip 
+                content={({ active, payload, label }) => {
+                  if (active && payload && payload.length) {
+                    return (
+                      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+                        <div style={{ fontWeight: 600, marginBottom: 4 }}>{label}</div>
+                        <div style={{ color: '#6366f1', fontWeight: 500 }}>
+                          Horas en geocerca: {formatHorasMinutos(payload[0].payload.horas)}
+                        </div>
+                        <div style={{ color: '#ef4444', fontWeight: 500 }}>
+                          Horas fuera de geocerca: {formatHorasMinutos(payload[0].payload.horasFuera)}
+                        </div>
                       </div>
-                      <div style={{ color: '#ef4444', fontWeight: 500 }}>
-                        Horas fuera de geocerca: {formatHorasMinutos(payload[0].payload.horasFuera)}
-                      </div>
-                    </div>
-                  );
-                }
-                return null;
-              }}
-            />
-            <Legend formatter={(value) => value === 'horas' ? 'En geocerca' : 'Fuera de geocerca'} />
-            <Bar dataKey="horas" fill="#6366f1" radius={[4, 4, 0, 0]} name="horas" label={({ value }) => formatHorasMinutos(value)} />
-            <Bar dataKey="horasFuera" fill="#ef4444" radius={[4, 4, 0, 0]} name="horasFuera" label={({ value }) => formatHorasMinutos(value)} />
-          </BarChart>
-        </ResponsiveContainer>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Legend formatter={(value) => value === 'horas' ? 'En geocerca' : 'Fuera de geocerca'} />
+              <Bar dataKey="horas" fill="#6366f1" radius={[4, 4, 0, 0]} name="horas" label={({ value }) => formatHorasMinutos(value)} />
+              <Bar dataKey="horasFuera" fill="#ef4444" radius={[4, 4, 0, 0]} name="horasFuera" label={({ value }) => formatHorasMinutos(value)} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   )
