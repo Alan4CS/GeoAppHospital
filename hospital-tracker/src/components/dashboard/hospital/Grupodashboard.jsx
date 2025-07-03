@@ -957,51 +957,6 @@ export default function GrupoDashboard({
           </BarChart>
         </ResponsiveContainer>
       </div>
-
-      {/* Resumen visual final */}
-      {stackedGroupData.length > 0 && (
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-6 border border-blue-100 mb-4">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-blue-600" />
-            Resumen de análisis de grupos
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-lg p-4 border border-blue-200">
-              <div className="text-sm text-gray-600 mb-1">Grupo más activo</div>
-              <div className="font-semibold text-blue-700">
-                {[...stackedGroupData].sort((a, b) => b.Activos - a.Activos)[0]?.grupo}
-              </div>
-              <div className="text-xs text-gray-500">
-                {[...stackedGroupData].sort((a, b) => b.Activos - a.Activos)[0]?.Activos} empleados activos
-              </div>
-            </div>
-            <div className="bg-white rounded-lg p-4 border border-green-200">
-              <div className="text-sm text-gray-600 mb-1">Mayor % de actividad</div>
-              <div className="font-semibold text-green-700">
-                {[...stackedGroupData].sort((a, b) => (b.Activos/b.Total) - (a.Activos/a.Total))[0]?.grupo}
-              </div>
-              <div className="text-xs text-gray-500">
-                {Math.round([...stackedGroupData].sort((a, b) => (b.Activos/b.Total) - (a.Activos/a.Total))[0]?.Activos / [...stackedGroupData].sort((a, b) => (b.Activos/b.Total) - (a.Activos/a.Total))[0]?.Total * 100)}% activo
-              </div>
-            </div>
-            <div className="bg-white rounded-lg p-4 border border-purple-200">
-              <div className="text-sm text-gray-600 mb-1">Promedio de actividad</div>
-              <div className="font-semibold text-purple-700">
-                {Math.round(stackedGroupData.reduce((sum, g) => sum + g.Activos, 0) / stackedGroupData.length * 100) / 100} empleados
-              </div>
-              <div className="text-xs text-gray-500">
-                por grupo en el período
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {loading && <div className="mt-4 text-indigo-600 flex items-center gap-2">
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></div>
-        Cargando datos de grupos...
-      </div>}
-      {error && <div className="mt-4 text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">{error}</div>}
     </div>
   )
 }
