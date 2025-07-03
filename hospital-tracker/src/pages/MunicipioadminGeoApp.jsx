@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import MunicipalDashboard from "../components/dashboard/municipal/MunicipalDashboard";
-// TODO: Crear este componente similar a EstadoSidebar
 import MunicipalSidebar from "../components/municipal/MunicipalSidebar";
 import HospitalList from "../components/municipal/HospitalListMunicipio";
 import GrupoList from "../components/municipal/GrupoListMunicipio";
@@ -56,7 +55,7 @@ export default function MunicipioAdminDashboard() {
         className={`flex-1 ${sidebarOpen ? "ml-56" : "ml-20"} transition-all duration-300 ease-in-out`}
       >
         {/* HEADER */}
-        <header className="bg-white shadow-sm p-4 sticky top-0 z-20">
+        <header className="bg-white shadow-sm py-4 pr-4 pl-8 sticky top-0 z-20">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold text-gray-800">
               {activeTab === "hospitales"

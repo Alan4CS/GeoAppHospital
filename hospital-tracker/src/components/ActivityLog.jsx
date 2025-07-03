@@ -482,15 +482,16 @@ export default function ActivityLog() {
       )}
       {/* Botón flotante */}
       <button
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 bg-emerald-600 text-white rounded-full shadow-lg hover:bg-emerald-700 transition-all duration-300 z-40 flex items-center gap-2 group p-3"
+        onClick={() => setIsOpen(!isOpen)}
+        className="fixed bottom-6 right-6 bg-emerald-600 text-white rounded-full shadow-lg hover:bg-emerald-700 transition-all duration-300 z-[9999] flex items-center justify-center group p-3"
+        style={{ width: '50px', height: '50px' }}
       >
         <Users className="h-5 w-5" />
-        <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+        <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold text-[10px]">
           {activeAdmins}
         </span>
-        <span className="absolute right-full mr-3 bg-gray-900 text-white text-sm py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
-          Ver administradores activos
+        <span className="absolute right-full mr-3 bg-gray-900 text-white text-sm py-2 px-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none shadow-lg">
+          {isOpen ? 'Cerrar panel' : 'Ver administradores activos'}
         </span>
       </button>
 

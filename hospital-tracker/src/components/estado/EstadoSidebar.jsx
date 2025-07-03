@@ -55,8 +55,8 @@ export default function EstadoSidebar({
             <Hospital className="h-7 w-7" />
           </div>
           <h1
-            className={`transition-all duration-200 overflow-hidden ${
-              !sidebarOpen ? "w-0 opacity-0" : "w-auto opacity-100"
+            className={`transition-all duration-200 overflow-hidden whitespace-nowrap ${
+              sidebarOpen ? "w-auto opacity-100" : "w-0 opacity-0"
             }`}
           >
             Estado Admin
