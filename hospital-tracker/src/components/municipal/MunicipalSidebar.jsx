@@ -41,9 +41,9 @@ export default function MunicipalSidebar({
 
   return (
     <div
-      className={`$
-        {sidebarOpen ? "w-56" : "w-20"}
-      bg-gradient-to-b from-emerald-800 to-emerald-900 text-white transition-all duration-200 flex flex-col h-screen fixed z-30`}
+      className={`${
+        sidebarOpen ? "w-56" : "w-20"
+      } bg-gradient-to-b from-purple-800 to-purple-900 text-white transition-all duration-200 flex flex-col h-screen fixed z-30`}
       onMouseEnter={() => setSidebarOpen(true)}
       onMouseLeave={() => setSidebarOpen(false)}
     >
@@ -54,8 +54,8 @@ export default function MunicipalSidebar({
             <Hospital className="h-7 w-7" />
           </div>
           <h1
-            className={`transition-all duration-200 overflow-hidden ${
-              !sidebarOpen ? "w-0 opacity-0" : "w-auto opacity-100"
+            className={`transition-all duration-200 overflow-hidden whitespace-nowrap ${
+              sidebarOpen ? "w-auto opacity-100" : "w-0 opacity-0"
             }`}
           >
             Municipio Admin
@@ -69,8 +69,8 @@ export default function MunicipalSidebar({
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex items-center py-3 px-4 hover:bg-emerald-700 transition-colors duration-200 w-full rounded-md ${
-                activeTab === tab ? "bg-emerald-700" : ""
+              className={`flex items-center py-3 px-4 hover:bg-purple-700 transition-colors duration-200 w-full rounded-md ${
+                activeTab === tab ? "bg-purple-700" : ""
               }`}
             >
               <div className="w-12 flex justify-center flex-shrink-0">
