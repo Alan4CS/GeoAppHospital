@@ -25,8 +25,6 @@ const EmpleadoList = ({
   setBusquedaEmpleado,
   estadoEmpleadoFiltro,
   setEstadoEmpleadoFiltro,
-  rolEmpleadoFiltro,
-  setRolEmpleadoFiltro,
   onEmpleadosUpdate,
 }) => {
   const [empleadosLocales, setEmpleadosLocales] = useState(empleadosIniciales)
@@ -76,25 +74,27 @@ const EmpleadoList = ({
     setTimeout(() => setNotificacion(null), duracion)
   }
 
+  // Eliminar filtro de roles del renderizado (no mostrar el select de roles)
+  // y corregir el filtro de estados para que funcione aunque la búsqueda esté vacía
+
   const empleadosFiltrados = empleadosLocales.filter((empleado) => {
     const busquedaLimpia = busquedaEmpleado?.toLowerCase().trim() || ""
 
-    if (!busquedaLimpia) return true
+    // Filtro de búsqueda (nombre o curp)
+    let coincideBusqueda = true
+    if (busquedaLimpia) {
+      const textoCompleto = `${empleado.nombre || ""} ${empleado.ap_paterno || ""} ${empleado.ap_materno || ""} ${empleado.curp_user || ""}`.toLowerCase().trim()
+      const terminosBusqueda = busquedaLimpia.split(/\s+/)
+      coincideBusqueda = terminosBusqueda.every((termino) => textoCompleto.includes(termino))
+    }
 
-    const textoCompleto = `${empleado.nombre || ""} ${empleado.ap_paterno || ""} ${
-      empleado.ap_materno || ""
-    } ${empleado.curp_user || ""}`
-      .toLowerCase()
-      .trim()
+    // Filtro por estado (debe funcionar siempre)
+    let coincideEstado = true
+    if (estadoEmpleadoFiltro && estadoEmpleadoFiltro !== "") {
+      coincideEstado = empleado.estado === estadoEmpleadoFiltro
+    }
 
-    const terminosBusqueda = busquedaLimpia.split(/\s+/)
-
-    const coincideBusqueda = terminosBusqueda.every((termino) => textoCompleto.includes(termino))
-
-    const coincideEstado = !estadoEmpleadoFiltro || empleado.estado === estadoEmpleadoFiltro
-    const coincideRol = !rolEmpleadoFiltro || empleado.role_name === rolEmpleadoFiltro
-
-    return coincideBusqueda && coincideEstado && coincideRol
+    return coincideBusqueda && coincideEstado
   })
 
   // Determinar si estamos en modo búsqueda
@@ -346,7 +346,7 @@ const EmpleadoList = ({
                 <h3 className="text-lg font-semibold text-gray-900">Empleados registrados</h3>
                 <p className="text-sm text-gray-500">
                   {empleadosFiltrados.length} empleado{empleadosFiltrados.length !== 1 ? "s" : ""}
-                  {(estadoEmpleadoFiltro || rolEmpleadoFiltro) && " filtrados"}
+                  {(estadoEmpleadoFiltro) && " filtrados"}
                 </p>
               </div>
             </div>
@@ -381,22 +381,6 @@ const EmpleadoList = ({
                     ))}
                 </select>
               </div>
-
-              <select
-                value={rolEmpleadoFiltro || ""}
-                onChange={(e) => setRolEmpleadoFiltro(e.target.value)}
-                className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              >
-                <option value="">Todos los roles</option>
-                {[...new Set(empleadosLocales.map((e) => e.role_name))]
-                  .filter(Boolean)
-                  .sort()
-                  .map((role) => (
-                    <option key={`rol-${role}`} value={role}>
-                      {role}
-                    </option>
-                  ))}
-              </select>
             </div>
           </div>
         </div>
@@ -513,13 +497,6 @@ const EmpleadoList = ({
                     ))}
                   </tbody>
                 </table>
-              </div>
-
-              <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/30">
-                <p className="text-sm text-gray-600 text-center">
-                  💡 <strong>Tip:</strong> Borra el texto de búsqueda para ver la vista organizada por estados y
-                  hospitales
-                </p>
               </div>
             </div>
           ) : (
@@ -765,7 +742,7 @@ const EmpleadoList = ({
           <div className="px-6 py-16 text-center">
             <UserPlus className="h-8 w-8 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500">
-              {estadoEmpleadoFiltro || rolEmpleadoFiltro
+              {estadoEmpleadoFiltro
                 ? "No se encontraron empleados que coincidan con los filtros aplicados"
                 : busquedaEmpleado
                   ? "No se encontraron empleados que coincidan con la búsqueda"

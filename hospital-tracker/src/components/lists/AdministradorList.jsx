@@ -167,22 +167,31 @@ const AdministradorList = ({
     return administradores.filter((admin) => {
       const busquedaLimpia = busquedaAdmin.toLowerCase().trim()
 
-      if (!busquedaLimpia) return true
+      // Filtro de búsqueda (nombre o curp)
+      let coincideBusqueda = true
+      if (busquedaLimpia) {
+        const nombreCompleto = `${admin.nombre || ""} ${admin.ap_paterno || ""} ${admin.ap_materno || ""}`
+          .toLowerCase()
+          .trim()
+        const terminosBusqueda = busquedaLimpia.split(/\s+/)
+        coincideBusqueda = terminosBusqueda.every(
+          (termino) => nombreCompleto.includes(termino) || admin.curp_user?.toLowerCase().includes(termino),
+        )
+      }
 
-      const nombreCompleto = `${admin.nombre || ""} ${admin.ap_paterno || ""} ${admin.ap_materno || ""}`
-        .toLowerCase()
-        .trim()
+      // Filtro por tipo de admin (rol)
+      let coincideTipo = true
+      if (tipoAdminFiltro && tipoAdminFiltro !== "") {
+        coincideTipo = admin.role_name === tipoAdminFiltro
+      }
 
-      const terminosBusqueda = busquedaLimpia.split(/\s+/)
+      // Filtro por estado
+      let coincideEstado = true
+      if (estadoAdminFiltro && estadoAdminFiltro !== "") {
+        coincideEstado = admin.estado === estadoAdminFiltro
+      }
 
-      const coincideNombre = terminosBusqueda.every(
-        (termino) => nombreCompleto.includes(termino) || admin.curp_user?.toLowerCase().includes(termino),
-      )
-
-      const cumpleTipo = !tipoAdminFiltro || admin.role_name === tipoAdminFiltro
-      const cumpleEstado = !estadoAdminFiltro || admin.estado === estadoAdminFiltro
-
-      return coincideNombre && cumpleTipo && cumpleEstado
+      return coincideBusqueda && coincideTipo && coincideEstado
     })
   }, [administradores, busquedaAdmin, tipoAdminFiltro, estadoAdminFiltro])
 
