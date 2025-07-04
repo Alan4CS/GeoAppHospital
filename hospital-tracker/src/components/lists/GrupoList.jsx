@@ -15,6 +15,7 @@ import {
   CheckCircle,
   AlertCircle,
   Settings,
+  Clock,
 } from "lucide-react"
 
 const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
@@ -31,14 +32,59 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
     descripcion_grupo: "",
   })
   const [busquedaGrupo, setBusquedaGrupo] = useState("")
+  const [busquedaInput, setBusquedaInput] = useState("") // Nuevo estado para el input
   const [estadoFiltro, setEstadoFiltro] = useState("")
   const [mostrarTodosEstados, setMostrarTodosEstados] = useState({})
   const [notificacion, setNotificacion] = useState(null)
+  const [cargandoFiltro, setCargandoFiltro] = useState(false)
+  const [esperandoBusqueda, setEsperandoBusqueda] = useState(false)
 
   const mostrarNotificacion = (tipo, titulo, mensaje) => {
     setNotificacion({ tipo, titulo, mensaje })
     setTimeout(() => setNotificacion(null), tipo === "exito" ? 4000 : 5000)
   }
+
+  const handleCambioEstado = (nuevoEstado) => {
+    setCargandoFiltro(true)
+    
+    // Pequeña pausa para mostrar la animación de carga
+    setTimeout(() => {
+      setEstadoFiltro(nuevoEstado)
+      setCargandoFiltro(false)
+    }, 300)
+  }
+
+  const handleCambioBusqueda = (nuevaBusqueda) => {
+    setBusquedaInput(nuevaBusqueda) // Solo actualiza el input, el debounce se maneja en useEffect
+  }
+
+  // Efecto de debounce para la búsqueda
+  useEffect(() => {
+    // Si hay texto diferente, activar el estado de espera
+    if (busquedaInput.trim() !== busquedaGrupo.trim()) {
+      setEsperandoBusqueda(true)
+    }
+
+    const timer = setTimeout(() => {
+      if (busquedaInput.trim() !== busquedaGrupo.trim()) {
+        setCargandoFiltro(true)
+        setEsperandoBusqueda(false)
+        setTimeout(() => {
+          setBusquedaGrupo(busquedaInput)
+          setCargandoFiltro(false)
+        }, 200)
+      } else {
+        setEsperandoBusqueda(false)
+      }
+    }, 500) // Espera 500ms después de que el usuario deje de escribir
+
+    return () => {
+      clearTimeout(timer)
+      if (busquedaInput.trim() === busquedaGrupo.trim()) {
+        setEsperandoBusqueda(false)
+      }
+    }
+  }, [busquedaInput, busquedaGrupo])
 
   const handleEditar = (grupo) => {
     console.log("Grupo seleccionado para editar:", grupo)
@@ -210,17 +256,19 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
   const gruposFiltrados = grupos.filter((grupo) => {
     const busquedaLimpia = busquedaGrupo.toLowerCase().trim()
 
-    if (!busquedaLimpia) return true
+    // Verificar coincidencia con filtro de estado
+    const coincideEstado = !estadoFiltro || grupo.nombre_estado === estadoFiltro
 
+    // Si no hay texto de búsqueda, solo aplicar filtro de estado
+    if (!busquedaLimpia) return coincideEstado
+
+    // Si hay texto de búsqueda, verificar tanto búsqueda como estado
     const textoCompleto = `${grupo.nombre_grupo || ""} ${grupo.descripcion_group || ""} ${grupo.nombre_hospital || ""}`
       .toLowerCase()
       .trim()
 
     const terminosBusqueda = busquedaLimpia.split(/\s+/)
-
     const coincideBusqueda = terminosBusqueda.every((termino) => textoCompleto.includes(termino))
-
-    const coincideEstado = !estadoFiltro || grupo.nombre_estado === estadoFiltro
 
     return coincideBusqueda && coincideEstado
   })
@@ -259,22 +307,35 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
 
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                {esperandoBusqueda ? (
+                  <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-orange-400 animate-pulse" />
+                ) : cargandoFiltro ? (
+                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 border-2 border-purple-200 border-t-purple-500 rounded-full animate-spin"></div>
+                ) : (
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                )}
                 <input
                   type="text"
                   placeholder="Buscar grupo..."
-                  value={busquedaGrupo}
-                  onChange={(e) => setBusquedaGrupo(e.target.value)}
+                  value={busquedaInput}
+                  onChange={(e) => handleCambioBusqueda(e.target.value)}
                   className="pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent w-full sm:w-64"
                 />
               </div>
 
               <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-gray-400" />
+                {cargandoFiltro ? (
+                  <div className="w-4 h-4 border-2 border-purple-200 border-t-purple-500 rounded-full animate-spin"></div>
+                ) : (
+                  <MapPin className="h-4 w-4 text-gray-400" />
+                )}
                 <select
                   value={estadoFiltro}
-                  onChange={(e) => setEstadoFiltro(e.target.value)}
-                  className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  onChange={(e) => handleCambioEstado(e.target.value)}
+                  disabled={cargandoFiltro}
+                  className={`text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 ${
+                    cargandoFiltro ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 >
                   <option value="">Todos los estados</option>
                   {[...new Set(grupos.map((g) => g.nombre_estado))]
@@ -292,10 +353,29 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
         </div>
       </div>
 
-      {gruposFiltrados.length > 0 ? (
+      {cargandoFiltro ? (
+        <div className="bg-white rounded-lg border border-gray-200">
+          <div className="px-6 py-16 text-center">
+            <div className="flex flex-col items-center space-y-4">
+              <div className="relative">
+                <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-gray-600 font-medium">Aplicando filtros...</p>
+                <div className="flex items-center justify-center space-x-1">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : gruposFiltrados.length > 0 ? (
         <>
           {/* Secciones por Estado */}
-          {Object.entries(gruposPorEstado)
+          <div className="animate-in fade-in duration-300">
+            {Object.entries(gruposPorEstado)
             .sort()
             .map(([estado, municipios]) => {
               const totalGruposEstado = Object.values(municipios).reduce(
@@ -427,6 +507,7 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
                 </div>
               )
             })}
+          </div>
         </>
       ) : (
         <div className="bg-white rounded-lg border border-gray-200">
@@ -435,7 +516,7 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
             <p className="text-gray-500">
               {estadoFiltro
                 ? `No hay grupos en ${estadoFiltro}`
-                : busquedaGrupo
+                : busquedaInput.trim()
                   ? "No se encontraron grupos que coincidan con la búsqueda"
                   : "No hay grupos registrados"}
             </p>
@@ -650,6 +731,25 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
           to {
             width: 0%;
           }
+        }
+        
+        .animate-in {
+          animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .fade-in {
+          animation: fadeIn 0.3s ease-in-out;
         }
       `}</style>
     </div>
