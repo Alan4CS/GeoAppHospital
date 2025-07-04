@@ -62,7 +62,7 @@ export default function HospitalList({ estadoNombre = "Nombre del Estado", hospi
     const busquedaLimpia = busquedaHospital.toLowerCase().trim();
     if (!busquedaLimpia) return hospitales;
     return hospitales.filter((h) => {
-      const textoCompleto = `${h.nombre_hospital || ""} ${h.nombre_estado || ""} ${h.tipo_hospital || ""} ${h.region || ""}`.toLowerCase();
+      const textoCompleto = `${h.nombre_hospital || ""} ${h.nombre_estado || ""} ${h.tipo_hospital || ""} ${h.direccion_hospital || ""}`.toLowerCase();
       return busquedaLimpia.split(/\s+/).every((t) => textoCompleto.includes(t));
     });
   }, [hospitales, busquedaHospital, isSearching, isWaiting]);
@@ -166,7 +166,7 @@ export default function HospitalList({ estadoNombre = "Nombre del Estado", hospi
                       </td>
                       <td className="px-4 py-3 text-sm">{h.nombre_estado || "-"}</td>
                       <td className="px-4 py-3 text-sm">{h.tipo_hospital || "-"}</td>
-                      <td className="px-4 py-3 text-sm">{h.region || "-"}</td>
+                      <td className="px-4 py-3 text-sm">{h.direccion_hospital || "-"}</td>
                       <td className="px-4 py-3 text-sm">
                         {h.radio_geo ? (
                           <span className="px-2 py-1 text-xs font-semibold rounded bg-emerald-100 text-emerald-700 whitespace-nowrap">
@@ -232,7 +232,7 @@ export default function HospitalList({ estadoNombre = "Nombre del Estado", hospi
                     </td>
                     <td className="px-4 py-3 text-sm">{h.nombre_estado || "-"}</td>
                     <td className="px-4 py-3 text-sm">{h.tipo_hospital || "-"}</td>
-                    <td className="px-4 py-3 text-sm">{h.region || "-"}</td>
+                    <td className="px-4 py-3 text-sm">{h.direccion_hospital || "-"}</td>
                     <td className="px-4 py-3 text-sm">
                       {h.radio_geo ? (
                         <span className="px-2 py-1 text-xs font-semibold rounded bg-emerald-100 text-emerald-700 whitespace-nowrap">
