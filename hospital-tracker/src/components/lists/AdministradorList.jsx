@@ -87,9 +87,9 @@ const AdministradorList = ({
   })
 
   // Estados para debounce y animaciones
-  const [busquedaLocal, setBusquedaLocal] = useState(busquedaAdmin || "")
-  const [isSearching, setIsSearching] = useState(false)
+  const [pendingValue, setPendingValue] = useState(busquedaAdmin || "")
   const [isWaiting, setIsWaiting] = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
   const [isFilteringEstado, setIsFilteringEstado] = useState(false)
   const [isFilteringTipo, setIsFilteringTipo] = useState(false)
 
@@ -143,38 +143,30 @@ const AdministradorList = ({
     setTimeout(() => setNotificacion(null), tipo === "exito" ? 4000 : 5000)
   }
 
-  // Sincronizar busquedaLocal con busquedaAdmin cuando cambie desde el padre
+  // Sincronizar pendingValue con busquedaAdmin cuando cambie desde el padre
   useEffect(() => {
-    setBusquedaLocal(busquedaAdmin || "")
+    setPendingValue(busquedaAdmin || "")
   }, [busquedaAdmin])
 
-  // Debounce para la búsqueda
-  const debouncedSearch = useCallback((value) => {
+  // Debounce profesionalizado para la búsqueda
+  useEffect(() => {
+    if (pendingValue === busquedaAdmin) return
     setIsWaiting(true)
     setIsSearching(false)
-
-    const timeoutId = setTimeout(() => {
+    const debounceTimeout = setTimeout(() => {
       setIsWaiting(false)
       setIsSearching(true)
-      
       setTimeout(() => {
-        setBusquedaAdmin(value)
+        setBusquedaAdmin(pendingValue)
         setIsSearching(false)
-      }, 200)
+      }, 350)
     }, 500)
-
-    return () => clearTimeout(timeoutId)
-  }, [setBusquedaAdmin])
-
-  // Efecto para manejar el debounce
-  useEffect(() => {
-    const cleanup = debouncedSearch(busquedaLocal)
-    return cleanup
-  }, [busquedaLocal, debouncedSearch])
+    return () => clearTimeout(debounceTimeout)
+  }, [pendingValue, busquedaAdmin, setBusquedaAdmin])
 
   // Manejar cambio en el input de búsqueda
   const handleBusquedaChange = (e) => {
-    setBusquedaLocal(e.target.value)
+    setPendingValue(e.target.value)
   }
 
   // Manejar cambio en filtro de estado
@@ -339,15 +331,13 @@ const AdministradorList = ({
               <div className="relative">
                 {isWaiting ? (
                   <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-amber-500 animate-pulse" />
-                ) : isSearching ? (
-                  <Loader2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-blue-500 animate-spin" />
                 ) : (
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 )}
                 <input
                   type="text"
                   placeholder="Buscar por nombre o CURP..."
-                  value={busquedaLocal}
+                  value={pendingValue}
                   onChange={handleBusquedaChange}
                   className="pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-64"
                 />
@@ -407,7 +397,101 @@ const AdministradorList = ({
         </div>
       )}
 
-      {!isSearching && !isFilteringEstado && !isFilteringTipo && administradoresFiltrados.length > 0 ? (
+      {/* Encabezado y tabla plana de resultados de búsqueda */}
+      {!isSearching && !isFilteringEstado && !isFilteringTipo && busquedaAdmin.trim().length > 0 ? (
+        <>
+          <div className="bg-green-50 border border-green-200 rounded-lg px-6 py-4 mb-4 fadeIn">
+            <div className="flex items-center gap-2">
+              <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" /></svg>
+              <span className="text-base font-semibold text-green-900">Resultados de búsqueda: "{busquedaAdmin.trim()}"</span>
+              <span className="ml-2 text-green-700 text-sm">{administradoresFiltrados.length} administrador{administradoresFiltrados.length !== 1 ? 'es' : ''} encontrado{administradoresFiltrados.length !== 1 ? 's' : ''}</span>
+            </div>
+          </div>
+          {administradoresFiltrados.length > 0 ? (
+            <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto animate-in fade-in duration-300">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Apellido Paterno</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Apellido Materno</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CURP</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Municipio</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hospital</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {administradoresFiltrados.map((admin) => (
+                    <tr key={admin.id_user} className="hover:bg-blue-50/40 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap font-semibold text-gray-900">{admin.nombre}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-700">{admin.ap_paterno}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-700">{admin.ap_materno}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-700 font-mono">{admin.curp_user}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-700">{admin.municipio || "—"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-700">{admin.hospital || "—"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
+                          admin.role_name === "superadmin"
+                            ? "bg-red-50 text-red-700 border-red-200"
+                            : admin.role_name === "estadoadmin"
+                              ? "bg-blue-50 text-blue-700 border-blue-200"
+                              : admin.role_name === "municipioadmin"
+                                ? "bg-purple-50 text-purple-700 border-purple-200"
+                                : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        }`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${
+                            admin.role_name === "superadmin"
+                              ? "bg-red-500"
+                              : admin.role_name === "estadoadmin"
+                                ? "bg-blue-500"
+                                : admin.role_name === "municipioadmin"
+                                  ? "bg-purple-500"
+                                  : "bg-emerald-500"
+                          }`}></div>
+                          {admin.role_name === "superadmin"
+                            ? "Super Admin"
+                            : admin.role_name === "estadoadmin"
+                              ? "Admin Estatal"
+                              : admin.role_name === "municipioadmin"
+                                ? "Admin Municipal"
+                                : "Admin Hospital"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <button
+                          onClick={() => abrirModal(admin)}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-all duration-200 hover:shadow-md mr-2"
+                          title="Editar administrador"
+                        >
+                          <Settings className="h-4 w-4" />
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => handleEliminar(admin)}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-all duration-200 hover:shadow-md"
+                          title="Eliminar administrador"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Eliminar
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg border border-gray-200">
+              <div className="px-6 py-16 text-center">
+                <Users className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">No se encontraron administradores que coincidan con la búsqueda</p>
+              </div>
+            </div>
+          )}
+        </>
+      ) : !isSearching && !isFilteringEstado && !isFilteringTipo && administradoresFiltrados.length > 0 ? (
         <>
           {/* Sección Super Administradores */}
           {superAdmins.length > 0 && (

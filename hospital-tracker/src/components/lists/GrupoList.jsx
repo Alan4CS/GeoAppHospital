@@ -32,12 +32,14 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
     descripcion_grupo: "",
   })
   const [busquedaGrupo, setBusquedaGrupo] = useState("")
-  const [busquedaInput, setBusquedaInput] = useState("") // Nuevo estado para el input
   const [estadoFiltro, setEstadoFiltro] = useState("")
   const [mostrarTodosEstados, setMostrarTodosEstados] = useState({})
   const [notificacion, setNotificacion] = useState(null)
-  const [cargandoFiltro, setCargandoFiltro] = useState(false)
-  const [esperandoBusqueda, setEsperandoBusqueda] = useState(false)
+
+  // Estados para animación de búsqueda y debounce
+  const [isWaiting, setIsWaiting] = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
+  const [pendingValue, setPendingValue] = useState("")
 
   const mostrarNotificacion = (tipo, titulo, mensaje) => {
     setNotificacion({ tipo, titulo, mensaje })
@@ -45,46 +47,35 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
   }
 
   const handleCambioEstado = (nuevoEstado) => {
-    setCargandoFiltro(true)
-    
-    // Pequeña pausa para mostrar la animación de carga
+    setIsSearching(true)
     setTimeout(() => {
       setEstadoFiltro(nuevoEstado)
-      setCargandoFiltro(false)
+      setIsSearching(false)
     }, 300)
   }
 
   const handleCambioBusqueda = (nuevaBusqueda) => {
-    setBusquedaInput(nuevaBusqueda) // Solo actualiza el input, el debounce se maneja en useEffect
+    setPendingValue(nuevaBusqueda)
   }
 
-  // Efecto de debounce para la búsqueda
+  // Espera a que el usuario termine de escribir (debounce)
   useEffect(() => {
-    // Si hay texto diferente, activar el estado de espera
-    if (busquedaInput.trim() !== busquedaGrupo.trim()) {
-      setEsperandoBusqueda(true)
-    }
-
-    const timer = setTimeout(() => {
-      if (busquedaInput.trim() !== busquedaGrupo.trim()) {
-        setCargandoFiltro(true)
-        setEsperandoBusqueda(false)
+    if (pendingValue !== busquedaGrupo) {
+      setIsWaiting(true)
+      setIsSearching(false)
+      const debounceId = setTimeout(() => {
+        setIsWaiting(false)
+        setIsSearching(true)
         setTimeout(() => {
-          setBusquedaGrupo(busquedaInput)
-          setCargandoFiltro(false)
-        }, 200)
-      } else {
-        setEsperandoBusqueda(false)
-      }
-    }, 500) // Espera 500ms después de que el usuario deje de escribir
-
-    return () => {
-      clearTimeout(timer)
-      if (busquedaInput.trim() === busquedaGrupo.trim()) {
-        setEsperandoBusqueda(false)
+          setBusquedaGrupo(pendingValue)
+          setIsSearching(false)
+        }, 500) // Duración de la animación de "Aplicando filtros..."
+      }, 500) // Tiempo de espera para terminar de escribir
+      return () => {
+        clearTimeout(debounceId)
       }
     }
-  }, [busquedaInput, busquedaGrupo])
+  }, [pendingValue, busquedaGrupo])
 
   const handleEditar = (grupo) => {
     console.log("Grupo seleccionado para editar:", grupo)
@@ -273,6 +264,27 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
     return coincideBusqueda && coincideEstado
   })
 
+  // Ordenar los grupos filtrados por relevancia cuando hay búsqueda
+  let gruposFiltradosOrdenados = gruposFiltrados;
+  if (busquedaGrupo.trim().length > 0) {
+    const busqueda = busquedaGrupo.trim().toLowerCase();
+    gruposFiltradosOrdenados = [...gruposFiltrados].sort((a, b) => {
+      const nombreA = (a.nombre_grupo || '').toLowerCase();
+      const nombreB = (b.nombre_grupo || '').toLowerCase();
+      // Coincidencia exacta primero
+      if (nombreA === busqueda && nombreB !== busqueda) return -1;
+      if (nombreB === busqueda && nombreA !== busqueda) return 1;
+      // Luego los que empiezan con la búsqueda
+      if (nombreA.startsWith(busqueda) && !nombreB.startsWith(busqueda)) return -1;
+      if (nombreB.startsWith(busqueda) && !nombreA.startsWith(busqueda)) return 1;
+      // Luego los que contienen la búsqueda
+      if (nombreA.includes(busqueda) && !nombreB.includes(busqueda)) return -1;
+      if (nombreB.includes(busqueda) && !nombreA.includes(busqueda)) return 1;
+      // Si todo es igual, mantener el orden original
+      return 0;
+    });
+  }
+
   const gruposPorEstado = gruposFiltrados.reduce((acc, grupo) => {
     const estado = grupo.nombre_estado || "Sin estado"
     const municipio = grupo.nombre_municipio || "Sin municipio"
@@ -307,24 +319,22 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
 
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative">
-                {esperandoBusqueda ? (
+                {isWaiting ? (
                   <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-orange-400 animate-pulse" />
-                ) : cargandoFiltro ? (
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 border-2 border-purple-200 border-t-purple-500 rounded-full animate-spin"></div>
                 ) : (
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 )}
                 <input
                   type="text"
                   placeholder="Buscar grupo..."
-                  value={busquedaInput}
+                  value={pendingValue}
                   onChange={(e) => handleCambioBusqueda(e.target.value)}
                   className="pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent w-full sm:w-64"
                 />
               </div>
 
               <div className="flex items-center gap-2">
-                {cargandoFiltro ? (
+                {isSearching ? (
                   <div className="w-4 h-4 border-2 border-purple-200 border-t-purple-500 rounded-full animate-spin"></div>
                 ) : (
                   <MapPin className="h-4 w-4 text-gray-400" />
@@ -332,10 +342,7 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
                 <select
                   value={estadoFiltro}
                   onChange={(e) => handleCambioEstado(e.target.value)}
-                  disabled={cargandoFiltro}
-                  className={`text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 ${
-                    cargandoFiltro ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
+                  className={`text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200`}
                 >
                   <option value="">Todos los estados</option>
                   {[...new Set(grupos.map((g) => g.nombre_estado))]
@@ -353,7 +360,7 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
         </div>
       </div>
 
-      {cargandoFiltro ? (
+      {isSearching ? (
         <div className="bg-white rounded-lg border border-gray-200">
           <div className="px-6 py-16 text-center">
             <div className="flex flex-col items-center space-y-4">
@@ -371,6 +378,69 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
             </div>
           </div>
         </div>
+      ) : busquedaGrupo.trim().length > 0 ? (
+        <>
+          {/* Encabezado de resultados de búsqueda */}
+          <div className="bg-green-50 border border-green-200 rounded-lg px-6 py-4 mb-4 fadeIn">
+            <div className="flex items-center gap-2">
+              <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" /></svg>
+              <span className="text-base font-semibold text-green-900">Resultados de búsqueda: "{busquedaGrupo.trim()}"</span>
+              <span className="ml-2 text-green-700 text-sm">{gruposFiltradosOrdenados.length} grupo{gruposFiltradosOrdenados.length !== 1 ? 's' : ''} encontrado{gruposFiltradosOrdenados.length !== 1 ? 's' : ''}</span>
+            </div>
+          </div>
+          {gruposFiltradosOrdenados.length > 0 ? (
+            <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto animate-in fade-in duration-300">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre del grupo</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Municipio</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hospital</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {gruposFiltradosOrdenados.map((grupo) => (
+                    <tr key={grupo.id_group} className="hover:bg-purple-50/40 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap font-semibold text-gray-900">{grupo.nombre_grupo}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-700">{grupo.descripcion_group || "Sin descripción"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-700">{grupo.nombre_estado || "-"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-700">{grupo.nombre_municipio || "-"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-700">{grupo.nombre_hospital || "-"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <button
+                          onClick={() => handleEditar(grupo)}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-all duration-200 hover:shadow-md mr-2"
+                          title="Editar grupo"
+                        >
+                          <Settings className="h-4 w-4" />
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => handleEliminar(grupo)}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-all duration-200 hover:shadow-md"
+                          title="Eliminar grupo"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Eliminar
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg border border-gray-200">
+              <div className="px-6 py-16 text-center">
+                <Users className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">No se encontraron grupos que coincidan con la búsqueda</p>
+              </div>
+            </div>
+          )}
+        </>
       ) : gruposFiltrados.length > 0 ? (
         <>
           {/* Secciones por Estado */}
@@ -516,7 +586,7 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
             <p className="text-gray-500">
               {estadoFiltro
                 ? `No hay grupos en ${estadoFiltro}`
-                : busquedaInput.trim()
+                : busquedaGrupo.trim()
                   ? "No se encontraron grupos que coincidan con la búsqueda"
                   : "No hay grupos registrados"}
             </p>
@@ -752,6 +822,17 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
           animation: fadeIn 0.3s ease-in-out;
         }
       `}</style>
+
+      {/* Mostrar encabezado de búsqueda como en EmpleadoList */}
+      {busquedaGrupo.trim() && !isSearching && !isWaiting && (
+        <div className="bg-green-50 border border-green-200 rounded-lg px-6 py-4 mb-4 fadeIn">
+          <div className="flex items-center gap-2">
+            <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" /></svg>
+            <span className="text-base font-semibold text-green-900">Resultados de búsqueda: "{busquedaGrupo.trim()}"</span>
+            <span className="ml-2 text-green-700 text-sm">{gruposFiltradosOrdenados.length} grupo{gruposFiltradosOrdenados.length !== 1 ? 's' : ''} encontrado{gruposFiltradosOrdenados.length !== 1 ? 's' : ''}</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

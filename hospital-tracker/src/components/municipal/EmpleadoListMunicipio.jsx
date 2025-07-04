@@ -11,8 +11,10 @@ import StatsCardMunicipio from "./StatsCardMunicipio";
 
 const EmpleadoList = ({ id_user }) => {
   const [empleadosLocales, setEmpleadosLocales] = useState([]);
+  const [pendingValue, setPendingValue] = useState("");
   const [busquedaEmpleado, setBusquedaEmpleado] = useState("");
-  const [busquedaInput, setBusquedaInput] = useState(""); // Nuevo estado para el input
+  const [isWaiting, setIsWaiting] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [mostrarTodosEmpleados, setMostrarTodosEmpleados] = useState({});
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState(null);
@@ -75,48 +77,28 @@ const EmpleadoList = ({ id_user }) => {
     return () => { ignore = true; };
   }, [id_user]);
 
-  const handleCambioBusqueda = (nuevaBusqueda) => {
-    setBusquedaInput(nuevaBusqueda) // Solo actualiza el input, el debounce se maneja en useEffect
-  }
-
-  // Efecto de debounce para la búsqueda
+  // Debounce profesionalizado para la búsqueda
   useEffect(() => {
-    // Si hay texto diferente, activar el estado de espera
-    if (busquedaInput.trim() !== busquedaEmpleado.trim()) {
-      setEsperandoBusqueda(true)
-    }
+    if (pendingValue === busquedaEmpleado) return;
+    setIsWaiting(true);
+    setIsSearching(false);
+    const debounceTimeout = setTimeout(() => {
+      setIsWaiting(false);
+      setIsSearching(true);
+      setTimeout(() => {
+        setBusquedaEmpleado(pendingValue);
+        setIsSearching(false);
+      }, 350);
+    }, 500);
+    return () => clearTimeout(debounceTimeout);
+  }, [pendingValue, busquedaEmpleado]);
 
-    const timer = setTimeout(() => {
-      if (busquedaInput.trim() !== busquedaEmpleado.trim()) {
-        setCargandoFiltro(true)
-        setEsperandoBusqueda(false)
-        setTimeout(() => {
-          setBusquedaEmpleado(busquedaInput)
-          setCargandoFiltro(false)
-        }, 200)
-      } else {
-        setEsperandoBusqueda(false)
-      }
-    }, 500) // Espera 500ms después de que el usuario deje de escribir
-
-    return () => {
-      clearTimeout(timer)
-      if (busquedaInput.trim() === busquedaEmpleado.trim()) {
-        setEsperandoBusqueda(false)
-      }
-    }
-  }, [busquedaInput, busquedaEmpleado])
-
-  // Filtrado solo por búsqueda
+  // Filtrado profesional
   const empleadosFiltrados = empleadosLocales.filter((empleado) => {
     const busquedaLimpia = busquedaEmpleado?.toLowerCase().trim() || "";
-    
-    // Si no hay búsqueda, mostrar todos
     if (!busquedaLimpia) return true;
-    
-    // Verificar coincidencia en nombre, apellidos o CURP
     const textoCompleto = `${empleado.nombre || ""} ${empleado.ap_paterno || ""} ${empleado.ap_materno || ""} ${empleado.curp_user || ""}`.toLowerCase();
-    return textoCompleto.includes(busquedaLimpia);
+    return busquedaLimpia.split(/\s+/).every((t) => textoCompleto.includes(t));
   });
 
   // Agrupar por municipio, hospital y grupo
@@ -186,8 +168,8 @@ const EmpleadoList = ({ id_user }) => {
               <input
                 type="text"
                 placeholder="Buscar por nombre o CURP..."
-                value={busquedaInput}
-                onChange={(e) => handleCambioBusqueda(e.target.value)}
+                value={pendingValue}
+                onChange={e => setPendingValue(e.target.value)}
                 className="pl-10 pr-4 py-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 w-full md:w-64"
               />
             </div>
@@ -195,11 +177,10 @@ const EmpleadoList = ({ id_user }) => {
         </div>
       </div>
       {/* Lista de empleados */}
-      <div className="p-6 bg-slate-50 rounded-b-xl border-t border-slate-200">
-        {loading ? (
-          <div className="text-center text-gray-500">Cargando empleados...</div>
-        ) : cargandoFiltro ? (
-          <div className="bg-white rounded-lg border border-gray-200 p-8">
+      <div className="p-6 bg-slate-50 rounded-b-xl border-t border-slate-200 relative">
+        {/* Overlay de animación profesional */}
+        {(cargandoFiltro || isSearching) && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/80 backdrop-blur-sm">
             <div className="flex flex-col items-center space-y-4">
               <div className="relative">
                 <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
@@ -214,12 +195,59 @@ const EmpleadoList = ({ id_user }) => {
               </div>
             </div>
           </div>
-        ) : Object.keys(empleadosPorMunicipio).length === 0 ? (
-          <div className="text-center text-gray-500">
-            {busquedaInput.trim()
-              ? "No se encontraron empleados que coincidan con la búsqueda"
-              : "No hay empleados para mostrar."}
-          </div>
+        )}
+        {loading ? (
+          <div className="text-center text-gray-500">Cargando empleados...</div>
+        ) : busquedaEmpleado.trim().length > 0 && !isSearching && !isWaiting ? (
+          <>
+            <div className="bg-green-50 border border-green-200 rounded-lg px-6 py-4 mb-4 fadeIn">
+              <div className="flex items-center gap-2">
+                <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" /></svg>
+                <span className="text-base font-semibold text-green-900">Resultados de búsqueda: "{busquedaEmpleado.trim()}"</span>
+                <span className="ml-2 text-green-700 text-sm">{empleadosFiltrados.length} empleado{empleadosFiltrados.length !== 1 ? 's' : ''} encontrado{empleadosFiltrados.length !== 1 ? 's' : ''}</span>
+              </div>
+            </div>
+            {/* Tabla plana de empleados */}
+            {empleadosFiltrados.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full table-auto">
+                  <thead>
+                    <tr className="bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-4 py-2">Nombre</th>
+                      <th className="px-4 py-2">Ap. Paterno</th>
+                      <th className="px-4 py-2">Ap. Materno</th>
+                      <th className="px-4 py-2">CURP</th>
+                      <th className="px-4 py-2">Teléfono</th>
+                      <th className="px-4 py-2">Rol</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {empleadosFiltrados.map((empleado) => (
+                      <tr key={empleado.id_user} className="hover:bg-gray-50">
+                        <td className="px-4 py-2 text-sm">{empleado.nombre}</td>
+                        <td className="px-4 py-2 text-sm">{empleado.ap_paterno}</td>
+                        <td className="px-4 py-2 text-sm">{empleado.ap_materno}</td>
+                        <td className="px-4 py-2 text-sm font-mono text-xs">{empleado.curp_user}</td>
+                        <td className="px-4 py-2 text-sm">{empleado.telefono || "—"}</td>
+                        <td className="px-4 py-2 text-sm">
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                            {empleado.role_name || "Empleado"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg border border-gray-200">
+                <div className="px-6 py-16 text-center">
+                  <Users className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">No se encontraron empleados que coincidan con la búsqueda</p>
+                </div>
+              </div>
+            )}
+          </>
         ) : (
           <div className="animate-in fade-in duration-300">
             {Object.entries(empleadosPorMunicipio).map(([municipio, hospitales]) => (

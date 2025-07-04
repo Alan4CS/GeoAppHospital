@@ -15,8 +15,11 @@ const monthsES = [
 const GrupoList = ({ id_user }) => {
   const [grupos, setGrupos] = useState([]);
   const [municipios, setMunicipios] = useState([]);
+  // Estados para búsqueda profesional
+  const [pendingValue, setPendingValue] = useState("");
   const [busquedaGrupo, setBusquedaGrupo] = useState("");
-  const [busquedaInput, setBusquedaInput] = useState(""); // Nuevo estado para el input
+  const [isWaiting, setIsWaiting] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(true);
@@ -82,50 +85,28 @@ const GrupoList = ({ id_user }) => {
       .finally(() => setStatsLoading(false));
   }, [id_user]);
 
-  const handleCambioBusqueda = (nuevaBusqueda) => {
-    setBusquedaInput(nuevaBusqueda) // Solo actualiza el input, el debounce se maneja en useEffect
-  }
-
-  // Efecto de debounce para la búsqueda
+  // Debounce profesionalizado para la búsqueda
   useEffect(() => {
-    // Si hay texto diferente, activar el estado de espera
-    if (busquedaInput.trim() !== busquedaGrupo.trim()) {
-      setEsperandoBusqueda(true)
-    }
+    if (pendingValue === busquedaGrupo) return;
+    setIsWaiting(true);
+    setIsSearching(false);
+    const debounceTimeout = setTimeout(() => {
+      setIsWaiting(false);
+      setIsSearching(true);
+      setTimeout(() => {
+        setBusquedaGrupo(pendingValue);
+        setIsSearching(false);
+      }, 350);
+    }, 500);
+    return () => clearTimeout(debounceTimeout);
+  }, [pendingValue, busquedaGrupo]);
 
-    const timer = setTimeout(() => {
-      if (busquedaInput.trim() !== busquedaGrupo.trim()) {
-        setCargandoFiltro(true)
-        setEsperandoBusqueda(false)
-        setTimeout(() => {
-          setBusquedaGrupo(busquedaInput)
-          setCargandoFiltro(false)
-        }, 200)
-      } else {
-        setEsperandoBusqueda(false)
-      }
-    }, 500) // Espera 500ms después de que el usuario deje de escribir
-
-    return () => {
-      clearTimeout(timer)
-      if (busquedaInput.trim() === busquedaGrupo.trim()) {
-        setEsperandoBusqueda(false)
-      }
-    }
-  }, [busquedaInput, busquedaGrupo])
-
-  // Filtrar grupos basado solo en búsqueda
+  // Filtrado profesional
   const gruposFiltrados = grupos.filter((grupo) => {
     const busquedaLimpia = busquedaGrupo.toLowerCase().trim();
-    
-    // Si no hay texto de búsqueda, mostrar todos los grupos
     if (!busquedaLimpia) return true;
-    
-    // Si hay texto de búsqueda, verificar coincidencia
     const textoCompleto = `${grupo.nombre_grupo || ""} ${grupo.descripcion_group || ""} ${grupo.nombre_hospital || ""}`.toLowerCase();
-    const coincideBusqueda = busquedaLimpia.split(/\s+/).every((t) => textoCompleto.includes(t));
-    
-    return coincideBusqueda;
+    return busquedaLimpia.split(/\s+/).every((t) => textoCompleto.includes(t));
   });
 
   // Agrupar por estado, municipio y hospital
@@ -209,8 +190,8 @@ const GrupoList = ({ id_user }) => {
               <input
                 type="text"
                 placeholder="Buscar grupo..."
-                value={busquedaInput}
-                onChange={(e) => handleCambioBusqueda(e.target.value)}
+                value={pendingValue}
+                onChange={e => setPendingValue(e.target.value)}
                 className="pl-10 pr-4 py-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 w-full md:w-64"
               />
             </div>
@@ -235,11 +216,67 @@ const GrupoList = ({ id_user }) => {
               </div>
             </div>
           </div>
-        ) : Object.keys(gruposPorEstado).length === 0 ? (
-          <div className="text-center text-gray-500">
-            {busquedaInput.trim()
-              ? "No se encontraron grupos que coincidan con la búsqueda"
-              : "No hay grupos para mostrar."}
+        ) : busquedaGrupo.trim().length > 0 && !isSearching && !isWaiting ? (
+          <>
+            <div className="bg-green-50 border border-green-200 rounded-lg px-6 py-4 mb-4 fadeIn">
+              <div className="flex items-center gap-2">
+                <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" /></svg>
+                <span className="text-base font-semibold text-green-900">Resultados de búsqueda: "{busquedaGrupo.trim()}"</span>
+                <span className="ml-2 text-green-700 text-sm">{gruposFiltrados.length} grupo{gruposFiltrados.length !== 1 ? 's' : ''} encontrado{gruposFiltrados.length !== 1 ? 's' : ''}</span>
+              </div>
+            </div>
+            {/* Tabla plana de grupos */}
+            {gruposFiltrados.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full table-auto">
+                  <thead>
+                    <tr className="bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-4 py-2">Nombre del Grupo</th>
+                      <th className="px-4 py-2">Descripción</th>
+                      <th className="px-4 py-2">Estado</th>
+                      <th className="px-4 py-2">Municipio</th>
+                      <th className="px-4 py-2">Hospital</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {gruposFiltrados.map((grupo) => (
+                      <tr key={grupo.id_group} className="hover:bg-gray-50">
+                        <td className="px-4 py-2 text-sm">{grupo.nombre_grupo}</td>
+                        <td className="px-4 py-2 text-sm">{grupo.descripcion_group || "—"}</td>
+                        <td className="px-4 py-2 text-sm">{grupo.nombre_estado || "-"}</td>
+                        <td className="px-4 py-2 text-sm">{grupo.nombre_municipio || "-"}</td>
+                        <td className="px-4 py-2 text-sm">{grupo.nombre_hospital || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg border border-gray-200">
+                <div className="px-6 py-16 text-center">
+                  <Users className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">No se encontraron grupos que coincidan con la búsqueda</p>
+                </div>
+              </div>
+            )}
+          </>
+        ) : isSearching ? (
+          <div className="bg-white rounded-lg border border-gray-200">
+            <div className="px-6 py-16 text-center">
+              <div className="flex flex-col items-center space-y-4">
+                <div className="relative">
+                  <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-gray-600 font-medium">Aplicando filtros...</p>
+                  <div className="flex items-center justify-center space-x-1">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="animate-in fade-in duration-300">
