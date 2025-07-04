@@ -1,12 +1,54 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Hospital,
   Map,
   Search,
   User as UserIcon,
   Users,
+  Clock,
+  Loader2,
 } from "lucide-react";
 import StatsCardEstado from "./StatsCardEstado";
+
+// Estilos CSS para animaciones
+const styles = `
+  .fadeIn {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  .shrink {
+    animation: shrink 0.2s ease-in-out;
+  }
+  
+  .bounce {
+    animation: bounce 0.5s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  @keyframes shrink {
+    0% { transform: scale(1); }
+    50% { transform: scale(0.95); }
+    100% { transform: scale(1); }
+  }
+  
+  @keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-5px); }
+    60% { transform: translateY(-3px); }
+  }
+`;
+
+// Inyectar estilos
+if (typeof document !== 'undefined' && !document.getElementById('empleado-list-estado-animations')) {
+  const styleSheet = document.createElement('style');
+  styleSheet.id = 'empleado-list-estado-animations';
+  styleSheet.textContent = styles;
+  document.head.appendChild(styleSheet);
+}
 
 const EmpleadoList = ({ id_user }) => {
   const [empleadosLocales, setEmpleadosLocales] = useState([]);
@@ -17,6 +59,12 @@ const EmpleadoList = ({ id_user }) => {
   const [stats, setStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState(null);
+  
+  // Estados para debounce y animaciones
+  const [busquedaLocal, setBusquedaLocal] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [isWaiting, setIsWaiting] = useState(false);
+  const [isFiltering, setIsFiltering] = useState(false);
 
   useEffect(() => {
     const fetchEmpleados = async () => {
@@ -71,6 +119,46 @@ const EmpleadoList = ({ id_user }) => {
       });
     return () => { ignore = true; };
   }, [id_user]);
+
+  // Debounce para la búsqueda
+  const debouncedSearch = useCallback((value) => {
+    setIsWaiting(true);
+    setIsSearching(false);
+
+    const timeoutId = setTimeout(() => {
+      setIsWaiting(false);
+      setIsSearching(true);
+      
+      setTimeout(() => {
+        setBusquedaEmpleado(value);
+        setIsSearching(false);
+      }, 200);
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, []);
+
+  // Efecto para manejar el debounce
+  useEffect(() => {
+    const cleanup = debouncedSearch(busquedaLocal);
+    return cleanup;
+  }, [busquedaLocal, debouncedSearch]);
+
+  // Manejar cambio en el input de búsqueda
+  const handleBusquedaChange = (e) => {
+    setBusquedaLocal(e.target.value);
+  };
+
+  // Manejar cambio en filtro de municipio
+  const handleMunicipioChange = (e) => {
+    const value = e.target.value;
+    setIsFiltering(true);
+    setMunicipioFiltro(value);
+    // Pequeño delay solo para la animación visual
+    setTimeout(() => {
+      setIsFiltering(false);
+    }, 100);
+  };
 
   // Filtrado
   const empleadosFiltrados = empleadosLocales.filter((empleado) => {
@@ -138,21 +226,28 @@ const EmpleadoList = ({ id_user }) => {
           <div className="flex flex-col md:flex-row md:items-center gap-4 w-full md:w-auto">
             <div className="relative w-full md:w-auto">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-gray-400" />
+                {isWaiting ? (
+                  <Clock className="h-4 w-4 text-amber-500 animate-pulse" />
+                ) : isSearching ? (
+                  <Loader2 className="h-4 w-4 text-purple-500 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4 text-gray-400" />
+                )}
               </div>
               <input
                 type="text"
                 placeholder="Buscar por nombre o CURP..."
-                value={busquedaEmpleado}
-                onChange={(e) => setBusquedaEmpleado(e.target.value)}
+                value={busquedaLocal}
+                onChange={handleBusquedaChange}
                 className="pl-10 pr-4 py-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 w-full md:w-64"
               />
             </div>
             <div className="flex items-center">
               <label className="text-gray-700 font-medium mr-2">Municipio:</label>
+              {isFiltering && <Loader2 className="h-4 w-4 text-purple-500 animate-spin mr-2" />}
               <select
                 value={municipioFiltro}
-                onChange={(e) => setMunicipioFiltro(e.target.value)}
+                onChange={handleMunicipioChange}
                 className="px-4 py-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
               >
                 <option value="">Todos</option>
@@ -166,13 +261,30 @@ const EmpleadoList = ({ id_user }) => {
       </div>
       {/* Lista de empleados */}
       <div className="p-6 bg-slate-50 rounded-b-xl border-t border-slate-200">
+        {/* Indicador de carga durante búsqueda/filtrado */}
+        {(isSearching || isFiltering) && (
+          <div className="text-center text-gray-500 mb-4 fadeIn">
+            <Loader2 className="h-6 w-6 text-purple-500 animate-spin mx-auto mb-2" />
+            <p>{isSearching ? "Buscando empleados..." : "Aplicando filtros..."}</p>
+          </div>
+        )}
+        
         {loading ? (
-          <div className="text-center text-gray-500">Cargando empleados...</div>
-        ) : Object.keys(empleadosPorMunicipio).length === 0 ? (
-          <div className="text-center text-gray-500">No hay empleados para mostrar.</div>
-        ) : (
+          <div className="text-center text-gray-500 fadeIn">
+            <Loader2 className="h-6 w-6 text-purple-500 animate-spin mx-auto mb-2" />
+            <p>Cargando empleados...</p>
+          </div>
+        ) : !isSearching && !isFiltering && Object.keys(empleadosPorMunicipio).length === 0 ? (
+          <div className="text-center text-gray-500 fadeIn">
+            {busquedaLocal?.trim() 
+              ? `No se encontraron empleados que coincidan con "${busquedaLocal.trim()}"`
+              : municipioFiltro
+                ? `No hay empleados registrados en ${municipioFiltro}`
+                : "No hay empleados para mostrar."}
+          </div>
+        ) : !isSearching && !isFiltering ? (
           Object.entries(empleadosPorMunicipio).map(([municipio, hospitales]) => (
-            <div key={municipio} className="mb-8">
+            <div key={municipio} className="mb-8 fadeIn">
               <div className="bg-white p-4 rounded-lg border border-slate-200 mb-6 shadow-sm">
                 <h4 className="text-lg font-semibold text-slate-700 mb-4 flex items-center">
                   <Map className="h-5 w-5 mr-2 text-purple-600" />
@@ -233,7 +345,7 @@ const EmpleadoList = ({ id_user }) => {
                                     [key]: !prev[key],
                                   }))
                                 }
-                                className="text-purple-600 hover:text-purple-800 text-sm"
+                                className="text-purple-600 hover:text-purple-800 text-sm shrink"
                               >
                                 {mostrarTodosEmpleados[key]
                                   ? "Mostrar menos"
@@ -249,7 +361,7 @@ const EmpleadoList = ({ id_user }) => {
               </div>
             </div>
           ))
-        )}
+        ) : null}
       </div>
     </div>
   );

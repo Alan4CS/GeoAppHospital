@@ -5,18 +5,21 @@ import {
   Search,
   User as UserIcon,
   Users,
+  Clock,
 } from "lucide-react";
 import StatsCardMunicipio from "./StatsCardMunicipio";
 
 const EmpleadoList = ({ id_user }) => {
   const [empleadosLocales, setEmpleadosLocales] = useState([]);
   const [busquedaEmpleado, setBusquedaEmpleado] = useState("");
-  const [municipioFiltro, setMunicipioFiltro] = useState("");
+  const [busquedaInput, setBusquedaInput] = useState(""); // Nuevo estado para el input
   const [mostrarTodosEmpleados, setMostrarTodosEmpleados] = useState({});
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState(null);
+  const [cargandoFiltro, setCargandoFiltro] = useState(false);
+  const [esperandoBusqueda, setEsperandoBusqueda] = useState(false);
 
   useEffect(() => {
     const fetchEmpleados = async () => {
@@ -72,14 +75,48 @@ const EmpleadoList = ({ id_user }) => {
     return () => { ignore = true; };
   }, [id_user]);
 
-  // Filtrado
+  const handleCambioBusqueda = (nuevaBusqueda) => {
+    setBusquedaInput(nuevaBusqueda) // Solo actualiza el input, el debounce se maneja en useEffect
+  }
+
+  // Efecto de debounce para la búsqueda
+  useEffect(() => {
+    // Si hay texto diferente, activar el estado de espera
+    if (busquedaInput.trim() !== busquedaEmpleado.trim()) {
+      setEsperandoBusqueda(true)
+    }
+
+    const timer = setTimeout(() => {
+      if (busquedaInput.trim() !== busquedaEmpleado.trim()) {
+        setCargandoFiltro(true)
+        setEsperandoBusqueda(false)
+        setTimeout(() => {
+          setBusquedaEmpleado(busquedaInput)
+          setCargandoFiltro(false)
+        }, 200)
+      } else {
+        setEsperandoBusqueda(false)
+      }
+    }, 500) // Espera 500ms después de que el usuario deje de escribir
+
+    return () => {
+      clearTimeout(timer)
+      if (busquedaInput.trim() === busquedaEmpleado.trim()) {
+        setEsperandoBusqueda(false)
+      }
+    }
+  }, [busquedaInput, busquedaEmpleado])
+
+  // Filtrado solo por búsqueda
   const empleadosFiltrados = empleadosLocales.filter((empleado) => {
     const busquedaLimpia = busquedaEmpleado?.toLowerCase().trim() || "";
-    if (busquedaLimpia && !(`${empleado.nombre || ""} ${empleado.ap_paterno || ""} ${empleado.ap_materno || ""} ${empleado.curp_user || ""}`.toLowerCase().includes(busquedaLimpia))) {
-      return false;
-    }
-    const coincideMunicipio = !municipioFiltro || empleado.municipio === municipioFiltro;
-    return coincideMunicipio;
+    
+    // Si no hay búsqueda, mostrar todos
+    if (!busquedaLimpia) return true;
+    
+    // Verificar coincidencia en nombre, apellidos o CURP
+    const textoCompleto = `${empleado.nombre || ""} ${empleado.ap_paterno || ""} ${empleado.ap_materno || ""} ${empleado.curp_user || ""}`.toLowerCase();
+    return textoCompleto.includes(busquedaLimpia);
   });
 
   // Agrupar por municipio, hospital y grupo
@@ -135,31 +172,24 @@ const EmpleadoList = ({ id_user }) => {
             <Users className="h-5 w-5 mr-2 text-purple-600" />
             Empleados registrados
           </h3>
-          <div className="flex flex-col md:flex-row md:items-center gap-4 w-full md:w-auto">
+          <div className="flex justify-end">
             <div className="relative w-full md:w-auto">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-gray-400" />
+                {esperandoBusqueda ? (
+                  <Clock className="h-4 w-4 text-orange-400 animate-pulse" />
+                ) : cargandoFiltro ? (
+                  <div className="w-4 h-4 border-2 border-purple-200 border-t-purple-500 rounded-full animate-spin"></div>
+                ) : (
+                  <Search className="h-4 w-4 text-gray-400" />
+                )}
               </div>
               <input
                 type="text"
                 placeholder="Buscar por nombre o CURP..."
-                value={busquedaEmpleado}
-                onChange={(e) => setBusquedaEmpleado(e.target.value)}
+                value={busquedaInput}
+                onChange={(e) => handleCambioBusqueda(e.target.value)}
                 className="pl-10 pr-4 py-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 w-full md:w-64"
               />
-            </div>
-            <div className="flex items-center">
-              <label className="text-gray-700 font-medium mr-2">Municipio:</label>
-              <select
-                value={municipioFiltro}
-                onChange={(e) => setMunicipioFiltro(e.target.value)}
-                className="px-4 py-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-              >
-                <option value="">Todos</option>
-                {[...new Set(empleadosLocales.map((e) => e.municipio))].filter(Boolean).map((municipio) => (
-                  <option key={municipio} value={municipio}>{municipio}</option>
-                ))}
-              </select>
             </div>
           </div>
         </div>
@@ -168,10 +198,31 @@ const EmpleadoList = ({ id_user }) => {
       <div className="p-6 bg-slate-50 rounded-b-xl border-t border-slate-200">
         {loading ? (
           <div className="text-center text-gray-500">Cargando empleados...</div>
+        ) : cargandoFiltro ? (
+          <div className="bg-white rounded-lg border border-gray-200 p-8">
+            <div className="flex flex-col items-center space-y-4">
+              <div className="relative">
+                <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-gray-600 font-medium">Aplicando filtros...</p>
+                <div className="flex items-center justify-center space-x-1">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+              </div>
+            </div>
+          </div>
         ) : Object.keys(empleadosPorMunicipio).length === 0 ? (
-          <div className="text-center text-gray-500">No hay empleados para mostrar.</div>
+          <div className="text-center text-gray-500">
+            {busquedaInput.trim()
+              ? "No se encontraron empleados que coincidan con la búsqueda"
+              : "No hay empleados para mostrar."}
+          </div>
         ) : (
-          Object.entries(empleadosPorMunicipio).map(([municipio, hospitales]) => (
+          <div className="animate-in fade-in duration-300">
+            {Object.entries(empleadosPorMunicipio).map(([municipio, hospitales]) => (
             <div key={municipio} className="mb-8">
               <div className="bg-white p-4 rounded-lg border border-slate-200 mb-6 shadow-sm">
                 <h4 className="text-lg font-semibold text-slate-700 mb-4 flex items-center">
@@ -248,9 +299,31 @@ const EmpleadoList = ({ id_user }) => {
                 ))}
               </div>
             </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
+      
+      <style>{`
+        .animate-in {
+          animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .fade-in {
+          animation: fadeIn 0.3s ease-in-out;
+        }
+      `}</style>
     </div>
   );
 };

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import {
   Hospital,
   MapPin,
@@ -17,7 +17,49 @@ import {
   AlertCircle,
   Building2,
   UserPlus,
+  Clock,
+  Loader2,
 } from "lucide-react"
+
+// Estilos CSS para animaciones
+const styles = `
+  .fadeIn {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  .shrink {
+    animation: shrink 0.2s ease-in-out;
+  }
+  
+  .bounce {
+    animation: bounce 0.5s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  @keyframes shrink {
+    0% { transform: scale(1); }
+    50% { transform: scale(0.95); }
+    100% { transform: scale(1); }
+  }
+  
+  @keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-5px); }
+    60% { transform: translateY(-3px); }
+  }
+`;
+
+// Inyectar estilos
+if (typeof document !== 'undefined' && !document.getElementById('empleado-list-animations')) {
+  const styleSheet = document.createElement('style');
+  styleSheet.id = 'empleado-list-animations';
+  styleSheet.textContent = styles;
+  document.head.appendChild(styleSheet);
+}
 
 const EmpleadoList = ({
   empleados: empleadosIniciales,
@@ -49,6 +91,12 @@ const EmpleadoList = ({
   })
   const [grupos, setGrupos] = useState([])
   const [hospitales, setHospitales] = useState([])
+  
+  // Estados para debounce y animaciones
+  const [busquedaLocal, setBusquedaLocal] = useState(busquedaEmpleado || "")
+  const [isSearching, setIsSearching] = useState(false)
+  const [isWaiting, setIsWaiting] = useState(false)
+  const [isFiltering, setIsFiltering] = useState(false)
 
   // Sincronizar con empleadosIniciales cuando cambien
   useEffect(() => {
@@ -72,6 +120,51 @@ const EmpleadoList = ({
   const mostrarNotificacion = (tipo, titulo, mensaje, duracion = 4000) => {
     setNotificacion({ tipo, titulo, mensaje, duracion })
     setTimeout(() => setNotificacion(null), duracion)
+  }
+
+  // Sincronizar busquedaLocal con busquedaEmpleado cuando cambie desde el padre
+  useEffect(() => {
+    setBusquedaLocal(busquedaEmpleado || "")
+  }, [busquedaEmpleado])
+
+  // Debounce para la búsqueda
+  const debouncedSearch = useCallback((value) => {
+    setIsWaiting(true)
+    setIsSearching(false)
+
+    const timeoutId = setTimeout(() => {
+      setIsWaiting(false)
+      setIsSearching(true)
+      
+      setTimeout(() => {
+        setBusquedaEmpleado(value)
+        setIsSearching(false)
+      }, 200)
+    }, 500)
+
+    return () => clearTimeout(timeoutId)
+  }, [setBusquedaEmpleado])
+
+  // Efecto para manejar el debounce
+  useEffect(() => {
+    const cleanup = debouncedSearch(busquedaLocal)
+    return cleanup
+  }, [busquedaLocal, debouncedSearch])
+
+  // Manejar cambio en el input de búsqueda
+  const handleBusquedaChange = (e) => {
+    setBusquedaLocal(e.target.value)
+  }
+
+  // Manejar cambio en filtro de estado
+  const handleEstadoChange = (e) => {
+    const value = e.target.value
+    setIsFiltering(true)
+    setEstadoEmpleadoFiltro(value)
+    // Pequeño delay solo para la animación visual
+    setTimeout(() => {
+      setIsFiltering(false)
+    }, 100)
   }
 
   // Eliminar filtro de roles del renderizado (no mostrar el select de roles)
@@ -353,21 +446,31 @@ const EmpleadoList = ({
 
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                {isWaiting ? (
+                  <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-amber-500 animate-pulse" />
+                ) : isSearching ? (
+                  <Loader2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-emerald-500 animate-spin" />
+                ) : (
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                )}
                 <input
                   type="text"
                   placeholder="Buscar por nombre o CURP..."
-                  value={busquedaEmpleado || ""}
-                  onChange={(e) => setBusquedaEmpleado(e.target.value)}
+                  value={busquedaLocal}
+                  onChange={handleBusquedaChange}
                   className="pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent w-full sm:w-64"
                 />
               </div>
 
               <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-gray-400" />
+                {isFiltering ? (
+                  <Loader2 className="h-4 w-4 text-emerald-500 animate-spin" />
+                ) : (
+                  <MapPin className="h-4 w-4 text-gray-400" />
+                )}
                 <select
                   value={estadoEmpleadoFiltro || ""}
-                  onChange={(e) => setEstadoEmpleadoFiltro(e.target.value)}
+                  onChange={handleEstadoChange}
                   className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 >
                   <option value="">Todos los estados</option>
@@ -386,11 +489,23 @@ const EmpleadoList = ({
         </div>
       </div>
 
-      {empleadosFiltrados.length > 0 ? (
+      {/* Indicador de carga durante búsqueda/filtrado */}
+      {(isSearching || isFiltering) && (
+        <div className="bg-white rounded-lg border border-gray-200 fadeIn">
+          <div className="px-6 py-8 text-center">
+            <Loader2 className="h-6 w-6 text-emerald-500 animate-spin mx-auto mb-3" />
+            <p className="text-sm text-gray-500">
+              {isSearching ? "Buscando empleados..." : "Aplicando filtros..."}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!isSearching && !isFiltering && empleadosFiltrados.length > 0 ? (
         <>
           {/* Vista de búsqueda directa */}
           {enModoBusqueda ? (
-            <div className="bg-white rounded-lg border border-gray-200">
+            <div className="bg-white rounded-lg border border-gray-200 fadeIn">
               <div className="px-6 py-4 border-b border-gray-100 bg-emerald-50/30">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
@@ -521,7 +636,7 @@ const EmpleadoList = ({
                   const municipiosVisibles = mostrarTodos ? municipiosEntries : municipiosEntries.slice(0, 2)
 
                   return (
-                    <div key={estado} className="bg-white rounded-lg border border-gray-200">
+                    <div key={estado} className="bg-white rounded-lg border border-gray-200 fadeIn">
                       <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/30">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -737,20 +852,20 @@ const EmpleadoList = ({
             </>
           )}
         </>
-      ) : (
-        <div className="bg-white rounded-lg border border-gray-200">
+      ) : !isSearching && !isFiltering ? (
+        <div className="bg-white rounded-lg border border-gray-200 fadeIn">
           <div className="px-6 py-16 text-center">
             <UserPlus className="h-8 w-8 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500">
-              {estadoEmpleadoFiltro
-                ? "No se encontraron empleados que coincidan con los filtros aplicados"
-                : busquedaEmpleado
-                  ? "No se encontraron empleados que coincidan con la búsqueda"
+              {busquedaEmpleado?.trim() 
+                ? `No se encontraron empleados que coincidan con "${busquedaEmpleado.trim()}"`
+                : estadoEmpleadoFiltro
+                  ? `No hay empleados registrados en ${estadoEmpleadoFiltro}`
                   : "No hay empleados registrados"}
             </p>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Modal de Edición */}
       {mostrarModalEditar && (

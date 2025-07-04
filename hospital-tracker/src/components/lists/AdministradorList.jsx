@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import {
   Users,
   Search,
@@ -14,7 +14,49 @@ import {
   MapPin,
   Settings,
   Trash2,
+  Clock,
+  Loader2,
 } from "lucide-react"
+
+// Estilos CSS para animaciones
+const styles = `
+  .fadeIn {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  .shrink {
+    animation: shrink 0.2s ease-in-out;
+  }
+  
+  .bounce {
+    animation: bounce 0.5s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  @keyframes shrink {
+    0% { transform: scale(1); }
+    50% { transform: scale(0.95); }
+    100% { transform: scale(1); }
+  }
+  
+  @keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-5px); }
+    60% { transform: translateY(-3px); }
+  }
+`;
+
+// Inyectar estilos
+if (typeof document !== 'undefined' && !document.getElementById('administrador-list-animations')) {
+  const styleSheet = document.createElement('style');
+  styleSheet.id = 'administrador-list-animations';
+  styleSheet.textContent = styles;
+  document.head.appendChild(styleSheet);
+}
 
 const AdministradorList = ({
   administradores,
@@ -43,6 +85,13 @@ const AdministradorList = ({
     ap_materno: "",
     curp_user: "",
   })
+
+  // Estados para debounce y animaciones
+  const [busquedaLocal, setBusquedaLocal] = useState(busquedaAdmin || "")
+  const [isSearching, setIsSearching] = useState(false)
+  const [isWaiting, setIsWaiting] = useState(false)
+  const [isFilteringEstado, setIsFilteringEstado] = useState(false)
+  const [isFilteringTipo, setIsFilteringTipo] = useState(false)
 
   const abrirModal = (admin) => {
     setAdminEditando(admin)
@@ -92,6 +141,62 @@ const AdministradorList = ({
   const mostrarNotificacion = (tipo, titulo, mensaje) => {
     setNotificacion({ tipo, titulo, mensaje })
     setTimeout(() => setNotificacion(null), tipo === "exito" ? 4000 : 5000)
+  }
+
+  // Sincronizar busquedaLocal con busquedaAdmin cuando cambie desde el padre
+  useEffect(() => {
+    setBusquedaLocal(busquedaAdmin || "")
+  }, [busquedaAdmin])
+
+  // Debounce para la búsqueda
+  const debouncedSearch = useCallback((value) => {
+    setIsWaiting(true)
+    setIsSearching(false)
+
+    const timeoutId = setTimeout(() => {
+      setIsWaiting(false)
+      setIsSearching(true)
+      
+      setTimeout(() => {
+        setBusquedaAdmin(value)
+        setIsSearching(false)
+      }, 200)
+    }, 500)
+
+    return () => clearTimeout(timeoutId)
+  }, [setBusquedaAdmin])
+
+  // Efecto para manejar el debounce
+  useEffect(() => {
+    const cleanup = debouncedSearch(busquedaLocal)
+    return cleanup
+  }, [busquedaLocal, debouncedSearch])
+
+  // Manejar cambio en el input de búsqueda
+  const handleBusquedaChange = (e) => {
+    setBusquedaLocal(e.target.value)
+  }
+
+  // Manejar cambio en filtro de estado
+  const handleEstadoChange = (e) => {
+    const value = e.target.value
+    setIsFilteringEstado(true)
+    setEstadoAdminFiltro(value)
+    // Pequeño delay solo para la animación visual
+    setTimeout(() => {
+      setIsFilteringEstado(false)
+    }, 100)
+  }
+
+  // Manejar cambio en filtro de tipo
+  const handleTipoChange = (e) => {
+    const value = e.target.value
+    setIsFilteringTipo(true)
+    setTipoAdminFiltro(value)
+    // Pequeño delay solo para la animación visual
+    setTimeout(() => {
+      setIsFilteringTipo(false)
+    }, 100)
   }
 
   const handleEliminar = (admin) => {
@@ -232,21 +337,31 @@ const AdministradorList = ({
 
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                {isWaiting ? (
+                  <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-amber-500 animate-pulse" />
+                ) : isSearching ? (
+                  <Loader2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-blue-500 animate-spin" />
+                ) : (
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                )}
                 <input
                   type="text"
                   placeholder="Buscar por nombre o CURP..."
-                  value={busquedaAdmin}
-                  onChange={(e) => setBusquedaAdmin(e.target.value)}
+                  value={busquedaLocal}
+                  onChange={handleBusquedaChange}
                   className="pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-64"
                 />
               </div>
 
               <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-gray-400" />
+                {isFilteringEstado ? (
+                  <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+                ) : (
+                  <MapPin className="h-4 w-4 text-gray-400" />
+                )}
                 <select
                   value={estadoAdminFiltro}
-                  onChange={(e) => setEstadoAdminFiltro(e.target.value)}
+                  onChange={handleEstadoChange}
                   className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">Todos los estados</option>
@@ -261,27 +376,42 @@ const AdministradorList = ({
                 </select>
               </div>
 
-              <select
-                value={tipoAdminFiltro}
-                onChange={(e) => setTipoAdminFiltro(e.target.value)}
-                className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Todos los tipos</option>
-                <option value="superadmin">Super Admin</option>
-                <option value="estadoadmin">Admin Estatal</option>
-                <option value="municipioadmin">Admin Municipal</option>
-                <option value="hospitaladmin">Admin Hospital</option>
-              </select>
+              <div className="flex items-center gap-2">
+                {isFilteringTipo && <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />}
+                <select
+                  value={tipoAdminFiltro}
+                  onChange={handleTipoChange}
+                  className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Todos los tipos</option>
+                  <option value="superadmin">Super Admin</option>
+                  <option value="estadoadmin">Admin Estatal</option>
+                  <option value="municipioadmin">Admin Municipal</option>
+                  <option value="hospitaladmin">Admin Hospital</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {administradoresFiltrados.length > 0 ? (
+      {/* Indicador de carga durante búsqueda/filtrado */}
+      {(isSearching || isFilteringEstado || isFilteringTipo) && (
+        <div className="bg-white rounded-lg border border-gray-200 fadeIn">
+          <div className="px-6 py-8 text-center">
+            <Loader2 className="h-6 w-6 text-blue-500 animate-spin mx-auto mb-3" />
+            <p className="text-sm text-gray-500">
+              {isSearching ? "Buscando administradores..." : "Aplicando filtros..."}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!isSearching && !isFilteringEstado && !isFilteringTipo && administradoresFiltrados.length > 0 ? (
         <>
           {/* Sección Super Administradores */}
           {superAdmins.length > 0 && (
-            <div className="bg-white rounded-lg border border-red-200">
+            <div className="bg-white rounded-lg border border-red-200 fadeIn">
               <div className="px-6 py-4 border-b border-red-100 bg-red-50/30">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -373,7 +503,7 @@ const AdministradorList = ({
                 <div className="px-6 py-4 border-t border-red-100 text-center">
                   <button
                     onClick={() => setMostrarTodosSuperAdmins(!mostrarTodosSuperAdmins)}
-                    className="text-sm text-red-600 hover:text-red-800 font-medium transition-colors"
+                    className="text-sm text-red-600 hover:text-red-800 font-medium transition-colors shrink"
                   >
                     {mostrarTodosSuperAdmins ? "Mostrar menos" : `Ver todos (${superAdmins.length})`}
                   </button>
@@ -391,7 +521,7 @@ const AdministradorList = ({
               const adminsVisibles = mostrarTodos ? adminsDelEstado : adminsDelEstado.slice(0, 5)
 
               return (
-                <div key={estadoNombre} className="bg-white rounded-lg border border-gray-200">
+                <div key={estadoNombre} className="bg-white rounded-lg border border-gray-200 fadeIn">
                   <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/30">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -525,7 +655,7 @@ const AdministradorList = ({
                             [estadoNombre]: !mostrarTodos,
                           })
                         }}
-                        className="text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                        className="text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors shrink"
                       >
                         {mostrarTodos ? "Mostrar menos" : `Ver todos (${adminsDelEstado.length})`}
                       </button>
@@ -535,16 +665,20 @@ const AdministradorList = ({
               )
             })}
         </>
-      ) : (
-        <div className="bg-white rounded-lg border border-gray-200">
+      ) : !isSearching && !isFilteringEstado && !isFilteringTipo ? (
+        <div className="bg-white rounded-lg border border-gray-200 fadeIn">
           <div className="px-6 py-16 text-center">
             <Users className="h-8 w-8 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500">
-              No se encontraron administradores que coincidan con los criterios de búsqueda.
+              {busquedaLocal?.trim() 
+                ? `No se encontraron administradores que coincidan con "${busquedaLocal.trim()}"`
+                : (tipoAdminFiltro || estadoAdminFiltro)
+                  ? "No hay administradores que coincidan con los filtros aplicados"
+                  : "No hay administradores registrados"}
             </p>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Modal de Edición */}
       {modalAbierto && (
