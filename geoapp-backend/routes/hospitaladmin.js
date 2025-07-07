@@ -139,4 +139,85 @@ router.get("/empleados-by-ubicacion", async (req, res) => {
   }
 });
 
+// Obtener el hospital asignado al hospitaladmin autenticado
+router.get("/hospital-by-user/:id_user", async (req, res) => {
+  const { id_user } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT h.*, e.nombre_estado, m.nombre_municipio
+       FROM user_roles ur
+       JOIN hospitals h ON ur.id_hospital = h.id_hospital
+       LEFT JOIN estados e ON h.estado_id = e.id_estado
+       LEFT JOIN municipios m ON h.id_municipio = m.id_municipio
+       WHERE ur.id_user = $1 AND ur.id_hospital IS NOT NULL
+       LIMIT 1`,
+      [id_user]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "No se encontró hospital asignado" });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("❌ Error al obtener hospital asignado:", error);
+    res.status(500).json({ error: "Error al consultar hospital asignado" });
+  }
+});
+
+// Obtener grupos por hospital
+router.get("/grupos-by-hospital/:id_hospital", async (req, res) => {
+  const { id_hospital } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT g.id_group, g.nombre_grupo
+       FROM groups g
+       WHERE g.id_hospital = $1`,
+      [id_hospital]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("❌ Error al obtener grupos por hospital:", error);
+    res.status(500).json({ error: "Error al consultar grupos" });
+  }
+});
+
+// Obtener datos de monitoreo del hospital (ajusta la consulta según tu modelo)
+router.get("/monitoreo-by-hospital/:id_hospital", async (req, res) => {
+  const { id_hospital } = req.params;
+  try {
+    // Ejemplo: ajusta la consulta a tu modelo real de monitoreo
+    const result = await pool.query(
+      `SELECT * FROM monitoreo WHERE id_hospital = $1`,
+      [id_hospital]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("❌ Error al obtener monitoreo por hospital:", error);
+    res.status(500).json({ error: "Error al consultar monitoreo" });
+  }
+});
+
+// Obtener estadísticas del hospital: total empleados y grupos
+router.get("/stats-by-hospital/:id_hospital", async (req, res) => {
+  const { id_hospital } = req.params;
+  try {
+    // Total empleados
+    const empleadosResult = await pool.query(
+      `SELECT COUNT(*) AS total_empleados FROM user_roles ur JOIN roles r ON ur.id_role = r.id_role WHERE ur.id_hospital = $1 AND r.role_name = 'empleado'`,
+      [id_hospital]
+    );
+    // Total grupos
+    const gruposResult = await pool.query(
+      `SELECT COUNT(*) AS total_grupos FROM groups WHERE id_hospital = $1`,
+      [id_hospital]
+    );
+    res.json({
+      total_empleados: parseInt(empleadosResult.rows[0].total_empleados, 10),
+      total_grupos: parseInt(gruposResult.rows[0].total_grupos, 10)
+    });
+  } catch (error) {
+    console.error("❌ Error al obtener stats del hospital:", error);
+    res.status(500).json({ error: "Error al consultar estadísticas del hospital" });
+  }
+});
+
 export default router;
