@@ -23,6 +23,8 @@ export default function Login() {
         navigate("/grupoadmin-geoapp");
       } else if (role === "municipioadmin") {
         navigate("/municipioadmin-geoapp");
+      } else if (role === "hospitaladmin") {
+        navigate("/hospitaladmin-geoapp");
       }
     }
   }, [navigate]);
