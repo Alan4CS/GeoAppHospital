@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import HospitalAdminSidebar from "../components/hospital/HospitalAdminSidebar";
-import HospitalDashboard from "../components/dashboardd/hospital/HospitalDashboard";
+import HospitalDashboard from "../components/dashboard/hospital/HospitalDashboard";
 import EmpleadoListHospital from "../components/hospital/EmpleadoListHospital";
 import MonitoreoMap from "../components/admin/MonitoreoMap";
 import GrupoListHospital from "../components/hospital/GrupoListHospital";
