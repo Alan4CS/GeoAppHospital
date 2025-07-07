@@ -772,7 +772,7 @@ export default function GrupoDashboard({
   // Función para generar PDF
   const generatePDF = async () => {
     if (!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) {
-      alert("Por favor selecciona un hospital y un período válido para generar el reporte.");
+      alert("Para generar el reporte PDF, primero selecciona un hospital y configura un período de tiempo válido.");
       return;
     }
     
@@ -1335,11 +1335,12 @@ export default function GrupoDashboard({
         {(filteredActivos.length === 0 && filteredInactivos.length === 0) && (
           <div className="text-center py-8 text-gray-500 mt-6">
             <Users className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-            <p className="text-lg font-medium">No hay empleados para mostrar</p>
-            <p className="text-sm">
+            <p className="text-lg font-medium text-gray-600">No hay empleados registrados</p>
+            <p className="text-sm text-gray-500 mt-2">Verifica que el hospital seleccionado tenga empleados asignados</p>
+            <p className="text-sm text-gray-500 mt-2">
               {selectedGroupList 
-                ? `No se encontraron empleados en el grupo "${selectedGroupList}"` 
-                : "Selecciona un hospital y período para ver los empleados"}
+                ? `No se encontraron empleados en el grupo "${selectedGroupList}" para el período seleccionado` 
+                : "Configura los filtros de hospital y período para comenzar el análisis"}
             </p>
           </div>
         )}
@@ -1380,7 +1381,7 @@ export default function GrupoDashboard({
         </div>
         {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) ? (
           <div className="text-center text-gray-500 py-16 text-lg">
-            Selecciona un hospital y un período para ver la información de grupos.
+            Configura los filtros de hospital y período para visualizar el análisis de grupos.
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={300}>
@@ -1429,7 +1430,7 @@ export default function GrupoDashboard({
           </div>
           {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) ? (
             <div className="text-center text-gray-500 py-16 text-lg w-full">
-              Selecciona un hospital y un período para ver la información de grupos.
+              Configura los filtros de hospital y período para visualizar la distribución por grupos.
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={280} minWidth={200} minHeight={200}>
@@ -1497,7 +1498,7 @@ export default function GrupoDashboard({
           </div>
           {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) ? (
             <div className="text-center text-gray-500 py-16 text-lg w-full">
-              Selecciona un hospital y un período para ver la información de grupos.
+              Configura los filtros de hospital y período para visualizar el promedio de actividad.
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={250}>
@@ -1583,7 +1584,7 @@ export default function GrupoDashboard({
           </div>
           {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) ? (
             <div className="text-center text-gray-500 py-16 text-lg w-full">
-              Selecciona un hospital y un período para ver la información de grupos.
+              Configura los filtros de hospital y período para visualizar el porcentaje de empleados activos.
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={250}>
@@ -1672,7 +1673,7 @@ export default function GrupoDashboard({
           </div>
           {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) ? (
             <div className="text-center text-gray-500 py-16 text-lg w-full">
-              Selecciona un hospital y un período para ver la información de grupos.
+              Configura los filtros de hospital y período para visualizar el ranking de grupos más activos.
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={280}>
@@ -1728,7 +1729,7 @@ export default function GrupoDashboard({
         </div>
         {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) ? (
           <div className="text-center text-gray-500 py-16 text-lg w-full">
-            Selecciona un hospital y un período para ver la información de grupos.
+            Configura los filtros de hospital y período para visualizar las horas trabajadas por grupo.
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={300}>
