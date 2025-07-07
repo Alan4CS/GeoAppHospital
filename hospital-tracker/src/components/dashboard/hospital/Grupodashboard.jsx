@@ -1,6 +1,233 @@
 "use client"
 import React, { useEffect, useState } from "react"
-import { Calendar, MapPin, Building2, Check, Users, TrendingUp, Clock } from "lucide-react"
+import { Calendar, MapPin, Building2, Check, Users, TrendingUp, Clock, Download, Search } from "lucide-react"
+import AttendanceMatrixModal from "./AttendanceMatrix";
+
+// Componente auxiliar para el desglose por actividad
+const DesglosePorActividad = ({ empleados, dataEmpleados, totalDiasPeriodo, calcularDiasTrabajados, categorizarEmpleadoPorActividad }) => {
+  const activosConCategoria = empleados.map(empleado => {
+    // Buscar registros de este empleado en dataEmpleados
+    let registros = [];
+    if (dataEmpleados && Array.isArray(dataEmpleados)) {
+      const found = dataEmpleados.find(e => e.empleado.id_user === empleado.id_user);
+      if (found) registros = found.registros;
+    }
+    
+    const diasTrabajados = calcularDiasTrabajados(registros);
+    const categoria = categorizarEmpleadoPorActividad(diasTrabajados, totalDiasPeriodo);
+    const porcentaje = totalDiasPeriodo > 0 ? ((diasTrabajados / totalDiasPeriodo) * 100) : 0;
+    
+    return { ...empleado, categoria, diasTrabajados, porcentaje };
+  });
+  
+  const muyActivos = activosConCategoria.filter(e => e.categoria === 'muy_activo');
+  const activos = activosConCategoria.filter(e => e.categoria === 'activo');
+  const pocoActivos = activosConCategoria.filter(e => e.categoria === 'poco_activo');
+  const esporadicos = activosConCategoria.filter(e => e.categoria === 'esporadico');
+
+  return (
+    <div className="space-y-3 mb-4">
+      <div className="text-xs font-semibold text-green-800 mb-2">Desglose por actividad:</div>
+      
+      {muyActivos.length > 0 && (
+        <div className="flex items-center justify-between bg-green-200 rounded-lg px-3 py-2">
+          <span className="text-xs font-medium text-green-800">Muy activos (≥80%)</span>
+          <span className="font-bold text-green-900">{muyActivos.length}</span>
+        </div>
+      )}
+      {activos.length > 0 && (
+        <div className="flex items-center justify-between bg-blue-100 rounded-lg px-3 py-2">
+          <span className="text-xs font-medium text-blue-800">Activos (50-79%)</span>
+          <span className="font-bold text-blue-900">{activos.length}</span>
+        </div>
+      )}
+      {pocoActivos.length > 0 && (
+        <div className="flex items-center justify-between bg-yellow-100 rounded-lg px-3 py-2">
+          <span className="text-xs font-medium text-yellow-800">Poco activos (20-49%)</span>
+          <span className="font-bold text-yellow-900">{pocoActivos.length}</span>
+        </div>
+      )}
+      {esporadicos.length > 0 && (
+        <div className="flex items-center justify-between bg-orange-100 rounded-lg px-3 py-2">
+          <span className="text-xs font-medium text-orange-800">Esporádicos (&lt;20%)</span>
+          <span className="font-bold text-orange-900">{esporadicos.length}</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Componente auxiliar para el preview de empleados
+const PreviewEmpleados = ({ empleados, dataEmpleados, totalDiasPeriodo, calcularDiasTrabajados, limit = 3, colorScheme = 'green', onViewAll }) => {
+  const empleadosConInfo = empleados.slice(0, limit).map(empleado => {
+    // Buscar registros de este empleado en dataEmpleados
+    let registros = [];
+    if (dataEmpleados && Array.isArray(dataEmpleados)) {
+      const found = dataEmpleados.find(e => e.empleado.id_user === empleado.id_user);
+      if (found) registros = found.registros;
+    }
+    
+    const diasTrabajados = calcularDiasTrabajados(registros);
+    const porcentaje = totalDiasPeriodo > 0 ? ((diasTrabajados / totalDiasPeriodo) * 100).toFixed(1) : 0;
+    
+    return { ...empleado, diasTrabajados, porcentaje };
+  });
+
+  return (
+    <div className="space-y-2">
+      <div className="space-y-2 max-h-32 overflow-y-auto">
+        {empleadosConInfo.map(empleado => (
+          <div key={empleado.id_user} className={`flex items-center justify-between text-sm bg-white rounded-lg p-2 border border-${colorScheme}-200`}>
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 bg-${colorScheme}-500 rounded-full`}></div>
+              <span className={`text-${colorScheme}-700 truncate font-medium`}>
+                {empleado.nombre} {empleado.ap_paterno}
+              </span>
+            </div>
+            <div className={`text-xs text-${colorScheme}-600 font-semibold`}>
+              {empleado.porcentaje}% ({empleado.diasTrabajados}d)
+            </div>
+          </div>
+        ))}
+      </div>
+      
+      {empleados.length > limit && (
+        <div className="text-center">
+          <button
+            onClick={onViewAll}
+            className={`text-xs font-medium px-3 py-1 rounded-full transition-colors hover:bg-${colorScheme}-200 text-${colorScheme}-700 bg-${colorScheme}-100 flex items-center gap-1 mx-auto`}
+          >
+            Ver todos ({empleados.length})
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Componente Modal para mostrar lista completa de empleados
+const EmployeeListModal = ({ isOpen, onClose, empleados, type, dataEmpleados, totalDiasPeriodo, calcularDiasTrabajados, searchTerm, onSearchChange, selectedGroup }) => {
+  if (!isOpen) return null;
+
+  const colorScheme = type === 'activos' ? 'green' : 'red';
+  const title = type === 'activos' ? 'Empleados Activos' : 'Empleados Inactivos';
+  
+  // Preparar datos de empleados con información de actividad
+  let empleadosConInfo = [];
+  
+  if (type === 'activos') {
+    empleadosConInfo = empleados.map(empleado => {
+      let registros = [];
+      if (dataEmpleados && Array.isArray(dataEmpleados)) {
+        const found = dataEmpleados.find(e => e.empleado.id_user === empleado.id_user);
+        if (found) registros = found.registros;
+      }
+      
+      const diasTrabajados = calcularDiasTrabajados(registros);
+      const porcentaje = totalDiasPeriodo > 0 ? ((diasTrabajados / totalDiasPeriodo) * 100).toFixed(1) : 0;
+      
+      return { ...empleado, diasTrabajados, porcentaje };
+    });
+  } else {
+    empleadosConInfo = empleados.map(empleado => ({
+      ...empleado,
+      diasTrabajados: 0,
+      porcentaje: 0
+    }));
+  }
+
+  // Filtrar por término de búsqueda
+  const empleadosFiltrados = empleadosConInfo.filter(empleado => 
+    `${empleado.nombre} ${empleado.ap_paterno} ${empleado.ap_materno}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    empleado.nombre_grupo.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
+        {/* Header */}
+        <div className={`bg-gradient-to-r from-${colorScheme}-500 to-${colorScheme}-600 text-white p-6`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold">{title}</h2>
+              <p className="text-sm opacity-90">
+                {selectedGroup ? `Grupo: ${selectedGroup}` : 'Todos los grupos'} • {empleadosFiltrados.length} empleados
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="p-4 border-b border-gray-200">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Buscar por nombre o grupo..."
+              value={searchTerm}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+              <Search className="h-4 w-4" />
+            </div>
+          </div>
+        </div>
+
+        {/* Lista de empleados */}
+        <div className="overflow-y-auto max-h-96 p-4">
+          {empleadosFiltrados.length === 0 ? (
+            <div className="text-center text-gray-500 py-8">
+              <div className="text-4xl mb-2"><Users className="h-8 w-8 mx-auto" /></div>
+              <p>No se encontraron empleados</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {empleadosFiltrados.map(empleado => (
+                <div key={empleado.id_user} className={`bg-${colorScheme}-50 border border-${colorScheme}-200 rounded-lg p-3`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className={`font-medium text-${colorScheme}-800`}>
+                      {empleado.nombre} {empleado.ap_paterno} {empleado.ap_materno || ''}
+                    </h4>
+                    <span className={`text-xs font-bold text-${colorScheme}-700 bg-${colorScheme}-200 px-2 py-1 rounded-full`}>
+                      {empleado.porcentaje}%
+                    </span>
+                  </div>
+                  <div className="text-sm space-y-1">
+                    <div className={`text-${colorScheme}-600`}>
+                      <strong>Grupo:</strong> {empleado.nombre_grupo}
+                    </div>
+                    <div className={`text-${colorScheme}-600`}>
+                      <strong>Días trabajados:</strong> {empleado.diasTrabajados} de {totalDiasPeriodo}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-gray-200 p-4 bg-gray-50">
+          <div className="flex items-center justify-between text-sm text-gray-600">
+            <span>Total: {empleadosFiltrados.length} empleados</span>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 import {
   ResponsiveContainer,
   BarChart,
@@ -19,6 +246,7 @@ import {
   Cell
 } from "recharts"
 import { calcularEstadisticasEmpleado, calcularEstadisticasEmpleadoPorDias } from "./employeeStatsHelper";
+import { generarReporteGrupoPDF } from "./reportes/GroupReportPDF";
 
 export default function GrupoDashboard({
   datePresets,
@@ -40,9 +268,17 @@ export default function GrupoDashboard({
   // Estado local para KPIs y gráficos
   const [cardData, setCardData] = useState({
     totalGroups: 0,
+    activeGroups: 0,
     totalEmployees: 0,
+    activeEmployees: 0,
+    consistentEmployees: 0, // Empleados que trabajaron más del 50% de días
+    occasionalEmployees: 0, // Empleados que trabajaron menos del 50% de días
     totalExits: 0,
-    totalHours: 0
+    totalHours: 0,
+    totalDentro: 0,
+    totalFuera: 0,
+    averageWorkingDays: 0, // Promedio de días trabajados por empleado activo
+    totalWorkingDays: 0 // Total de días del período
   });
   const [groupDistributionData, setGroupDistributionData] = useState([]);
   const [hoursData, setHoursData] = useState([]);
@@ -56,6 +292,23 @@ export default function GrupoDashboard({
   const [selectedGroupList, setSelectedGroupList] = useState("");
   // Nuevo estado para gráfica de horas por grupo
   const [groupHoursData, setGroupHoursData] = useState([]);
+  // Estado para la generación de PDF
+  const [loadingPDF, setLoadingPDF] = useState(false);
+
+  // Estados para mostrar listas completas de empleados
+  const [showAllActiveEmployees, setShowAllActiveEmployees] = useState(false);
+  const [showAllInactiveEmployees, setShowAllInactiveEmployees] = useState(false);
+  const [showEmployeeModal, setShowEmployeeModal] = useState(false);
+  const [employeeModalType, setEmployeeModalType] = useState(''); // 'activos' o 'inactivos'
+  const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
+
+  // Estados para la matriz de asistencia diaria
+  const [showAttendanceMatrix, setShowAttendanceMatrix] = useState(false);
+  const [attendanceData, setAttendanceData] = useState([]);
+  const [attendanceFilter, setAttendanceFilter] = useState({
+    grupo: '',
+    estado: 'todos' // 'todos', 'activos', 'inactivos'
+  });
 
   // Colores para PieChart - paleta más variada y moderna
   const pieColors = [
@@ -96,6 +349,30 @@ export default function GrupoDashboard({
     const horas = Math.floor(decimalHours);
     const minutos = Math.round((decimalHours - horas) * 60);
     return `${horas} horas${minutos > 0 ? ` ${minutos} min` : ''}`;
+  }
+
+  // Función para calcular días trabajados por empleado
+  function calcularDiasTrabajados(registros) {
+    if (!registros || registros.length === 0) return 0;
+    
+    const diasUnicos = new Set();
+    registros.forEach(registro => {
+      const fecha = new Date(registro.fecha_hora);
+      const fechaStr = fecha.toISOString().split('T')[0]; // YYYY-MM-DD
+      diasUnicos.add(fechaStr);
+    });
+    
+    return diasUnicos.size;
+  }
+
+  // Función para categorizar empleados por consistencia
+  function categorizarEmpleadoPorActividad(diasTrabajados, totalDiasPeriodo) {
+    const porcentajeActividad = (diasTrabajados / totalDiasPeriodo) * 100;
+    
+    if (porcentajeActividad >= 80) return 'muy_activo'; // 80% o más
+    if (porcentajeActividad >= 50) return 'activo'; // 50-79%
+    if (porcentajeActividad >= 20) return 'poco_activo'; // 20-49%
+    return 'esporadico'; // menos del 20%
   }
 
   // Fetch grupos del hospital seleccionado
@@ -165,11 +442,35 @@ export default function GrupoDashboard({
           const hoursTrend = {};
           const groupHours = {};
           const groupHoursFuera = {};
+
+          // Calcular días del período
+          const fechaInicio = new Date(tempDateRange.startDate);
+          const fechaFin = new Date(tempDateRange.endDate);
+          const totalDiasPeriodo = Math.ceil((fechaFin - fechaInicio) / (1000 * 60 * 60 * 24)) + 1;
+
+          // Arrays para categorizar empleados
+          const empleadosConActividad = [];
+          let totalDiasTrabajados = 0;
+
           data.empleados.forEach(({ empleado, registros }) => {
             gruposSet.add(empleado.grupo);
             totalEmpleados++;
             if (!groupDist[empleado.grupo]) groupDist[empleado.grupo] = 0;
             groupDist[empleado.grupo]++;
+
+            // Calcular días trabajados por este empleado
+            const diasTrabajados = calcularDiasTrabajados(registros);
+            totalDiasTrabajados += diasTrabajados;
+            
+            // Categorizar empleado
+            const categoria = categorizarEmpleadoPorActividad(diasTrabajados, totalDiasPeriodo);
+            empleadosConActividad.push({
+              ...empleado,
+              diasTrabajados,
+              categoria,
+              porcentajeActividad: (diasTrabajados / totalDiasPeriodo) * 100
+            });
+
             // Usar helper por días para horas dentro/fuera
             const stats = calcularEstadisticasEmpleadoPorDias(registros);
             totalDentro += stats.workedHours;
@@ -188,13 +489,32 @@ export default function GrupoDashboard({
               }
             });
           });
+
+          // Contar empleados por categoría
+          const muyActivos = empleadosConActividad.filter(e => e.categoria === 'muy_activo').length;
+          const activos = empleadosConActividad.filter(e => e.categoria === 'activo').length;
+          const pocoActivos = empleadosConActividad.filter(e => e.categoria === 'poco_activo').length;
+          const esporadicos = empleadosConActividad.filter(e => e.categoria === 'esporadico').length;
+
+          const promedoDiasTrabajados = totalEmpleados > 0 ? totalDiasTrabajados / totalEmpleados : 0;
+
           setCardData({
-            totalGroups: gruposSet.size,
-            totalEmployees: totalEmpleados,
+            totalGroups: grupos.length, // Total de grupos en el hospital
+            activeGroups: gruposSet.size, // Grupos con empleados activos
+            totalEmployees: empleadosHospital.length, // Total empleados del hospital
+            activeEmployees: totalEmpleados, // Empleados activos en el período
+            consistentEmployees: muyActivos + activos, // Empleados que trabajaron 50% o más
+            occasionalEmployees: pocoActivos + esporadicos, // Empleados esporádicos
+            muyActivos,
+            activos,
+            pocoActivos,
+            esporadicos,
             totalExits,
             totalHours: Math.round(totalHours * 100) / 100,
             totalDentro: Math.round(totalDentro * 100) / 100,
-            totalFuera: Math.round(totalFuera * 100) / 100
+            totalFuera: Math.round(totalFuera * 100) / 100,
+            averageWorkingDays: Math.round(promedoDiasTrabajados * 10) / 10, // 1 decimal
+            totalWorkingDays: totalDiasPeriodo
           });
           setGroupDistributionData(
             Object.entries(empleadosPorGrupo).map(([grupo, lista]) => ({ grupo, cantidad: lista.length }))
@@ -214,7 +534,24 @@ export default function GrupoDashboard({
           setError("Error al obtener datos de grupos");
         }
       } else {
-        setCardData({ totalGroups: 0, totalEmployees: 0, totalExits: 0, totalHours: 0, totalDentro: 0, totalFuera: 0 });
+        setCardData({ 
+          totalGroups: 0, 
+          activeGroups: 0,
+          totalEmployees: 0, 
+          activeEmployees: 0,
+          consistentEmployees: 0,
+          occasionalEmployees: 0,
+          muyActivos: 0,
+          activos: 0,
+          pocoActivos: 0,
+          esporadicos: 0,
+          totalExits: 0, 
+          totalHours: 0, 
+          totalDentro: 0, 
+          totalFuera: 0,
+          averageWorkingDays: 0,
+          totalWorkingDays: 0
+        });
         setGroupDistributionData([]);
         setHoursData([]);
         setStackedGroupData([]);
@@ -246,6 +583,19 @@ export default function GrupoDashboard({
     }
   };
 
+  // Nuevo estado para métricas específicas del grupo seleccionado
+  const [groupSpecificMetrics, setGroupSpecificMetrics] = useState({
+    muyActivos: 0,
+    activos: 0,
+    pocoActivos: 0,
+    esporadicos: 0,
+    consistentEmployees: 0,
+    occasionalEmployees: 0,
+    averageWorkingDays: 0,
+    totalDentro: 0,
+    totalFuera: 0
+  });
+
   // Filtrar listas de empleados activos e inactivos según el grupo seleccionado
   const filteredActivos = selectedGroupList
     ? empleadosActivos.filter(e => e.nombre_grupo === selectedGroupList)
@@ -253,6 +603,246 @@ export default function GrupoDashboard({
   const filteredInactivos = selectedGroupList
     ? empleadosInactivos.filter(e => e.nombre_grupo === selectedGroupList)
     : empleadosInactivos;
+
+  // Efecto para recalcular métricas cuando cambie el grupo seleccionado
+  useEffect(() => {
+    if (selectedGroupList && dataEmpleados && cardData.totalWorkingDays > 0) {
+      // Calcular métricas específicas del grupo seleccionado
+      const empleadosGrupoConActividad = filteredActivos.map(empleado => {
+        let registros = [];
+        if (dataEmpleados && Array.isArray(dataEmpleados)) {
+          const found = dataEmpleados.find(e => e.empleado.id_user === empleado.id_user);
+          if (found) registros = found.registros;
+        }
+        const diasTrabajados = calcularDiasTrabajados(registros);
+        const categoria = categorizarEmpleadoPorActividad(diasTrabajados, cardData.totalWorkingDays);
+        return { ...empleado, diasTrabajados, categoria };
+      });
+
+      const muyActivos = empleadosGrupoConActividad.filter(e => e.categoria === 'muy_activo').length;
+      const activos = empleadosGrupoConActividad.filter(e => e.categoria === 'activo').length;
+      const pocoActivos = empleadosGrupoConActividad.filter(e => e.categoria === 'poco_activo').length;
+      const esporadicos = empleadosGrupoConActividad.filter(e => e.categoria === 'esporadico').length;
+
+      const totalDiasTrabajadosGrupo = empleadosGrupoConActividad.reduce((sum, e) => sum + e.diasTrabajados, 0);
+      const promedioGrupo = filteredActivos.length > 0 ? totalDiasTrabajadosGrupo / filteredActivos.length : 0;
+
+      // Calcular horas específicas del grupo seleccionado
+      let totalDentroGrupo = 0;
+      let totalFueraGrupo = 0;
+
+      if (dataEmpleados && Array.isArray(dataEmpleados)) {
+        // Obtener todos los empleados del grupo (activos e inactivos)
+        const todosEmpleadosGrupo = [...filteredActivos, ...filteredInactivos];
+        
+        todosEmpleadosGrupo.forEach(empleado => {
+          const found = dataEmpleados.find(e => e.empleado.id_user === empleado.id_user);
+          if (found && found.registros) {
+            // Usar la misma función que se usa en el cálculo general
+            const stats = calcularEstadisticasEmpleadoPorDias(found.registros);
+            totalDentroGrupo += stats.workedHours;
+            totalFueraGrupo += stats.outsideHours;
+          }
+        });
+      }
+
+      setGroupSpecificMetrics({
+        muyActivos,
+        activos,
+        pocoActivos,
+        esporadicos,
+        consistentEmployees: muyActivos + activos,
+        occasionalEmployees: pocoActivos + esporadicos,
+        averageWorkingDays: Math.round(promedioGrupo * 10) / 10,
+        totalDentro: totalDentroGrupo,
+        totalFuera: totalFueraGrupo
+      });
+    } else {
+      // Si no hay grupo seleccionado, usar las métricas generales
+      setGroupSpecificMetrics({
+        muyActivos: cardData.muyActivos || 0,
+        activos: cardData.activos || 0,
+        pocoActivos: cardData.pocoActivos || 0,
+        esporadicos: cardData.esporadicos || 0,
+        consistentEmployees: cardData.consistentEmployees || 0,
+        occasionalEmployees: cardData.occasionalEmployees || 0,
+        averageWorkingDays: cardData.averageWorkingDays || 0,
+        totalDentro: cardData.totalDentro || 0,
+        totalFuera: cardData.totalFuera || 0
+      });
+    }
+  }, [
+    selectedGroupList, 
+    filteredActivos, 
+    filteredInactivos,
+    dataEmpleados, 
+    cardData.totalWorkingDays, 
+    cardData.muyActivos, 
+    cardData.activos, 
+    cardData.pocoActivos, 
+    cardData.esporadicos, 
+    cardData.consistentEmployees, 
+    cardData.occasionalEmployees, 
+    cardData.averageWorkingDays,
+    cardData.totalDentro,
+    cardData.totalFuera
+  ]);
+
+  // Calcular días trabajados y porcentaje de asistencia
+  const calculateWorkingDays = (fechaInicio, fechaFin) => {
+    const start = new Date(fechaInicio);
+    const end = new Date(fechaFin);
+    const days = [];
+    
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      days.push(new Date(d));
+    }
+    
+    return days;
+  };
+
+  // Función para generar la matriz de asistencia diaria
+  const generateAttendanceMatrix = () => {
+    if (!empleadosHospital.length || !tempDateRange.startDate || !tempDateRange.endDate) return [];
+
+    // Generar array de fechas del período
+    const startDate = new Date(tempDateRange.startDate);
+    const endDate = new Date(tempDateRange.endDate);
+    const dateArray = [];
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      dateArray.push(new Date(d));
+    }
+
+    // Filtrar empleados según los filtros aplicados
+    let empleadosParaMatriz = empleadosHospital;
+    if (attendanceFilter.estado === 'activos') {
+      empleadosParaMatriz = empleadosActivos;
+    } else if (attendanceFilter.estado === 'inactivos') {
+      empleadosParaMatriz = empleadosInactivos;
+    }
+    if (attendanceFilter.grupo) {
+      empleadosParaMatriz = empleadosParaMatriz.filter(emp => emp.nombre_grupo === attendanceFilter.grupo);
+    }
+
+    // Crear matriz de asistencia
+    const matrix = empleadosParaMatriz.map(empleado => {
+      // Buscar registros de este empleado en dataEmpleados
+      let registros = [];
+      if (dataEmpleados && Array.isArray(dataEmpleados)) {
+        const found = dataEmpleados.find(e => e.empleado.id_user === empleado.id_user);
+        if (found) registros = found.registros;
+      }
+      // Para cada día, ver si hay registro
+      const dias = dateArray.map(day => {
+        const dayString = day.toISOString().split('T')[0];
+        const asistio = registros.some(r => {
+          const fecha = new Date(r.fecha_hora).toISOString().split('T')[0];
+          return fecha === dayString;
+        });
+        return {
+          fecha: dayString,
+          asistio,
+          dia_semana: day.toLocaleDateString('es-ES', { weekday: 'short' })
+        };
+      });
+      return {
+        empleado: {
+          id: empleado.id_user,
+          nombre: `${empleado.nombre} ${empleado.ap_paterno} ${empleado.ap_materno}`,
+          grupo: empleado.nombre_grupo,
+          isActive: empleadosActivos.some(e => e.id_user === empleado.id_user)
+        },
+        dias
+      };
+    });
+    return matrix;
+  };
+
+  // Generar matriz cuando cambien los filtros o datos
+  useEffect(() => {
+    if (showAttendanceMatrix) {
+      const matrix = generateAttendanceMatrix();
+      setAttendanceData(matrix);
+    }
+  }, [showAttendanceMatrix, attendanceFilter, empleadosHospital, empleadosActivos, empleadosInactivos, dataEmpleados, tempDateRange]);
+
+  const totalDias = tempDateRange.startDate && tempDateRange.endDate ? 
+    Math.ceil((new Date(tempDateRange.endDate) - new Date(tempDateRange.startDate)) / (1000 * 60 * 60 * 24)) + 1 : 0;
+
+  // Función para generar PDF
+  const generatePDF = async () => {
+    if (!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) {
+      alert("Por favor selecciona un hospital y un período válido para generar el reporte.");
+      return;
+    }
+    
+    setLoadingPDF(true);
+    try {
+      // Obtener nombres para el reporte
+      const hospitalNombre = hospitales.find(h => h.id_hospital == filters.id_hospital)?.nombre_hospital || 'Hospital no encontrado';
+      const estadoNombre = estados.find(e => e.id_estado == filters.id_estado)?.nombre_estado || 'Estado no especificado';
+      const municipioNombre = municipios.find(m => m.id_municipio == filters.id_municipio)?.nombre_municipio || 'Municipio no especificado';
+      
+      // Filtrar datos según el grupo seleccionado
+      let filteredGroupDistributionData = groupDistributionData;
+      let filteredStackedGroupData = stackedGroupData;
+      let filteredGroupHoursData = groupHoursData;
+      let filteredEmpleadosActivos = empleadosActivos;
+      let filteredEmpleadosInactivos = empleadosInactivos;
+      let reportTitle = "Reporte General de Grupos";
+      let reportSubtitle = "Análisis completo de todos los grupos del hospital";
+      
+      // Si hay un grupo específico seleccionado, filtrar los datos
+      if (selectedGroupList) {
+        filteredGroupDistributionData = groupDistributionData.filter(g => g.grupo === selectedGroupList);
+        filteredStackedGroupData = stackedGroupData.filter(g => g.grupo === selectedGroupList);
+        filteredGroupHoursData = groupHoursData.filter(g => g.grupo === selectedGroupList);
+        filteredEmpleadosActivos = empleadosActivos.filter(e => e.nombre_grupo === selectedGroupList);
+        filteredEmpleadosInactivos = empleadosInactivos.filter(e => e.nombre_grupo === selectedGroupList);
+        reportTitle = `Reporte del Grupo: ${selectedGroupList}`;
+        reportSubtitle = `Análisis específico del grupo "${selectedGroupList}"`;
+      }
+
+      // Crear cardData contextual que use métricas específicas del grupo cuando sea necesario
+      const contextualCardData = selectedGroupList ? {
+        ...cardData,
+        totalEmployees: filteredEmpleadosActivos.length + filteredEmpleadosInactivos.length,
+        activeEmployees: filteredEmpleadosActivos.length,
+        muyActivos: groupSpecificMetrics.muyActivos,
+        activos: groupSpecificMetrics.activos,
+        pocoActivos: groupSpecificMetrics.pocoActivos,
+        esporadicos: groupSpecificMetrics.esporadicos,
+        consistentEmployees: groupSpecificMetrics.consistentEmployees,
+        occasionalEmployees: groupSpecificMetrics.occasionalEmployees,
+        averageWorkingDays: groupSpecificMetrics.averageWorkingDays,
+        totalDentro: groupSpecificMetrics.totalDentro,
+        totalFuera: groupSpecificMetrics.totalFuera,
+        totalGroups: 1, // Solo un grupo específico
+        activeGroups: 1 // Solo un grupo específico
+      } : cardData;
+      
+      await generarReporteGrupoPDF({
+        hospital: hospitalNombre,
+        estado: estadoNombre,
+        municipio: municipioNombre,
+        startDate: tempDateRange.startDate,
+        endDate: tempDateRange.endDate,
+        cardData: contextualCardData,
+        groupDistributionData: filteredGroupDistributionData,
+        stackedGroupData: filteredStackedGroupData,
+        groupHoursData: filteredGroupHoursData,
+        empleadosActivos: filteredEmpleadosActivos,
+        empleadosInactivos: filteredEmpleadosInactivos,
+        selectedGroup: selectedGroupList, // Pasar el grupo seleccionado
+        reportTitle,
+        reportSubtitle
+      });
+    } catch (err) {
+      console.error('Error al generar el PDF:', err);
+      alert("Error al generar el PDF. Revisa la consola para más detalles.");
+    }
+    setLoadingPDF(false);
+  };
 
   return (
     <div className="p-8 bg-white rounded-3xl shadow-2xl">
@@ -311,6 +901,7 @@ export default function GrupoDashboard({
                     {e.nombre_estado}
                   </option>
                 ))}
+
               </select>
             </div>
             <div>
@@ -357,106 +948,105 @@ export default function GrupoDashboard({
           </div>
         </div>
       </div>
-      {/* Tarjetas de KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-3xl p-8 text-white flex flex-col shadow-2xl hover:shadow-2xl hover:scale-105 transform transition-all duration-300">
-          <div className="flex items-center justify-between mb-2">
-            <Users className="h-6 w-6 opacity-90" />
-            <TrendingUp className="h-4 w-4 text-blue-200" />
-          </div>
-          <span className="text-sm text-blue-100">Total Grupos</span>
-          <span className="text-2xl font-bold">{cardData.totalGroups}</span>
-        </div>
-        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-3xl p-8 text-white flex flex-col shadow-2xl hover:shadow-2xl hover:scale-105 transform transition-all duration-300">
-          <div className="flex items-center justify-between mb-2">
-            <Users className="h-6 w-6 opacity-90" />
-            <TrendingUp className="h-4 w-4 text-emerald-200" />
-          </div>
-          <span className="text-sm text-emerald-100">Total Empleados</span>
-          <span className="text-2xl font-bold">{cardData.totalEmployees}</span>
-        </div>
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-3xl p-8 text-white flex flex-col shadow-2xl hover:shadow-2xl hover:scale-105 transform transition-all duration-300">
-          <div className="flex items-center justify-between mb-2">
-            <Clock className="h-6 w-6 opacity-90" />
-            <TrendingUp className="h-4 w-4 text-purple-200" />
-          </div>
-          <span className="text-sm text-purple-100">Horas en geocerca</span>
-          <span className="text-2xl font-bold">{formatHorasMinutos(cardData.totalDentro ?? 0)}</span>
-        </div>
-        <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-3xl p-8 text-white flex flex-col shadow-2xl hover:shadow-2xl hover:scale-105 transform transition-all duration-300">
-          <div className="flex items-center justify-between mb-2">
-            <Clock className="h-6 w-6 opacity-90" />
-            <TrendingUp className="h-4 w-4 text-red-200" />
-          </div>
-          <span className="text-sm text-red-100">Horas fuera de geocerca</span>
-          <span className="text-2xl font-bold">{formatHorasMinutos(cardData.totalFuera ?? 0)}</span>
-        </div>
-      </div>
+
+      {/* Modal de matriz de asistencia diaria */}
+      {showAttendanceMatrix && (
+        <AttendanceMatrixModal
+          attendanceData={attendanceData}
+          onClose={() => setShowAttendanceMatrix(false)}
+        />
+      )}
+
+      {/* Modal para lista completa de empleados */}
+      <EmployeeListModal
+        isOpen={showEmployeeModal}
+        onClose={() => setShowEmployeeModal(false)}
+        empleados={employeeModalType === 'activos' ? filteredActivos : filteredInactivos}
+        type={employeeModalType}
+        dataEmpleados={dataEmpleados}
+        totalDiasPeriodo={cardData.totalWorkingDays}
+        calcularDiasTrabajados={calcularDiasTrabajados}
+        searchTerm={employeeSearchTerm}
+        onSearchChange={setEmployeeSearchTerm}
+        selectedGroup={selectedGroupList}
+      />
 
       {/* Texto informativo para empleados */}
-      <div className="flex items-center gap-2 mb-4 bg-blue-50 border border-blue-100 rounded-lg p-3">
-        <Users className="h-4 w-4 text-blue-500" />
-        <span className="text-sm text-blue-800">Mostrando empleados agrupados por grupo y hospital en el periodo seleccionado.</span>
+      <div className={`flex items-center gap-2 mb-4 rounded-lg p-3 border ${selectedGroupList 
+        ? 'bg-purple-50 border-purple-200' 
+        : 'bg-blue-50 border-blue-100'
+      }`}>
+        <Users className={`h-4 w-4 ${selectedGroupList ? 'text-purple-500' : 'text-blue-500'}`} />
+        <span className={`text-sm ${selectedGroupList ? 'text-purple-800' : 'text-blue-800'}`}>
+          {selectedGroupList ? (
+            <>
+              Mostrando {filteredActivos.length} empleados activos de {filteredActivos.length + filteredInactivos.length} totales del grupo <strong>"{selectedGroupList}"</strong>.
+              <br />
+              <strong>Período:</strong> {cardData.totalWorkingDays} días | <strong>Vista:</strong> Grupo específico
+            </>
+          ) : (
+            <>
+              Mostrando {cardData.activeEmployees} empleados activos de {cardData.totalEmployees} totales, 
+              distribuidos en {cardData.activeGroups} grupos activos de {cardData.totalGroups} grupos totales del hospital.
+              <br />
+              <strong>Período:</strong> {cardData.totalWorkingDays} días | <strong>Promedio:</strong> {selectedGroupList ? groupSpecificMetrics.averageWorkingDays : cardData.averageWorkingDays} días trabajados por empleado activo
+            </>
+          )}
+        </span>
       </div>
 
-      {/* Tabla unificada de empleados */}
+      {/* Resumen simplificado de empleados */}
       <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200 mb-8">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
             <Users className="h-6 w-6 text-blue-600" />
-            Lista de Empleados por Estado
+            Resumen de Empleados
           </h3>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-sm">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              <span className="text-green-700 font-medium">Activos: {filteredActivos.length}</span>
+          {/* Botón PDF reubicado aquí con información contextual */}
+          {filters.id_hospital && tempDateRange.startDate && tempDateRange.endDate && (
+            <div className="flex flex-col items-end gap-2">
+              {selectedGroupList && (
+                <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
+                  Reporte específico: {selectedGroupList}
+                </div>
+              )}
+              <button
+                onClick={generatePDF}
+                disabled={loadingPDF}
+                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 font-medium flex items-center gap-2"
+                title={selectedGroupList 
+                  ? `Generar reporte específico del grupo "${selectedGroupList}"` 
+                  : "Generar reporte de todos los grupos del hospital"
+                }
+              >
+                {loadingPDF ? (
+                  <>
+                    <div className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Generando...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" />
+                    {selectedGroupList ? "PDF del Grupo" : "PDF General"}
+                  </>
+                )}
+              </button>
             </div>
-            <div className="flex items-center gap-2 text-sm">
-              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-              <span className="text-red-700 font-medium">Inactivos: {filteredInactivos.length}</span>
-            </div>
-            <div className="text-sm text-gray-600 font-medium">
-              Total: {filteredActivos.length + filteredInactivos.length}
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* Filtros adicionales para la tabla */}
-        <div className="flex flex-wrap items-center gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">Filtrar por estado:</label>
-            <select
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              onChange={(e) => {
-                const table = document.getElementById('empleados-table');
-                const rows = table.querySelectorAll('tbody tr');
-                rows.forEach(row => {
-                  if (e.target.value === 'todos') {
-                    row.style.display = '';
-                  } else if (e.target.value === 'activos') {
-                    row.style.display = row.classList.contains('empleado-activo') ? '' : 'none';
-                  } else if (e.target.value === 'inactivos') {
-                    row.style.display = row.classList.contains('empleado-inactivo') ? '' : 'none';
-                  }
-                });
-              }}
-            >
-              <option value="todos">📊 Todos</option>
-              <option value="activos">✅ Solo activos</option>
-              <option value="inactivos">⏰ Solo inactivos</option>
-            </select>
-          </div>
-          
+        {/* Filtro de grupo */}
+        <div className="flex items-center gap-4 mb-6 p-3 bg-gray-50 rounded-lg">
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium text-gray-700">Filtrar por grupo:</label>
             <select
               value={selectedGroupList}
               onChange={e => setSelectedGroupList(e.target.value)}
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[180px]"
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px]"
             >
-              <option value="">👥 Todos los grupos</option>
+              <option value="">Todos los grupos</option>
               {groupDistributionData.map(g => (
-                <option key={g.grupo} value={g.grupo}>📋 {g.grupo} ({g.cantidad})</option>
+                <option key={g.grupo} value={g.grupo}>{g.grupo} ({g.cantidad})</option>
               ))}
             </select>
             {selectedGroupList && (
@@ -469,118 +1059,281 @@ export default function GrupoDashboard({
               </button>
             )}
           </div>
-          
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">Buscar:</label>
-            <input
-              type="text"
-              placeholder="Nombre del empleado..."
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-48"
-              onChange={(e) => {
-                const searchTerm = e.target.value.toLowerCase();
-                const table = document.getElementById('empleados-table');
-                const rows = table.querySelectorAll('tbody tr');
-                rows.forEach(row => {
-                  const nombre = row.querySelector('.empleado-nombre').textContent.toLowerCase();
-                  row.style.display = nombre.includes(searchTerm) ? '' : 'none';
-                });
+        </div>
+
+        {/* Cards de resumen con información de actividad */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Empleados activos */}
+          <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                  <Users className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-green-800">Empleados Activos</h4>
+                  <p className="text-sm text-green-600">En el período</p>
+                </div>
+              </div>
+              <div className="text-3xl font-bold text-green-700">{filteredActivos.length}</div>
+            </div>
+            
+            {/* Desglose por nivel de actividad para activos */}
+            <DesglosePorActividad 
+              empleados={filteredActivos}
+              dataEmpleados={dataEmpleados}
+              totalDiasPeriodo={cardData.totalWorkingDays}
+              calcularDiasTrabajados={calcularDiasTrabajados}
+              categorizarEmpleadoPorActividad={categorizarEmpleadoPorActividad}
+            />
+
+            {/* Preview de empleados con información de actividad */}
+            <PreviewEmpleados 
+              empleados={filteredActivos}
+              dataEmpleados={dataEmpleados}
+              totalDiasPeriodo={cardData.totalWorkingDays}
+              calcularDiasTrabajados={calcularDiasTrabajados}
+              limit={3}
+              colorScheme="green"
+              onViewAll={() => {
+                setEmployeeModalType('activos');
+                setShowEmployeeModal(true);
+                setEmployeeSearchTerm('');
               }}
             />
           </div>
+
+          {/* Empleados inactivos */}
+          <div className="bg-gradient-to-br from-red-50 to-red-100 border border-red-200 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center">
+                  <Users className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-red-800">Empleados Inactivos</h4>
+                  <p className="text-sm text-red-600">Sin registros en período</p>
+                </div>
+              </div>
+              <div className="text-3xl font-bold text-red-700">{filteredInactivos.length}</div>
+            </div>
+            
+            {/* Información adicional para inactivos */}
+            <div className="bg-red-100 rounded-lg p-3 mb-4">
+              <div className="text-xs font-semibold text-red-800 mb-1">Estado:</div>
+              <div className="text-xs text-red-700">
+                Sin actividad registrada durante el período de análisis
+              </div>
+            </div>
+
+            {/* Preview de empleados inactivos */}
+            <div className="space-y-2">
+              <div className="space-y-2 max-h-32 overflow-y-auto">
+                {filteredInactivos.slice(0, 3).map(empleado => (
+                  <div key={empleado.id_user} className="flex items-center justify-between text-sm bg-white rounded-lg p-2 border border-red-200">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                      <span className="text-red-700 truncate font-medium">
+                        {empleado.nombre} {empleado.ap_paterno}
+                      </span>
+                    </div>
+                    <div className="text-xs text-red-600 font-semibold">
+                      0% (0d)
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {filteredInactivos.length > 3 && (
+                <div className="text-center">
+                  <button
+                    onClick={() => {
+                      setEmployeeModalType('inactivos');
+                      setShowEmployeeModal(true);
+                      setEmployeeSearchTerm('');
+                    }}
+                    className="text-xs font-medium px-3 py-1 rounded-full transition-colors hover:bg-red-200 text-red-700 bg-red-100 flex items-center gap-1 mx-auto"
+                  >
+                    Ver todos ({filteredInactivos.length})
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Resumen total con métricas avanzadas */}
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                  <Calendar className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-blue-800">Análisis del Período</h4>
+                  <p className="text-sm text-blue-600">{cardData.totalWorkingDays} días</p>
+                </div>
+              </div>
+              <div className="text-3xl font-bold text-blue-700">
+                {filteredActivos.length + filteredInactivos.length}
+              </div>
+            </div>
+            
+            {/* Métricas del período */}
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-blue-700">Tasa de actividad:</span>
+                <span className="font-semibold text-blue-800">
+                  {filteredActivos.length + filteredInactivos.length > 0 
+                    ? Math.round((filteredActivos.length / (filteredActivos.length + filteredInactivos.length)) * 100)
+                    : 0}%
+                </span>
+              </div>
+              
+              <div className="w-full bg-blue-200 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                  style={{
+                    width: `${filteredActivos.length + filteredInactivos.length > 0 
+                      ? (filteredActivos.length / (filteredActivos.length + filteredInactivos.length)) * 100
+                      : 0}%`
+                  }}
+                ></div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-white rounded-lg p-2 text-center border border-blue-200">
+                  <div className="font-semibold text-blue-800">{selectedGroupList ? groupSpecificMetrics.averageWorkingDays : cardData.averageWorkingDays}</div>
+                  <div className="text-blue-600">Días promedio</div>
+                </div>
+                <div className="bg-white rounded-lg p-2 text-center border border-blue-200">
+                  <div className="font-semibold text-blue-800">{selectedGroupList ? groupSpecificMetrics.consistentEmployees : cardData.consistentEmployees}</div>
+                  <div className="text-blue-600">Consistentes</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Tabla de empleados */}
-        <div className="overflow-x-auto">
-          <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
-            <table id="empleados-table" className="w-full">
-              <thead className="bg-gray-50 sticky top-0">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">
-                    Estado
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">
-                    Nombre Completo
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">
-                    Grupo
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">
-                    ID Usuario
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {/* Empleados activos */}
-                {filteredActivos.map(empleado => (
-                  <tr 
-                    key={`activo-${empleado.id_user}`} 
-                    className="empleado-activo hover:bg-green-50 transition-colors duration-200"
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-green-500 rounded-full shadow-sm"></div>
-                        <span className="text-green-700 font-semibold text-sm bg-green-100 px-2 py-1 rounded-full">
-                          ✅ Activo
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="empleado-nombre font-medium text-gray-900">
-                        {empleado.nombre} {empleado.ap_paterno} {empleado.ap_materno}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded-full">
-                        📋 {empleado.nombre_grupo}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-gray-500 font-mono">
-                        #{empleado.id_user}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                
-                {/* Empleados inactivos */}
-                {filteredInactivos.map(empleado => (
-                  <tr 
-                    key={`inactivo-${empleado.id_user}`} 
-                    className="empleado-inactivo hover:bg-red-50 transition-colors duration-200"
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-red-500 rounded-full shadow-sm"></div>
-                        <span className="text-red-700 font-semibold text-sm bg-red-100 px-2 py-1 rounded-full">
-                          ⏰ Inactivo
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="empleado-nombre font-medium text-gray-900">
-                        {empleado.nombre} {empleado.ap_paterno} {empleado.ap_materno}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded-full">
-                        📋 {empleado.nombre_grupo}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-gray-500 font-mono">
-                        #{empleado.id_user}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* Métricas de Horas - Integradas en el resumen */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          {/* Horas en Geocerca */}
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
+                  <Clock className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-purple-800">Horas en Geocerca</h4>
+                  <p className="text-sm text-purple-600">Tiempo en área de trabajo</p>
+                </div>
+              </div>
+              <div className="text-3xl font-bold text-purple-700">
+                {Math.floor((selectedGroupList ? groupSpecificMetrics.totalDentro : cardData.totalDentro) ?? 0)}h
+              </div>
+            </div>
+            
+            {/* Detalle de minutos */}
+            <div className="bg-purple-100 rounded-lg p-3 mb-4">
+              <div className="text-xs font-semibold text-purple-800 mb-1">Tiempo total:</div>
+              <div className="text-sm text-purple-700 font-medium">
+                {formatHorasMinutos((selectedGroupList ? groupSpecificMetrics.totalDentro : cardData.totalDentro) ?? 0)}
+              </div>
+            </div>
+
+            {/* Información adicional */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-purple-700">Porcentaje del total:</span>
+                <span className="font-semibold text-purple-800">
+                  {(() => {
+                    const totalDentro = selectedGroupList ? groupSpecificMetrics.totalDentro : cardData.totalDentro;
+                    const totalFuera = selectedGroupList ? groupSpecificMetrics.totalFuera : cardData.totalFuera;
+                    return totalDentro + totalFuera > 0 
+                      ? Math.round((totalDentro / (totalDentro + totalFuera)) * 100)
+                      : 0;
+                  })()}%
+                </span>
+              </div>
+              
+              <div className="w-full bg-purple-200 rounded-full h-2">
+                <div 
+                  className="bg-purple-600 h-2 rounded-full transition-all duration-300" 
+                  style={{
+                    width: `${(() => {
+                      const totalDentro = selectedGroupList ? groupSpecificMetrics.totalDentro : cardData.totalDentro;
+                      const totalFuera = selectedGroupList ? groupSpecificMetrics.totalFuera : cardData.totalFuera;
+                      return totalDentro + totalFuera > 0 
+                        ? (totalDentro / (totalDentro + totalFuera)) * 100
+                        : 0;
+                    })()}%`
+                  }}
+                ></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Horas Fuera de Geocerca */}
+          <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
+                  <Clock className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-orange-800">Horas Fuera de Geocerca</h4>
+                  <p className="text-sm text-orange-600">Tiempo fuera del área</p>
+                </div>
+              </div>
+              <div className="text-3xl font-bold text-orange-700">
+                {Math.floor((selectedGroupList ? groupSpecificMetrics.totalFuera : cardData.totalFuera) ?? 0)}h
+              </div>
+            </div>
+            
+            {/* Detalle de minutos */}
+            <div className="bg-orange-100 rounded-lg p-3 mb-4">
+              <div className="text-xs font-semibold text-orange-800 mb-1">Tiempo total:</div>
+              <div className="text-sm text-orange-700 font-medium">
+                {formatHorasMinutos((selectedGroupList ? groupSpecificMetrics.totalFuera : cardData.totalFuera) ?? 0)}
+              </div>
+            </div>
+
+            {/* Información adicional */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-orange-700">Porcentaje del total:</span>
+                <span className="font-semibold text-orange-800">
+                  {(() => {
+                    const totalDentro = selectedGroupList ? groupSpecificMetrics.totalDentro : cardData.totalDentro;
+                    const totalFuera = selectedGroupList ? groupSpecificMetrics.totalFuera : cardData.totalFuera;
+                    return totalDentro + totalFuera > 0 
+                      ? Math.round((totalFuera / (totalDentro + totalFuera)) * 100)
+                      : 0;
+                  })()}%
+                </span>
+              </div>
+              
+              <div className="w-full bg-orange-200 rounded-full h-2">
+                <div 
+                  className="bg-orange-600 h-2 rounded-full transition-all duration-300" 
+                  style={{
+                    width: `${(() => {
+                      const totalDentro = selectedGroupList ? groupSpecificMetrics.totalDentro : cardData.totalDentro;
+                      const totalFuera = selectedGroupList ? groupSpecificMetrics.totalFuera : cardData.totalFuera;
+                      return totalDentro + totalFuera > 0 
+                        ? (totalFuera / (totalDentro + totalFuera)) * 100
+                        : 0;
+                    })()}%`
+                  }}
+                ></div>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Mensaje cuando no hay datos */}
         {(filteredActivos.length === 0 && filteredInactivos.length === 0) && (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-gray-500 mt-6">
             <Users className="h-12 w-12 mx-auto mb-3 text-gray-400" />
             <p className="text-lg font-medium">No hay empleados para mostrar</p>
             <p className="text-sm">
@@ -588,6 +1341,26 @@ export default function GrupoDashboard({
                 ? `No se encontraron empleados en el grupo "${selectedGroupList}"` 
                 : "Selecciona un hospital y período para ver los empleados"}
             </p>
+          </div>
+        )}
+
+        {/* Call to action para ver detalles */}
+        {(filteredActivos.length > 0 || filteredInactivos.length > 0) && (
+          <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium text-blue-800">¿Necesitas más detalles?</h4>
+                <p className="text-sm text-blue-600">
+                  Ve la matriz de asistencia diaria para analizar patrones de trabajo día por día
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAttendanceMatrix(true)}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium flex items-center gap-2"
+              >
+                Abrir Matriz
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -884,10 +1657,10 @@ export default function GrupoDashboard({
             </div>
           </div>
         </div>
-        {/* 4. Top grupos con más actividad (Vertical Bar) */}
+        {/* 4. Top grupos con mayor actividad (Vertical Bar) */}
         <div className="bg-white rounded-2xl shadow-md p-6 flex flex-col min-h-[420px]">
           <div className="flex items-center gap-2 mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">Top grupos con más actividad</h3>
+            <h3 className="text-lg font-semibold text-gray-800">Top grupos con mayor actividad</h3>
             <div className="relative group">
               <div className="w-4 h-4 bg-gray-400 rounded-full flex items-center justify-center cursor-help">
                 <span className="text-white text-xs font-bold">?</span>
@@ -993,5 +1766,5 @@ export default function GrupoDashboard({
         )}
       </div>
     </div>
-  )
+  );
 }
