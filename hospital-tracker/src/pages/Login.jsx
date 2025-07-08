@@ -8,7 +8,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { setIsAuthenticated, setUserRole, isAuthenticated, userRole, loading } = useAuth();
+  const { setIsAuthenticated, setUserRole, isAuthenticated, userRole, loading, refreshAuth } = useAuth();
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
@@ -55,33 +55,9 @@ export default function Login() {
         return;
       }
 
-      // Tras login exitoso, consultar /api/auth/me para obtener el rol
-      const meRes = await fetch(`${API_BASE_URL}/api/auth/me`, {
-        credentials: "include"
-      });
-      if (!meRes.ok) {
-        setError("No se pudo obtener información del usuario");
-        setIsLoading(false);
-        return;
-      }
-      const meData = await meRes.json();
-      setIsAuthenticated(true);
-      setUserRole(meData.role);
-
-      // Redirigir según el rol
-      if (meData.role === "superadmin") {
-        navigate("/superadmin-geoapp");
-      } else if (meData.role === "estadoadmin") {
-        navigate("/estadoadmin-geoapp");
-      } else if (meData.role === "hospitaladmin") {
-        navigate("/hospitaladmin-geoapp");
-      } else if (meData.role === "grupoadmin") {
-        navigate("/grupoadmin-geoapp");
-      } else if (meData.role === "municipioadmin") {
-        navigate("/municipioadmin-geoapp");
-      } else {
-        setError("Rol no reconocido");
-      }
+      // Tras login exitoso, refresca el estado de autenticación (incluyendo userId)
+      await refreshAuth();
+      // La redirección se hará automáticamente por el useEffect que depende de isAuthenticated y userRole
     } catch (err) {
       console.error("Error en login:", err);
       setError("Error en el servidor");

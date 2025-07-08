@@ -59,7 +59,7 @@ router.post("/login", async (req, res) => {
       const token = jwt.sign(
         { id_user, role: role_name },
         process.env.JWT_SECRET || 'clave_secreta_predeterminada',
-        { expiresIn: '1h' }
+        { expiresIn: '1d' }
       );
 
       // Enviar el token como cookie httpOnly
