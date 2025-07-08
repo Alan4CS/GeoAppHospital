@@ -4,20 +4,21 @@ import HospitalDashboard from "../components/dashboard/hospital/HospitalDashboar
 import EmpleadoListHospital from "../components/hospital/EmpleadoListHospital";
 import MonitoreoMap from "../components/admin/MonitoreoMap";
 import GrupoListHospital from "../components/hospital/GrupoListHospital";
+import { useAuth } from "../context/AuthContext";
 
 export default function HospitalAdminGeoApp() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [hospital, setHospital] = useState(null);
   const [loading, setLoading] = useState(true);
-  const id_user = localStorage.getItem("userId");
+  const { userId } = useAuth();
 
   useEffect(() => {
     const fetchHospital = async () => {
       try {
         setLoading(true);
         // Cambia la URL por la de tu backend real
-        const response = await fetch(`https://geoapphospital.onrender.com/api/hospitaladmin/hospital-by-user/${id_user}`);
+        const response = await fetch(`https://geoapphospital.onrender.com/api/hospitaladmin/hospital-by-user/${userId}`);
         const data = await response.json();
         setHospital(data);
       } catch (error) {
@@ -26,8 +27,8 @@ export default function HospitalAdminGeoApp() {
         setLoading(false);
       }
     };
-    if (id_user) fetchHospital();
-  }, [id_user]);
+    if (userId) fetchHospital();
+  }, [userId]);
 
   return (
     <div className="flex h-screen bg-gray-50">

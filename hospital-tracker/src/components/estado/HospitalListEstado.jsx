@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ChevronRight, Hospital, Users, User } from "lucide-react";
 import StatsCardEstado from "./StatsCardEstado";
+import { useAuth } from "../../context/AuthContext";
 
 export default function HospitalList({ estadoNombre = "Nombre del Estado", hospitales = [], loading = false, municipioNombre }) {
   const [paginaActual, setPaginaActual] = useState(1);
@@ -8,16 +9,16 @@ export default function HospitalList({ estadoNombre = "Nombre del Estado", hospi
   const [stats, setStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState(null);
+  const { userId } = useAuth();
 
   useEffect(() => {
-    const id_user = localStorage.getItem("userId");
-    if (!id_user) {
+    if (!userId) {
       setStatsError("No se encontró el usuario actual");
       setStatsLoading(false);
       return;
     }
     setStatsLoading(true);
-    fetch(`https://geoapphospital.onrender.com/api/estadoadmin/stats-by-user/${id_user}?source=stats`)
+    fetch(`https://geoapphospital.onrender.com/api/estadoadmin/stats-by-user/${userId}?source=stats`)
       .then((res) => {
         if (!res.ok) throw new Error("No se pudieron obtener las estadísticas de estadoadmin");
         return res.json();

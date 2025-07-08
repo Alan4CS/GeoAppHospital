@@ -7,27 +7,24 @@ export default function Login() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { setIsAuthenticated } = useAuth();
+  const { setIsAuthenticated, setUserRole, isAuthenticated, userRole, loading } = useAuth();
 
   useEffect(() => {
-    const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
-    const role = localStorage.getItem("userRole");
-    if (isAuthenticated) {
-      if (role === "superadmin") {
-        navigate("/superadmin-geoapp");
-      } else if (role === "estadoadmin") {
-        navigate("/estadoadmin-geoapp");
-      } else if (role === "hospitaladmin") {
-        navigate("/hospitaladmin-geoapp");
-      } else if (role === "grupoadmin") {
-        navigate("/grupoadmin-geoapp");
-      } else if (role === "municipioadmin") {
-        navigate("/municipioadmin-geoapp");
-      } else if (role === "hospitaladmin") {
-        navigate("/hospitaladmin-geoapp");
+    if (!loading && isAuthenticated) {
+      // Redirige según el rol
+      if (userRole === "superadmin") {
+        navigate("/superadmin-geoapp", { replace: true });
+      } else if (userRole === "estadoadmin") {
+        navigate("/estadoadmin-geoapp", { replace: true });
+      } else if (userRole === "hospitaladmin") {
+        navigate("/hospitaladmin-geoapp", { replace: true });
+      } else if (userRole === "grupoadmin") {
+        navigate("/grupoadmin-geoapp", { replace: true });
+      } else if (userRole === "municipioadmin") {
+        navigate("/municipioadmin-geoapp", { replace: true });
       }
     }
-  }, [navigate]);
+  }, [isAuthenticated, userRole, loading, navigate]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -45,6 +42,7 @@ export default function Login() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ user: form.username, pass: form.password }),
+          credentials: "include"
         }
       );
 
@@ -56,20 +54,29 @@ export default function Login() {
         return;
       }
 
-      localStorage.setItem("isAuthenticated", "true");
-      localStorage.setItem("userRole", data.role);
-      localStorage.setItem("userId", data.id_user);
+      // Tras login exitoso, consultar /api/auth/me para obtener el rol
+      const meRes = await fetch("https://geoapphospital.onrender.com/api/auth/me", {
+        credentials: "include"
+      });
+      if (!meRes.ok) {
+        setError("No se pudo obtener información del usuario");
+        setIsLoading(false);
+        return;
+      }
+      const meData = await meRes.json();
       setIsAuthenticated(true);
+      setUserRole(meData.role);
 
-      if (data.role === "superadmin") {
+      // Redirigir según el rol
+      if (meData.role === "superadmin") {
         navigate("/superadmin-geoapp");
-      } else if (data.role === "estadoadmin") {
+      } else if (meData.role === "estadoadmin") {
         navigate("/estadoadmin-geoapp");
-      } else if (data.role === "hospitaladmin") {
+      } else if (meData.role === "hospitaladmin") {
         navigate("/hospitaladmin-geoapp");
-      } else if (data.role === "grupoadmin") {
+      } else if (meData.role === "grupoadmin") {
         navigate("/grupoadmin-geoapp");
-      } else if (data.role === "municipioadmin") {
+      } else if (meData.role === "municipioadmin") {
         navigate("/municipioadmin-geoapp");
       } else {
         setError("Rol no reconocido");

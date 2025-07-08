@@ -10,7 +10,7 @@ export default function EstadoSidebar({
   setSidebarOpen,
 }) {
   const navigate = useNavigate();
-  const { setIsAuthenticated } = useAuth();
+  const { logout } = useAuth();
 
   const options = [
     {
@@ -91,11 +91,8 @@ export default function EstadoSidebar({
       {/* Cerrar sesión */}
       <div className="px-2 pb-4 mt-auto">
         <button
-          onClick={() => {
-            localStorage.removeItem("isAuthenticated");
-            localStorage.removeItem("userRole");
-            localStorage.removeItem("userId");
-            setIsAuthenticated(false);
+          onClick={async () => {
+            await logout();
             navigate("/");
           }}
           className="flex items-center py-3 px-4 hover:bg-red-700 text-red-100 transition-colors duration-200 w-full rounded-md"

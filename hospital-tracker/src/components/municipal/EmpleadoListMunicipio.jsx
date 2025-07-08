@@ -1,12 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  Hospital,
-  Map,
-  Search,
-  User as UserIcon,
-  Users,
-  Clock,
-} from "lucide-react";
+import { Hospital, Map, Search, User as UserIcon, Users, Clock } from "lucide-react";
 import StatsCardMunicipio from "./StatsCardMunicipio";
 
 const EmpleadoList = ({ id_user }) => {
@@ -48,7 +41,7 @@ const EmpleadoList = ({ id_user }) => {
     let ignore = false;
     setStatsLoading(true);
     setStatsError(null);
-    const id = id_user || localStorage.getItem("userId");
+    const id = id_user;
     if (!id) {
       setStatsError("No se encontró el usuario actual");
       setStatsLoading(false);

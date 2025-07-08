@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import cookieParser from "cookie-parser";
 
 import superadminRoutes from "./routes/superadmin.js";
 import loginRoutes from "./routes/login.js";
@@ -17,8 +18,14 @@ import dashboardsRoutes from "./routes/dashboards.js";
 dotenv.config();
 const app = express();
 
-app.use(cors());
+const corsOptions = {
+  origin: "http://localhost:5173",
+  credentials: true
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
+app.use(cookieParser());
 
 app.use("/api/superadmin", superadminRoutes);
 app.use("/api/auth", loginRoutes);

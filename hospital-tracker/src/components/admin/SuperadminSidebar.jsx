@@ -1,19 +1,6 @@
-"use client";
-
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import {
-  Building2,
-  ClipboardList,
-  Hospital,
-  LogOut,
-  Map,
-  User,
-  UserPlus,
-  Users,
-  UsersRound,
-  BarChart3,
-} from "lucide-react";
+import { Building2, ClipboardList, Hospital, LogOut, Map, User, UserPlus, Users, UsersRound, BarChart3 } from "lucide-react";
 
 export default function SuperadminSidebar({
   activeTab,
@@ -31,7 +18,7 @@ export default function SuperadminSidebar({
   setSidebarOpen,
 }) {
   const navigate = useNavigate();
-  const { setIsAuthenticated } = useAuth();
+  const { setIsAuthenticated, logout } = useAuth();
 
   // Tamaño de íconos dinámico
   const iconSize = "h-5 w-5"; // Tamaño fijo para evitar desalineación al expandir/comprimir
@@ -247,10 +234,8 @@ export default function SuperadminSidebar({
       {/* Cerrar sesión */}
       <div className="px-2 pb-4">
         <button
-          onClick={() => {
-            localStorage.removeItem("isAuthenticated");
-            localStorage.removeItem("userRole");
-            setIsAuthenticated(false);
+          onClick={async () => {
+            await logout();
             navigate("/");
           }}
           className={`flex items-center ${buttonPadding} ${buttonSpacing} hover:bg-red-700 text-red-100 transition-colors duration-200 w-full rounded-md`}

@@ -4,7 +4,7 @@ import { Users, Hospital, Layers, LogOut, BarChart3, Map } from "lucide-react";
 
 export default function HospitalAdminSidebar({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen }) {
   const navigate = useNavigate();
-  const { setIsAuthenticated } = useAuth();
+  const { logout } = useAuth();
 
   const options = [
      {
@@ -72,11 +72,8 @@ export default function HospitalAdminSidebar({ activeTab, setActiveTab, sidebarO
       {/* Cerrar sesión */}
       <div className="px-2 pb-4 mt-auto">
         <button
-          onClick={() => {
-            localStorage.removeItem("isAuthenticated");
-            localStorage.removeItem("userRole");
-            localStorage.removeItem("userId");
-            setIsAuthenticated(false);
+          onClick={async () => {
+            await logout();
             navigate("/");
           }}
           className="flex items-center py-3 px-4 hover:bg-red-600 text-red-100 transition-colors duration-200 w-full rounded-md"

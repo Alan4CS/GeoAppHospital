@@ -52,7 +52,7 @@ const GrupoList = ({ id_user }) => {
   useEffect(() => {
     if (fetchedStatsRef.current) return;
     fetchedStatsRef.current = true;
-    const id = id_user || localStorage.getItem("userId");
+    const id = id_user;
     if (!id) {
       setStatsError("No se encontró el usuario actual");
       setStatsLoading(false);

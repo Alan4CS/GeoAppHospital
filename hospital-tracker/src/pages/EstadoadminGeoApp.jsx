@@ -5,6 +5,7 @@ import GrupoList from "../components/estado/GrupoListEstado";
 import EmpleadoList from "../components/estado/EmpleadoListEstado";
 import EstatalDashboard from "../components/dashboard/estatal/EstatalDashboard";
 import MonitoreoMap from "../components/admin/MonitoreoMap";
+import { useAuth } from "../context/AuthContext";
 
 export default function EstadoAdminDashboard() {
   const [activeTab, setActiveTab] = useState("hospitales");
@@ -12,14 +13,14 @@ export default function EstadoAdminDashboard() {
   const [estadoNombre, setEstadoNombre] = useState("");
   const [hospitales, setHospitales] = useState([]);
   const [hospitalesLoading, setHospitalesLoading] = useState(true);
-  // Obtener el id_user desde localStorage (ajusta si lo tienes en contexto)
-  const id_user = localStorage.getItem("userId");
+  const { userId } = useAuth();
+  console.log("userId desde contexto:", userId);
 
   useEffect(() => {
     const fetchHospitalesYEstado = async () => {
       try {
         setHospitalesLoading(true);
-        const response = await fetch(`https://geoapphospital.onrender.com/api/estadoadmin/hospitals-by-user/${id_user}?source=hospitals`);
+        const response = await fetch(`https://geoapphospital.onrender.com/api/estadoadmin/hospitals-by-user/${userId}?source=hospitals`);
         const data = await response.json();
         setHospitales(data);
         // Si hay hospitales, toma el nombre_estado del primero
@@ -35,10 +36,10 @@ export default function EstadoAdminDashboard() {
         setHospitalesLoading(false);
       }
     };
-    if (id_user) {
+    if (userId) {
       fetchHospitalesYEstado();
     }
-  }, [id_user]);
+  }, [userId]);
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -81,13 +82,13 @@ export default function EstadoAdminDashboard() {
               loading={hospitalesLoading}
             />
           )}
-          {activeTab === "grupos" && <GrupoList id_user={id_user} />}
-          {activeTab === "empleados" && <EmpleadoList id_user={id_user} />}
+          {activeTab === "grupos" && <GrupoList id_user={userId} />}
+          {activeTab === "empleados" && <EmpleadoList id_user={userId} />}
           {activeTab === "monitoreo" && (
-            <MonitoreoMap modoEstadoAdmin={true} estadoId={id_user} />
+            <MonitoreoMap modoEstadoAdmin={true} estadoId={userId} />
           )}
           {activeTab === "monitoreomap" && (
-            <MonitoreoMap modoEstadoAdmin={true} estadoId={id_user} estadoNombre={estadoNombre} />
+            <MonitoreoMap modoEstadoAdmin={true} estadoId={userId} estadoNombre={estadoNombre} />
           )}
         </main>
       </div>

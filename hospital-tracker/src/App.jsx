@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { LocationProvider } from "./context/LocationContext";
-import ProtectedRoute from "./components/ProtectedRoute";
+import RoleProtectedRoute from "./components/RoleProtectedRoute";
 import ActivityLog from "./components/ActivityLog";
 import React, { Suspense, lazy } from "react";
 
@@ -11,18 +11,6 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const EstadoadminGeoApp = lazy(() => import("./pages/EstadoadminGeoApp"));
 const MunicipioadminGeoApp = lazy(() => import("./pages/MunicipioadminGeoApp"));
 const HospitaladminGeoApp = lazy(() => import("./pages/HospitaladminGeoApp"));
-
-// Solo para superadmin: ruta protegida con ActivityLog
-const ProtectedRouteWithActivityLog = ({ children }) => (
-  <ProtectedRoute>
-    <>
-      {children}
-      <ActivityLog />
-    </>
-  </ProtectedRoute>
-);
-// Para los demás: ruta protegida normal
-const ProtectedRouteOnly = ({ children }) => <ProtectedRoute>{children}</ProtectedRoute>;
 
 function App() {
   return (
@@ -35,33 +23,36 @@ function App() {
               <Route
                 path="/superadmin-geoapp"
                 element={
-                  <ProtectedRouteWithActivityLog>
-                    <SuperadminGeoApp />
-                  </ProtectedRouteWithActivityLog>
+                  <RoleProtectedRoute allowedRoles={["superadmin"]}>
+                    <>
+                      <SuperadminGeoApp />
+                      <ActivityLog />
+                    </>
+                  </RoleProtectedRoute>
                 }
               />
               <Route
                 path="/estadoadmin-geoapp"
                 element={
-                  <ProtectedRouteOnly>
+                  <RoleProtectedRoute allowedRoles={["estadoadmin"]}>
                     <EstadoadminGeoApp />
-                  </ProtectedRouteOnly>
+                  </RoleProtectedRoute>
                 }
               />
               <Route
                 path="/municipioadmin-geoapp"
                 element={
-                  <ProtectedRouteOnly>
+                  <RoleProtectedRoute allowedRoles={["municipioadmin"]}>
                     <MunicipioadminGeoApp />
-                  </ProtectedRouteOnly>
+                  </RoleProtectedRoute>
                 }
               />
               <Route
                 path="/hospitaladmin-geoapp"
                 element={
-                  <ProtectedRouteOnly>
+                  <RoleProtectedRoute allowedRoles={["hospitaladmin"]}>
                     <HospitaladminGeoApp />
-                  </ProtectedRouteOnly>
+                  </RoleProtectedRoute>
                 }
               />
               <Route path="/dashboard" element={<Dashboard />} />
