@@ -42,6 +42,32 @@ export function AuthProvider({ children }) {
       });
   }, []);
 
+  // Permite refrescar el estado de autenticación manualmente (por ejemplo, después de login)
+  const refreshAuth = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
+        credentials: "include",
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIsAuthenticated(true);
+        setUserRole(data.role);
+        setUserId(data.id_user);
+      } else {
+        setIsAuthenticated(false);
+        setUserRole(null);
+        setUserId(null);
+      }
+    } catch (error) {
+      setIsAuthenticated(false);
+      setUserRole(null);
+      setUserId(null);
+    }
+    setLoading(false);
+  };
+
   const logout = async () => {
     try {
       await fetch(`${API_BASE_URL}/api/auth/logout`, {
@@ -55,7 +81,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, setIsAuthenticated, userRole, setUserRole, userId, setUserId, loading, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, setIsAuthenticated, userRole, setUserRole, userId, setUserId, loading, logout, refreshAuth }}>
       {children}
     </AuthContext.Provider>
   );

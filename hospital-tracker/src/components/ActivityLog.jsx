@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useRef } from "react";
 import {
   X,
@@ -11,6 +9,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useLocation } from "../context/LocationContext";
+import { useAuth } from "../context/AuthContext";
 
 export default function ActivityLog() {
   const [isOpen, setIsOpen] = useState(false);
@@ -31,10 +30,10 @@ export default function ActivityLog() {
   const isInitialMount = useRef(true);
   const pollingInterval = useRef(null);
   const { updateLocation } = useLocation();
+  const { userId } = useAuth();
 
   // Obtener el ID del usuario actual
-  const currentUserId =
-    Number.parseInt(localStorage.getItem("userId"), 10) || 1;
+  const currentUserId = userId;
 
   // Función para generar iniciales del nombre
   const getInitials = (name) => {

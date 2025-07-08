@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext";
 import { LocationProvider } from "./context/LocationContext";
 import RoleProtectedRoute from "./components/RoleProtectedRoute";
 import ActivityLog from "./components/ActivityLog";
@@ -14,53 +13,51 @@ const HospitaladminGeoApp = lazy(() => import("./pages/HospitaladminGeoApp"));
 
 function App() {
   return (
-    <AuthProvider>
-      <LocationProvider>
-        <BrowserRouter>
-          <Suspense fallback={<div className="flex h-screen items-center justify-center text-lg">Cargando...</div>}>
-            <Routes>
-              <Route path="/" element={<Login />} />
-              <Route
-                path="/superadmin-geoapp"
-                element={
-                  <RoleProtectedRoute allowedRoles={["superadmin"]}>
-                    <>
-                      <SuperadminGeoApp />
-                      <ActivityLog />
-                    </>
-                  </RoleProtectedRoute>
-                }
-              />
-              <Route
-                path="/estadoadmin-geoapp"
-                element={
-                  <RoleProtectedRoute allowedRoles={["estadoadmin"]}>
-                    <EstadoadminGeoApp />
-                  </RoleProtectedRoute>
-                }
-              />
-              <Route
-                path="/municipioadmin-geoapp"
-                element={
-                  <RoleProtectedRoute allowedRoles={["municipioadmin"]}>
-                    <MunicipioadminGeoApp />
-                  </RoleProtectedRoute>
-                }
-              />
-              <Route
-                path="/hospitaladmin-geoapp"
-                element={
-                  <RoleProtectedRoute allowedRoles={["hospitaladmin"]}>
-                    <HospitaladminGeoApp />
-                  </RoleProtectedRoute>
-                }
-              />
-              <Route path="/dashboard" element={<Dashboard />} />
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
-      </LocationProvider>
-    </AuthProvider>
+    <LocationProvider>
+      <BrowserRouter>
+        <Suspense fallback={<div className="flex h-screen items-center justify-center text-lg">Cargando...</div>}>
+          <Routes>
+            <Route path="/" element={<Login />} />
+            <Route
+              path="/superadmin-geoapp"
+              element={
+                <RoleProtectedRoute allowedRoles={["superadmin"]}>
+                  <>
+                    <SuperadminGeoApp />
+                    <ActivityLog />
+                  </>
+                </RoleProtectedRoute>
+              }
+            />
+            <Route
+              path="/estadoadmin-geoapp"
+              element={
+                <RoleProtectedRoute allowedRoles={["estadoadmin"]}>
+                  <EstadoadminGeoApp />
+                </RoleProtectedRoute>
+              }
+            />
+            <Route
+              path="/municipioadmin-geoapp"
+              element={
+                <RoleProtectedRoute allowedRoles={["municipioadmin"]}>
+                  <MunicipioadminGeoApp />
+                </RoleProtectedRoute>
+              }
+            />
+            <Route
+              path="/hospitaladmin-geoapp"
+              element={
+                <RoleProtectedRoute allowedRoles={["hospitaladmin"]}>
+                  <HospitaladminGeoApp />
+                </RoleProtectedRoute>
+              }
+            />
+            <Route path="/dashboard" element={<Dashboard />} />
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    </LocationProvider>
   );
 }
 
