@@ -418,7 +418,7 @@ export default function EnhancedMunicipalDashboard() {
       }
       console.log(`🚀 Haciendo petición al endpoint con body:`, requestBody)
       
-      const response = await fetch("http://localhost:4000/api/dashboards/municipio", {
+      const response = await fetch("https://geoapphospital.onrender.com/api/dashboards/municipio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody)
