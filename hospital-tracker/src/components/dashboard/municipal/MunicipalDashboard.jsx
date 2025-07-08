@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { format } from "date-fns"
-import { Calendar, Building2, MapPin, Clock, Users, ArrowUpRight, TrendingUp, Plus, Minus } from "lucide-react"
+import { format, subDays, subMonths, subYears } from "date-fns"
+import { Calendar, Building2, MapPin, Clock, Users, ArrowUpRight, TrendingUp, Plus, Minus, Check } from "lucide-react"
 import {
   Area,
   LineChart,
@@ -22,306 +22,11 @@ import {
 import { MapContainer, TileLayer, CircleMarker, Popup, GeoJSON, useMap } from "react-leaflet"
 import "leaflet/dist/leaflet.css"
 import { feature } from "topojson-client"
+import { calcularEstadisticasEmpleado, calcularEstadisticasEmpleadoPorDias } from "../hospital/employeeStatsHelper"
 
 // URLs de los archivos GeoJSON
 const MUNICIPIOS_TOPOJSON = "/lib/mx_tj.json"
 const ESTADOS_GEOJSON = "/lib/mx.json"
-
-// Datos simulados de hospitales por municipio
-const hospitalData = {
-  "Benito Juárez": [
-    {
-      id: 1,
-      name: "Hospital General Cancún",
-      coords: [-86.845, 21.161],
-      employees: 45,
-      geofenceExits: 15,
-      hoursWorked: 360,
-      efficiency: 92,
-      department: "Urgencias",
-    },
-    {
-      id: 2,
-      name: "IMSS Zona 3",
-      coords: [-86.85, 21.155],
-      employees: 38,
-      geofenceExits: 8,
-      hoursWorked: 280,
-      efficiency: 88,
-      department: "Medicina General",
-    },
-    {
-      id: 3,
-      name: "Hospital Galenia",
-      coords: [-86.83, 21.14],
-      employees: 32,
-      geofenceExits: 5,
-      hoursWorked: 220,
-      efficiency: 95,
-      department: "Especialidades",
-    },
-    {
-      id: 4,
-      name: "Hospital Amerimed",
-      coords: [-86.84, 21.15],
-      employees: 28,
-      geofenceExits: 12,
-      hoursWorked: 200,
-      efficiency: 85,
-      department: "Cirugía",
-    },
-  ],
-  "Solidaridad": [
-    {
-      id: 5,
-      name: "Hospital General Playa del Carmen",
-      coords: [-87.073, 20.629],
-      employees: 42,
-      geofenceExits: 10,
-      hoursWorked: 320,
-      efficiency: 90,
-      department: "Urgencias",
-    },
-    {
-      id: 6,
-      name: "IMSS Playa del Carmen",
-      coords: [-87.07, 20.63],
-      employees: 25,
-      geofenceExits: 6,
-      hoursWorked: 180,
-      efficiency: 87,
-      department: "Medicina General",
-    },
-    {
-      id: 7,
-      name: "Hospital Riviera Maya",
-      coords: [-87.08, 20.62],
-      employees: 30,
-      geofenceExits: 8,
-      hoursWorked: 240,
-      efficiency: 93,
-      department: "Pediatría",
-    },
-  ],
-  "Othón P. Blanco": [
-    {
-      id: 8,
-      name: "Hospital General Chetumal",
-      coords: [-88.3, 18.5],
-      employees: 35,
-      geofenceExits: 7,
-      hoursWorked: 280,
-      efficiency: 89,
-      department: "Urgencias",
-    },
-    {
-      id: 9,
-      name: "IMSS Chetumal",
-      coords: [-88.295, 18.505],
-      employees: 22,
-      geofenceExits: 4,
-      hoursWorked: 160,
-      efficiency: 91,
-      department: "Medicina General",
-    },
-    {
-      id: 30,
-      name: "Hospital Naval Chetumal",
-      coords: [-88.31, 18.51],
-      employees: 28,
-      geofenceExits: 6,
-      hoursWorked: 220,
-      efficiency: 88,
-      department: "Especialidades",
-    },
-  ],
-  "Tulum": [
-    {
-      id: 10,
-      name: "Hospital Municipal Tulum",
-      coords: [-87.465, 20.211],
-      employees: 18,
-      geofenceExits: 3,
-      hoursWorked: 140,
-      efficiency: 86,
-      department: "Medicina General",
-    },
-    {
-      id: 31,
-      name: "Centro Médico Tulum",
-      coords: [-87.47, 20.21],
-      employees: 15,
-      geofenceExits: 4,
-      hoursWorked: 120,
-      efficiency: 89,
-      department: "Urgencias",
-    },
-  ],
-  "Cozumel": [
-    {
-      id: 11,
-      name: "Hospital General Cozumel",
-      coords: [-86.922, 20.508],
-      employees: 20,
-      geofenceExits: 5,
-      hoursWorked: 160,
-      efficiency: 88,
-      department: "Urgencias",
-    },
-    {
-      id: 32,
-      name: "IMSS Cozumel",
-      coords: [-86.95, 20.51],
-      employees: 25,
-      geofenceExits: 7,
-      hoursWorked: 200,
-      efficiency: 87,
-      department: "Medicina General",
-    },
-  ],
-  "Felipe Carrillo Puerto": [
-    {
-      id: 12,
-      name: "Hospital General Felipe Carrillo Puerto",
-      coords: [-88.045, 19.577],
-      employees: 30,
-      geofenceExits: 8,
-      hoursWorked: 240,
-      efficiency: 85,
-      department: "Urgencias",
-    },
-    {
-      id: 13,
-      name: "Centro de Salud FCP",
-      coords: [-88.05, 19.58],
-      employees: 15,
-      geofenceExits: 3,
-      hoursWorked: 120,
-      efficiency: 90,
-      department: "Medicina General",
-    },
-  ],
-  "José María Morelos": [
-    {
-      id: 14,
-      name: "Hospital Rural José María Morelos",
-      coords: [-88.707, 19.736],
-      employees: 20,
-      geofenceExits: 4,
-      hoursWorked: 160,
-      efficiency: 87,
-      department: "Medicina General",
-    },
-  ],
-  "Lázaro Cárdenas": [
-    {
-      id: 15,
-      name: "Hospital Kantunilkín",
-      coords: [-87.492, 21.127],
-      employees: 18,
-      geofenceExits: 5,
-      hoursWorked: 140,
-      efficiency: 86,
-      department: "Medicina General",
-    },
-    {
-      id: 16,
-      name: "Centro de Salud Holbox",
-      coords: [-87.286, 21.526],
-      employees: 12,
-      geofenceExits: 2,
-      hoursWorked: 100,
-      efficiency: 92,
-      department: "Urgencias",
-    },
-  ],
-  "Isla Mujeres": [
-    {
-      id: 17,
-      name: "Hospital Integral Isla Mujeres",
-      coords: [-86.745, 21.232],
-      employees: 25,
-      geofenceExits: 6,
-      hoursWorked: 200,
-      efficiency: 89,
-      department: "Urgencias",
-    },
-    {
-      id: 18,
-      name: "Centro de Salud Isla Mujeres",
-      coords: [-86.742, 21.235],
-      employees: 15,
-      geofenceExits: 3,
-      hoursWorked: 120,
-      efficiency: 91,
-      department: "Medicina General",
-    },
-  ],
-  "Bacalar": [
-    {
-      id: 19,
-      name: "Hospital General Bacalar",
-      coords: [-88.392, 18.678],
-      employees: 28,
-      geofenceExits: 7,
-      hoursWorked: 220,
-      efficiency: 88,
-      department: "Urgencias",
-    },
-    {
-      id: 20,
-      name: "Centro Médico Bacalar",
-      coords: [-88.39, 18.68],
-      employees: 20,
-      geofenceExits: 4,
-      hoursWorked: 160,
-      efficiency: 90,
-      department: "Medicina General",
-    },
-  ],
-  "Puerto Morelos": [
-    {
-      id: 21,
-      name: "Hospital Municipal Puerto Morelos",
-      coords: [-86.874, 20.853],
-      employees: 22,
-      geofenceExits: 5,
-      hoursWorked: 180,
-      efficiency: 87,
-      department: "Medicina General",
-    },
-    {
-      id: 22,
-      name: "Centro de Salud Puerto Morelos",
-      coords: [-86.875, 20.855],
-      employees: 15,
-      geofenceExits: 3,
-      hoursWorked: 120,
-      efficiency: 89,
-      department: "Urgencias",
-    },
-  ],
-}
-
-// Datos de tendencias mensuales simuladas
-const monthlyTrends = [
-  { month: "Ene", geofenceExits: 45, hoursWorked: 1200, efficiency: 88 },
-  { month: "Feb", geofenceExits: 52, hoursWorked: 1350, efficiency: 90 },
-  { month: "Mar", geofenceExits: 38, hoursWorked: 1180, efficiency: 92 },
-  { month: "Abr", geofenceExits: 41, hoursWorked: 1280, efficiency: 89 },
-  { month: "May", geofenceExits: 48, hoursWorked: 1420, efficiency: 91 },
-  { month: "Jun", geofenceExits: 35, hoursWorked: 1100, efficiency: 94 },
-]
-
-// Datos de tendencias por hospital
-const hospitalTrends = [
-  { month: "Ene", "Hospital General": 320, "IMSS": 280, "Centro Médico": 240, "Hospital Municipal": 200 },
-  { month: "Feb", "Hospital General": 340, "IMSS": 300, "Centro Médico": 260, "Hospital Municipal": 220 },
-  { month: "Mar", "Hospital General": 310, "IMSS": 270, "Centro Médico": 230, "Hospital Municipal": 190 },
-  { month: "Abr", "Hospital General": 350, "IMSS": 290, "Centro Médico": 250, "Hospital Municipal": 210 },
-  { month: "May", "Hospital General": 330, "IMSS": 310, "Centro Médico": 270, "Hospital Municipal": 230 },
-  { month: "Jun", "Hospital General": 360, "IMSS": 320, "Centro Médico": 280, "Hospital Municipal": 240 },
-]
 
 // Estilos personalizados para scrollbar
 const customScrollbarStyles = `
@@ -465,28 +170,32 @@ const MapTooltip = ({ x, y, hospital }) => {
       }}
     >
       <h4 className="font-bold text-gray-800 mb-2 border-b pb-1 text-sm">{hospital.name}</h4>
-      <div className="space-y-1 text-xs">
-        <div className="flex justify-between items-center">
-          <span className="text-gray-600">Empleados:</span>
-          <span className="font-medium text-blue-600">{hospital.employees}</span>
+        <div className="space-y-1 text-xs">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Empleados:</span>
+            <span className="font-medium text-blue-600">{hospital.employees}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Salidas:</span>
+            <span className="font-medium text-red-600">{hospital.geofenceExits}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Horas Trabajadas:</span>
+            <span className="font-medium text-emerald-600">{hospital.hoursWorked}h</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Horas Fuera:</span>
+            <span className="font-medium text-orange-600">{hospital.hoursOutside}h</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Eficiencia:</span>
+            <span className="font-medium text-purple-600">{hospital.efficiency}%</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Grupo:</span>
+            <span className="font-medium text-indigo-600">{hospital.department}</span>
+          </div>
         </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-600">Salidas:</span>
-          <span className="font-medium text-red-600">{hospital.geofenceExits}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-600">Horas:</span>
-          <span className="font-medium text-emerald-600">{hospital.hoursWorked}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-600">Eficiencia:</span>
-          <span className="font-medium text-purple-600">{hospital.efficiency}%</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-600">Departamento:</span>
-          <span className="font-medium text-indigo-600">{hospital.department}</span>
-        </div>
-      </div>
     </div>
   )
 }
@@ -495,13 +204,17 @@ export default function EnhancedMunicipalDashboard() {
   const [estadosGeo, setEstadosGeo] = useState(null)
   const [municipiosTopo, setMunicipiosTopo] = useState(null)
   const [municipiosGeo, setMunicipiosGeo] = useState(null)
-  const [selectedEstado, setSelectedEstado] = useState("Quintana Roo")
-  const [selectedMunicipio, setSelectedMunicipio] = useState("Benito Juárez")
   const [isLoading, setIsLoading] = useState(true)
   const [dateRange, setDateRange] = useState({
     startDate: format(new Date(new Date().setDate(new Date().getDate() - 30)), "yyyy-MM-dd"),
     endDate: format(new Date(), "yyyy-MM-dd"),
   })
+  const [tempDateRange, setTempDateRange] = useState({
+    startDate: format(new Date(new Date().setDate(new Date().getDate() - 30)), "yyyy-MM-dd"),
+    endDate: format(new Date(), "yyyy-MM-dd"),
+  })
+  const [selectedPreset, setSelectedPreset] = useState("30d")
+  const [hasChanges, setHasChanges] = useState(false)
   const [hoveredHospital, setHoveredHospital] = useState(null)
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
   const [mapPosition, setMapPosition] = useState({
@@ -509,6 +222,149 @@ export default function EnhancedMunicipalDashboard() {
     zoom: 10,
   })
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+  // Estados para datos reales del API
+  const [apiData, setApiData] = useState(null)
+  const [isLoadingData, setIsLoadingData] = useState(false)
+
+  // Estados para datos del backend (como en HospitalDashboard)
+  const [estados, setEstados] = useState([])
+  const [municipios, setMunicipios] = useState([])
+  const [filters, setFilters] = useState({
+    id_estado: "",
+    id_municipio: "",
+    nombre_estado: "",
+    nombre_municipio: "",
+  })
+
+  // Cargar estados desde el backend
+  useEffect(() => {
+    const fetchEstados = async () => {
+      try {
+        const response = await fetch("https://geoapphospital.onrender.com/api/superadmin/estados")
+        if (response.ok) {
+          const data = await response.json()
+          setEstados(data)
+          console.log("✅ Estados cargados desde el backend:", data)
+        } else {
+          console.error("❌ Error al cargar estados:", response.status)
+        }
+      } catch (error) {
+        console.error("❌ Error al cargar estados:", error)
+      }
+    }
+    fetchEstados()
+  }, [])
+
+  // Cargar municipios cuando cambia el estado seleccionado
+  useEffect(() => {
+    const fetchMunicipios = async () => {
+      if (filters.id_estado) {
+        try {
+          const response = await fetch(`https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${filters.id_estado}`)
+          if (response.ok) {
+            const data = await response.json()
+            setMunicipios(data)
+            console.log("✅ Municipios cargados desde el backend:", data)
+          } else {
+            console.error("❌ Error al cargar municipios:", response.status)
+          }
+        } catch (error) {
+          console.error("❌ Error al cargar municipios:", error)
+        }
+      } else {
+        setMunicipios([])
+      }
+    }
+    fetchMunicipios()
+  }, [filters.id_estado])
+
+  // Presets de fechas para filtro rápido
+  const datePresets = [
+    { label: "Últimos 7 días", value: "7d", days: 7 },
+    { label: "Últimos 15 días", value: "15d", days: 15 },
+    { label: "Últimos 30 días", value: "30d", days: 30 },
+    { label: "Últimos 60 días", value: "60d", days: 60 },
+    { label: "Últimos 90 días", value: "90d", days: 90 },
+    { label: "Último trimestre", value: "3m", months: 3 },
+    { label: "Últimos 6 meses", value: "6m", months: 6 },
+    { label: "Último año", value: "1y", years: 1 },
+    { label: "Personalizado", value: "custom" },
+  ]
+
+  // Función para manejar cambio de preset de fecha
+  const handlePresetChange = (preset) => {
+    setSelectedPreset(preset)
+    const today = new Date()
+
+    if (preset === "custom") {
+      return
+    }
+
+    const presetConfig = datePresets.find((p) => p.value === preset)
+    if (!presetConfig) return
+
+    let newStartDate
+    if (presetConfig.days) {
+      newStartDate = subDays(today, presetConfig.days)
+    } else if (presetConfig.months) {
+      newStartDate = subMonths(today, presetConfig.months)
+    } else if (presetConfig.years) {
+      newStartDate = subYears(today, presetConfig.years)
+    } else {
+      return
+    }
+
+    setTempDateRange({
+      startDate: format(newStartDate, "yyyy-MM-dd"),
+      endDate: format(today, "yyyy-MM-dd"),
+    })
+    setHasChanges(true)
+  }
+
+  // Función para manejar cambio de fecha manual
+  const handleDateChange = (field, value) => {
+    setTempDateRange((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
+    setSelectedPreset("custom")
+    setHasChanges(true)
+  }
+
+  // Función para aplicar cambios de fecha
+  const applyChanges = () => {
+    setDateRange(tempDateRange)
+    setHasChanges(false)
+  }
+
+  // Función para limpiar filtros
+  const clearFilters = () => {
+    setFilters({
+      id_estado: "",
+      id_municipio: "",
+      nombre_estado: "",
+      nombre_municipio: "",
+    })
+    setMunicipios([])
+    setApiData(null)
+    setSelectedPreset("30d")
+    const today = new Date()
+    const defaultStartDate = subDays(today, 30)
+    const defaultDateRange = {
+      startDate: format(defaultStartDate, "yyyy-MM-dd"),
+      endDate: format(today, "yyyy-MM-dd"),
+    }
+    setDateRange(defaultDateRange)
+    setTempDateRange(defaultDateRange)
+    setHasChanges(false)
+  }
+
+  // Función para resetear cambios
+  const resetToOriginal = () => {
+    setTempDateRange(dateRange)
+    setHasChanges(false)
+    setSelectedPreset("")
+  }
 
   // Cargar datos GeoJSON y TopoJSON
   useEffect(() => {
@@ -543,54 +399,137 @@ export default function EnhancedMunicipalDashboard() {
     fetchGeos()
   }, [])
 
-  // Lista de estados disponibles usando el mapeo
-  const estadosList = useMemo(() => {
-    if (!municipiosGeo) return []
-    const codes = [...new Set(municipiosGeo.features.map((f) => f.properties.state_code))]
-    const estadosMapped = codes
-      .map((code) => stateCodeToName[stateCodeMapping[String(code).padStart(2, "0")]])
-      .filter(Boolean)
-      .sort()
-    console.log("Estados disponibles en municipiosGeo:", estadosMapped)
-    return estadosMapped
-  }, [municipiosGeo])
-
-  // selectedEstado por defecto dinámico
-  useEffect(() => {
-    if (estadosList.length && !selectedEstado) {
-      setSelectedEstado(estadosList[0])
+  // Función para obtener datos reales del endpoint
+  const fetchMunicipalData = async (id_municipio, startDate, endDate) => {
+    console.log(`🔄 Iniciando fetchMunicipalData para municipio ID: ${id_municipio} (${startDate} a ${endDate})`)
+    setIsLoadingData(true)
+    try {
+      if (!id_municipio) {
+        console.log(`⚠️ No se proporcionó id_municipio, retornando datos vacíos`)
+        setApiData({ empleados: [], hospitales: [] })
+        setIsLoadingData(false)
+        return
+      }
+      
+      const requestBody = {
+        id_municipio,
+        fechaInicio: `${startDate} 00:00:00`,
+        fechaFin: `${endDate} 23:59:59`
+      }
+      console.log(`🚀 Haciendo petición al endpoint con body:`, requestBody)
+      
+      const response = await fetch("http://localhost:4000/api/dashboards/municipio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody)
+      })
+      
+      console.log(`📡 Respuesta del servidor: ${response.status} ${response.statusText}`)
+      
+      if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      console.log(`✅ Datos recibidos:`, data)
+      setApiData(data)
+    } catch (error) {
+      console.error("❌ Error fetching municipal data:", error)
+      setApiData(null)
+    } finally {
+      setIsLoadingData(false)
     }
-  }, [estadosList, selectedEstado])
+  }
 
-  // Lista de municipios del estado seleccionado usando el mapeo
-  const municipiosList = useMemo(() => {
-    if (!municipiosGeo || !selectedEstado) return []
-    // Encontrar el código de letras del estado seleccionado
-    const codeLetter = Object.entries(stateCodeToName).find(([, name]) => name === selectedEstado)?.[0]
-    // Encontrar el código numérico
-    const codeNum = Object.entries(stateCodeMapping).find(([, v]) => v === codeLetter)?.[0]
-    const municipios = municipiosGeo.features
-      .filter((f) => String(f.properties.state_code).padStart(2, "0") === codeNum)
-      .map((f) => f.properties.mun_name)
-      .sort()
-    console.log(`Municipios para estado '${selectedEstado}':`, municipios)
-    return municipios
-  }, [municipiosGeo, selectedEstado])
+  // Efecto para cargar datos cuando cambian los filtros
+  useEffect(() => {
+    console.log(`🔄 useEffect activado: id_estado=${filters.id_estado}, id_municipio=${filters.id_municipio}, fechas=${dateRange.startDate} - ${dateRange.endDate}`)
+    if (filters.id_municipio) {
+      console.log(`✅ Condiciones cumplidas, llamando fetchMunicipalData`)
+      fetchMunicipalData(filters.id_municipio, dateRange.startDate, dateRange.endDate)
+    } else {
+      console.log(`⚠️ Condiciones no cumplidas: id_municipio=${filters.id_municipio}`)
+    }
+  }, [filters.id_municipio, dateRange.startDate, dateRange.endDate])
 
-  // Hospitales del municipio seleccionado
-  const hospitals = hospitalData[selectedMunicipio] || []
+  // selectedEstado por defecto dinámico - ELIMINADO para requerir selección manual
+
+  // Lista de municipios del estado seleccionado usando el mapeo - ELIMINADO, ahora usamos backend
+
+  // Hospitales del municipio seleccionado (datos reales)
+  const hospitals = useMemo(() => {
+    if (!apiData || !apiData.hospitales) return []
+    
+    // Filtrar hospitales por municipio y estado seleccionado
+    return apiData.hospitales.filter(hospital => 
+      hospital.nombre_municipio === filters.nombre_municipio && 
+      hospital.nombre_estado === filters.nombre_estado
+    ).map(hospital => {
+      // Calcular estadísticas para cada hospital basado en empleados
+      const empleadosHospital = apiData.empleados.filter(emp => 
+        emp.empleado.id_hospital === hospital.id_hospital
+      )
+      
+      let totalHorasT = 0
+      let totalSalidas = 0
+      let totalHorasFuera = 0
+      
+      empleadosHospital.forEach(emp => {
+        const stats = calcularEstadisticasEmpleadoPorDias(emp.registros)
+        totalHorasT += stats.workedHours
+        totalHorasFuera += stats.outsideHours
+        
+        // Para salidas, usar la función original que sí las calcula
+        const statsConSalidas = calcularEstadisticasEmpleado(emp.registros)
+        totalSalidas += statsConSalidas.totalExits || 0
+      })
+      
+      return {
+        id: hospital.id_hospital,
+        name: hospital.nombre_hospital,
+        coords: [hospital.longitud, hospital.latitud],
+        employees: empleadosHospital.length,
+        geofenceExits: totalSalidas,
+        hoursWorked: Math.round(totalHorasT),
+        hoursOutside: Math.round(totalHorasFuera),
+        efficiency: empleadosHospital.length > 0 ? Math.round((totalHorasT / (totalHorasT + totalHorasFuera)) * 100) || 0 : 0,
+        department: empleadosHospital.length > 0 ? empleadosHospital[0].empleado.grupo || "Sin grupo" : "Sin empleados",
+        direccion: hospital.direccion
+      }
+    })
+  }, [apiData, filters.nombre_municipio, filters.nombre_estado])
 
   // Datos agregados del municipio
   const municipalStats = useMemo(() => {
+    // Empleados activos (con registros/actividad)
+    const activeEmployees = hospitals.reduce((sum, h) => sum + h.employees, 0)
+    
+    // Total de empleados en el municipio (activos + inactivos)
+    const hospitalesDelMunicipio = apiData?.hospitales ? 
+      apiData.hospitales.filter(hospital => 
+        hospital.nombre_municipio === filters.nombre_municipio && 
+        hospital.nombre_estado === filters.nombre_estado
+      ) : []
+    
+    console.log("🔍 Hospitales del municipio para calcular total:", hospitalesDelMunicipio)
+    console.log("🔍 Primer hospital ejemplo:", hospitalesDelMunicipio[0])
+    
+    const totalEmployeesInMunicipality = hospitalesDelMunicipio
+      .reduce((sum, hospital) => {
+        console.log(`Hospital: ${hospital.nombre_hospital}, total_empleados: ${hospital.total_empleados}`)
+        return sum + (hospital.total_empleados || 0)
+      }, 0)
+    
     return {
       totalHospitals: hospitals.length,
-      totalEmployees: hospitals.reduce((sum, h) => sum + h.employees, 0),
+      activeEmployees: activeEmployees, // Empleados con actividad
+      totalEmployees: totalEmployeesInMunicipality, // Total de empleados en el municipio
       totalGeofenceExits: hospitals.reduce((sum, h) => sum + h.geofenceExits, 0),
       totalHoursWorked: hospitals.reduce((sum, h) => sum + h.hoursWorked, 0),
       averageEfficiency:
         hospitals.length > 0 ? Math.round(hospitals.reduce((sum, h) => sum + h.efficiency, 0) / hospitals.length) : 0,
     }
-  }, [hospitals])
+  }, [hospitals, apiData, filters.nombre_municipio, filters.nombre_estado])
 
   // Datos para gráfico de distribución por departamento
   const departmentData = useMemo(() => {
@@ -613,34 +552,146 @@ export default function EnhancedMunicipalDashboard() {
     return Object.values(deptMap)
   }, [hospitals])
 
+  // Datos de tendencias por hospital (basado en datos reales y período seleccionado)
+  const hospitalTrends = useMemo(() => {
+    if (!apiData || !hospitals.length) return []
+    
+    // Generar períodos basados en el rango de fechas seleccionado
+    const startDate = new Date(dateRange.startDate)
+    const endDate = new Date(dateRange.endDate)
+    const diffDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24))
+    
+    let periods = []
+    
+    if (diffDays <= 30) {
+      // Para períodos de 30 días o menos, mostrar por semanas
+      const currentDate = new Date(startDate)
+      let weekNum = 1
+      while (currentDate <= endDate) {
+        const weekStart = new Date(currentDate)
+        const weekEnd = new Date(currentDate)
+        weekEnd.setDate(weekEnd.getDate() + 6)
+        if (weekEnd > endDate) weekEnd.setTime(endDate.getTime())
+        
+        const formatStart = weekStart.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })
+        const formatEnd = weekEnd.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })
+        
+        periods.push({
+          label: `${formatStart} - ${formatEnd}`,
+          start: weekStart,
+          end: weekEnd
+        })
+        
+        currentDate.setDate(currentDate.getDate() + 7)
+        weekNum++
+      }
+    } else if (diffDays <= 90) {
+      // Para períodos de 30-90 días, mostrar por meses
+      const currentDate = new Date(startDate)
+      currentDate.setDate(1) // Primer día del mes
+      
+      while (currentDate <= endDate) {
+        const monthStart = new Date(currentDate)
+        const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
+        if (monthEnd > endDate) monthEnd.setTime(endDate.getTime())
+        
+        const monthLabel = monthStart.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' })
+        
+        periods.push({
+          label: monthLabel,
+          start: monthStart,
+          end: monthEnd
+        })
+        
+        currentDate.setMonth(currentDate.getMonth() + 1)
+      }
+    } else {
+      // Para períodos mayores a 90 días, mostrar por trimestres
+      const currentDate = new Date(startDate)
+      let quarter = 1
+      
+      while (currentDate <= endDate) {
+        const quarterStart = new Date(currentDate)
+        const quarterEnd = new Date(currentDate)
+        quarterEnd.setMonth(quarterEnd.getMonth() + 3)
+        quarterEnd.setDate(quarterEnd.getDate() - 1)
+        if (quarterEnd > endDate) quarterEnd.setTime(endDate.getTime())
+        
+        const formatStart = quarterStart.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' })
+        const formatEnd = quarterEnd.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' })
+        
+        periods.push({
+          label: `${formatStart} - ${formatEnd}`,
+          start: quarterStart,
+          end: quarterEnd
+        })
+        
+        currentDate.setMonth(currentDate.getMonth() + 3)
+        quarter++
+      }
+    }
+    
+    // Generar datos para cada período
+    return periods.map(period => {
+      const trend = { period: period.label }
+      
+      hospitals.forEach(hospital => {
+        // Filtrar empleados de este hospital en este período
+        const empleadosHospital = apiData.empleados.filter(emp => 
+          emp.empleado.id_hospital === hospital.id
+        )
+        
+        let totalHorasPeriodo = 0
+        empleadosHospital.forEach(emp => {
+          // Filtrar registros del empleado en este período
+          const registrosPeriodo = emp.registros.filter(registro => {
+            const fechaRegistro = new Date(registro.fecha_hora)
+            return fechaRegistro >= period.start && fechaRegistro <= period.end
+          })
+          
+          if (registrosPeriodo.length > 0) {
+            const stats = calcularEstadisticasEmpleadoPorDias(registrosPeriodo)
+            totalHorasPeriodo += stats.workedHours
+          }
+        })
+        
+        // Usar nombre corto del hospital para la leyenda
+        const hospitalKey = hospital.name.split(' ')[0] + (hospital.name.split(' ')[1] ? ' ' + hospital.name.split(' ')[1] : '')
+        trend[hospitalKey] = Math.round(totalHorasPeriodo)
+      })
+      
+      return trend
+    })
+  }, [apiData, hospitals, dateRange.startDate, dateRange.endDate])
+
   // Colores para gráficos
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"]
 
   // GeoJSON filtrado del estado seleccionado
   const filteredEstadoGeo = useMemo(() => {
-    if (!municipiosGeo || !selectedEstado) return null;
+    if (!municipiosGeo || !filters.nombre_estado) return null;
     return {
       type: "FeatureCollection",
-      features: municipiosGeo.features.filter(f => f.properties.state_name === selectedEstado)
+      features: municipiosGeo.features.filter(f => f.properties.state_name === filters.nombre_estado)
     };
-  }, [municipiosGeo, selectedEstado]);
+  }, [municipiosGeo, filters.nombre_estado]);
 
   // GeoJSON del municipio seleccionado para resaltar
   const selectedMunicipioGeo = useMemo(() => {
-    if (!municipiosGeo || !selectedEstado || !selectedMunicipio) return null;
+    if (!municipiosGeo || !filters.nombre_estado || !filters.nombre_municipio) return null;
     // Encontrar el código de letras del estado seleccionado
-    const codeLetter = Object.entries(stateCodeToName).find(([, name]) => name === selectedEstado)?.[0];
+    const codeLetter = Object.entries(stateCodeToName).find(([, name]) => name === filters.nombre_estado)?.[0];
     // Encontrar el código numérico
     const codeNum = Object.entries(stateCodeMapping).find(([, v]) => v === codeLetter)?.[0];
     const municipioFeature = municipiosGeo.features.find(
-      (f) => String(f.properties.state_code).padStart(2, "0") === codeNum && f.properties.mun_name === selectedMunicipio
+      (f) => String(f.properties.state_code).padStart(2, "0") === codeNum && f.properties.mun_name === filters.nombre_municipio
     );
     if (!municipioFeature) return null;
     return {
       type: "FeatureCollection",
       features: [municipioFeature],
     };
-  }, [municipiosGeo, selectedEstado, selectedMunicipio]);
+  }, [municipiosGeo, filters.nombre_estado, filters.nombre_municipio]);
 
   // Estilo destacado para el municipio seleccionado
   const municipioSelectedStyle = {
@@ -653,7 +704,7 @@ export default function EnhancedMunicipalDashboard() {
 
   // Actualizar posición del mapa cuando cambia el municipio
   useEffect(() => {
-    if (selectedMunicipio && hospitals.length > 0) {
+    if (filters.nombre_municipio && hospitals.length > 0) {
       const avgLat = hospitals.reduce((sum, h) => sum + h.coords[1], 0) / hospitals.length
       const avgLon = hospitals.reduce((sum, h) => sum + h.coords[0], 0) / hospitals.length
       setMapPosition({
@@ -661,35 +712,9 @@ export default function EnhancedMunicipalDashboard() {
         zoom: 11,
       })
     }
-  }, [selectedMunicipio, hospitals])
+  }, [filters.nombre_municipio, hospitals])
 
-  // Datos agregados del municipio (por municipio, para visualizaciones tipo estatal)
-  const municipalityData = useMemo(() => {
-    if (!municipiosGeo || !selectedEstado) return []
-    // Filtrar municipios del estado seleccionado
-    const municipios = municipiosGeo.features.filter(f => f.properties.state_name === selectedEstado)
-    return municipios.map(f => {
-      const munName = f.properties.mun_name
-      const hospitalsArr = hospitalData[munName] || []
-      return {
-        municipality: munName,
-        geofenceExits: hospitalsArr.reduce((sum, h) => sum + h.geofenceExits, 0),
-        hoursWorked: hospitalsArr.reduce((sum, h) => sum + h.hoursWorked, 0),
-        hospitals: hospitalsArr.length,
-        employees: hospitalsArr.reduce((sum, h) => sum + h.employees, 0),
-        id: munName.replace(/\s+/g, '_'),
-      }
-    })
-  }, [municipiosGeo, selectedEstado, hospitalData])
-
-  // Sincronizar municipio seleccionado con el estado
-  useEffect(() => {
-    if (!municipiosList.length) return;
-    // Si el municipio seleccionado no está en la lista, seleccionar el primero
-    if (!municipiosList.includes(selectedMunicipio)) {
-      setSelectedMunicipio(municipiosList[0]);
-    }
-  }, [selectedEstado, municipiosList]);
+  // Sincronizar municipio seleccionado con el estado - ELIMINADO para requerir selección manual
 
   return (
     <>
@@ -698,89 +723,149 @@ export default function EnhancedMunicipalDashboard() {
       </style>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         {/* Header con Filtros */}
-        <div className="max-w-7xl mx-auto pt-8 px-6">
-          {/* Panel principal de filtros */}
-          <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/30 mb-8">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center mr-4">
-                  <MapPin className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-800">Filtros de Análisis</h2>
-                  <p className="text-sm text-gray-600 mt-1">Selecciona la ubicación y el período de tiempo a analizar</p>
-                </div>
+        <div className="max-w-7xl mx-auto pt-8 px-6">        {/* Filtros de Análisis */}
+        <div className="bg-white rounded-2xl shadow-md p-8 border border-gray-200 mb-8">
+          <div className="flex flex-col gap-6">
+            {/* Período y fechas */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-end">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                  <Calendar className="w-4 h-4 text-emerald-500" /> 
+                  Período
+                </label>
+                <select
+                  value={selectedPreset}
+                  onChange={(e) => handlePresetChange(e.target.value)}
+                  className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="">Selección rápida</option>
+                  {datePresets.map((preset) => (
+                    <option key={preset.value} value={preset.value}>
+                      {preset.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                  <Calendar className="w-4 h-4 text-blue-500" /> 
+                  Fecha inicio
+                </label>
+                <input
+                  type="date"
+                  value={tempDateRange.startDate}
+                  onChange={(e) => handleDateChange('startDate', e.target.value)}
+                  className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                  <Calendar className="w-4 h-4 text-blue-500" /> 
+                  Fecha fin
+                </label>
+                <input
+                  type="date"
+                  value={tempDateRange.endDate}
+                  onChange={(e) => handleDateChange('endDate', e.target.value)}
+                  className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
             </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Selector de Estado */}
+            {/* Estado-Municipio-Aplicar cambios */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-end mt-4">
               <div>
-                <label className="block text-base text-gray-700 font-semibold mb-2">
-                  Estado: <span className="text-emerald-600">{selectedEstado}</span>
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                  <MapPin className="w-4 h-4 text-indigo-500" /> 
+                  Estado
                 </label>
                 <select
-                  value={selectedEstado}
+                  value={filters.id_estado}
                   onChange={(e) => {
-                    setSelectedEstado(e.target.value)
-                    setSelectedMunicipio("")
+                    const selectedEstado = estados.find(estado => estado.id_estado === parseInt(e.target.value))
+                    setFilters({
+                      ...filters,
+                      id_estado: e.target.value,
+                      nombre_estado: selectedEstado ? selectedEstado.nombre_estado : "",
+                      id_municipio: "",
+                      nombre_municipio: "",
+                    })
                   }}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-base focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow-sm bg-white hover:bg-gray-50"
+                  className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  {estadosList.map((estado) => (
-                    <option key={estado} value={estado}>
-                      {estado}
+                  <option value="">Seleccionar Estado</option>
+                  {estados.map((estado) => (
+                    <option key={estado.id_estado} value={estado.id_estado}>
+                      {estado.nombre_estado}
                     </option>
                   ))}
                 </select>
               </div>
-
-              {/* Selector de Municipio */}
               <div>
-                <label className="block text-base text-gray-700 font-semibold mb-2">
-                  Municipio: <span className="text-emerald-600">{selectedMunicipio}</span>
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                  <MapPin className="w-4 h-4 text-purple-500" /> 
+                  Municipio
                 </label>
                 <select
-                  value={selectedMunicipio}
-                  onChange={(e) => setSelectedMunicipio(e.target.value)}
-                  disabled={!selectedEstado}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-base focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow-sm bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  value={filters.id_municipio}
+                  onChange={(e) => {
+                    const selectedMunicipio = municipios.find(municipio => municipio.id_municipio === parseInt(e.target.value))
+                    setFilters({
+                      ...filters,
+                      id_municipio: e.target.value,
+                      nombre_municipio: selectedMunicipio ? selectedMunicipio.nombre_municipio : "",
+                    })
+                  }}
+                  disabled={!filters.id_estado}
+                  className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  <option value="">Seleccionar municipio</option>
-                  {municipiosList.map((municipio) => (
-                    <option key={municipio} value={municipio}>
-                      {municipio}
+                  <option value="">Seleccionar Municipio</option>
+                  {municipios.map((municipio) => (
+                    <option key={municipio.id_municipio} value={municipio.id_municipio}>
+                      {municipio.nombre_municipio}
                     </option>
                   ))}
                 </select>
               </div>
-
-              {/* Selector de Fechas */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-base text-gray-700 font-semibold mb-2">Desde</label>
-                  <input
-                    type="date"
-                    value={dateRange.startDate}
-                    onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-base focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow-sm bg-white hover:bg-gray-50"
-                  />
-                </div>
-                <div>
-                  <label className="block text-base text-gray-700 font-semibold mb-2">Hasta</label>
-                  <input
-                    type="date"
-                    value={dateRange.endDate}
-                    onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-base focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow-sm bg-white hover:bg-gray-50"
-                  />
-                </div>
+              <div>
+                {hasChanges && (
+                  <button
+                    onClick={applyChanges}
+                    className="w-full h-10 px-4 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-sm font-medium flex items-center justify-center gap-2"
+                  >
+                    <Check className="w-4 h-4" />
+                    Aplicar cambios
+                  </button>
+                )}
+              </div>
+              <div>
+                <button
+                  onClick={clearFilters}
+                  className="w-full h-10 px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm"
+                >
+                  Limpiar filtros
+                </button>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        {/* Mensaje informativo cuando no se han seleccionado filtros */}
+        {!filters.id_estado || !filters.id_municipio ? (
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 mb-8">
+              <div className="flex items-center justify-center space-x-3">
+                <MapPin className="h-8 w-8 text-blue-500" />
+                <div>
+                  <h3 className="text-lg font-semibold text-blue-800">Selecciona Estado y Municipio</h3>
+                  <p className="text-blue-600 mt-1">
+                    Para visualizar los datos del dashboard, primero selecciona un estado y un municipio en los filtros de arriba.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* KPI Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             {/* Hospitales Card */}
             <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg p-4 text-white">
               <div className="flex items-center justify-between mb-2">
@@ -798,7 +883,10 @@ export default function EnhancedMunicipalDashboard() {
                 <TrendingUp className="h-4 w-4 text-blue-200" />
               </div>
               <h3 className="text-sm font-medium text-blue-100 mb-1">Empleados</h3>
-              <p className="text-2xl font-bold">{municipalStats.totalEmployees.toLocaleString()}</p>
+              <p className="text-2xl font-bold">{municipalStats.activeEmployees.toLocaleString()}</p>
+              <p className="text-xs text-blue-100 mt-1">
+                {municipalStats.activeEmployees} activos de {municipalStats.totalEmployees} empleados
+              </p>
             </div>
 
             {/* Salidas Card */}
@@ -838,7 +926,7 @@ export default function EnhancedMunicipalDashboard() {
             <div className="bg-white rounded-xl shadow-md p-6">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-xl font-bold text-gray-800">Mapa de {selectedMunicipio || "Municipio"}</h3>
+                  <h3 className="text-xl font-bold text-gray-800">Mapa de {filters.nombre_municipio || "Municipio"}</h3>
                   <p className="text-sm text-gray-500 mt-1">Ubicación de hospitales y distribución geográfica</p>
                 </div>
                 <div className="text-sm text-gray-600">{hospitals.length} hospitales registrados</div>
@@ -892,7 +980,7 @@ export default function EnhancedMunicipalDashboard() {
                   {/* Capa de municipios del estado */}
                   {filteredEstadoGeo && (
                     <GeoJSON
-                      key={selectedMunicipio}
+                      key={filters.nombre_municipio}
                       data={filteredEstadoGeo}
                       style={municipioDefaultStyle}
                     />
@@ -900,7 +988,7 @@ export default function EnhancedMunicipalDashboard() {
                   {/* Capa resaltada del municipio seleccionado */}
                   {selectedMunicipioGeo && (
                     <GeoJSON
-                      key={selectedMunicipio + "-highlight"}
+                      key={filters.nombre_municipio + "-highlight"}
                       data={selectedMunicipioGeo}
                       style={municipioSelectedStyle}
                     />
@@ -957,34 +1045,39 @@ export default function EnhancedMunicipalDashboard() {
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h3 className="text-lg font-bold text-gray-800">Métricas por Hospital</h3>
-                    <p className="text-sm text-gray-500">Comparación de horas y personal en {selectedMunicipio}</p>
+                    <p className="text-sm text-gray-500">Comparación de horas y personal en {filters.nombre_municipio}</p>
                   </div>
                 </div>
-                <div className="h-[350px]">
+              <div className="h-[350px]">
+                {isLoadingData ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-gray-500">Cargando datos...</div>
+                  </div>
+                ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={hospitals.map(hospital => ({
-                        name: hospital.name.split(' ').slice(-1)[0], // Último nombre para etiquetas más cortas
+                        name: hospital.name.length > 15 ? hospital.name.substring(0, 15) + "..." : hospital.name,
                         "Horas Trabajadas": hospital.hoursWorked,
-                        "Horas Salidas": hospital.geofenceExits * 8, // Asumiendo 8 horas por salida
+                        "Horas Fuera": hospital.hoursOutside,
                         "Empleados": hospital.employees,
                       }))}
                       margin={{
                         top: 20,
                         right: 30,
                         left: 20,
-                        bottom: 5,
+                        bottom: 60,
                       }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                       <XAxis 
                         dataKey="name" 
-                        tick={{ fill: "#4B5563", fontSize: 12 }}
+                        tick={{ fill: "#4B5563", fontSize: 11 }}
                         tickLine={false}
                         interval={0}
                         angle={-45}
                         textAnchor="end"
-                        height={60}
+                        height={80}
                       />
                       <YAxis
                         tick={{ fill: "#4B5563", fontSize: 12 }}
@@ -1001,11 +1094,12 @@ export default function EnhancedMunicipalDashboard() {
                       />
                       <Legend />
                       <Bar dataKey="Horas Trabajadas" fill="#0088FE" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="Horas Salidas" fill="#FF8042" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="Horas Fuera" fill="#FF8042" radius={[4, 4, 0, 0]} />
                       <Bar dataKey="Empleados" fill="#00C49F" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
-                </div>
+                )}
+              </div>
               </div>
 
               {/* Tendencia de Horas por Hospital */}
@@ -1016,11 +1110,16 @@ export default function EnhancedMunicipalDashboard() {
                     <p className="text-sm text-gray-500">Evolución mensual de horas trabajadas</p>
                   </div>
                 </div>
-                <div className="h-[350px]">
+              <div className="h-[350px]">
+                {isLoadingData ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-gray-500">Cargando datos...</div>
+                  </div>
+                ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={hospitalTrends}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                      <XAxis dataKey="month" tick={{ fill: "#4B5563", fontSize: 12 }} tickLine={false} />
+                      <XAxis dataKey="period" tick={{ fill: "#4B5563", fontSize: 12 }} tickLine={false} />
                       <YAxis
                         tick={{ fill: "#4B5563", fontSize: 12 }}
                         tickLine={false}
@@ -1035,37 +1134,23 @@ export default function EnhancedMunicipalDashboard() {
                         }}
                       />
                       <Legend />
-                      <Line
-                        type="monotone"
-                        dataKey="Hospital General"
-                        stroke="#0088FE"
-                        strokeWidth={2}
-                        dot={{ fill: "#0088FE", r: 4 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="IMSS"
-                        stroke="#00C49F"
-                        strokeWidth={2}
-                        dot={{ fill: "#00C49F", r: 4 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="Centro Médico"
-                        stroke="#FFBB28"
-                        strokeWidth={2}
-                        dot={{ fill: "#FFBB28", r: 4 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="Hospital Municipal"
-                        stroke="#FF8042"
-                        strokeWidth={2}
-                        dot={{ fill: "#FF8042", r: 4 }}
-                      />
+                      {hospitals.map((hospital, index) => {
+                        const hospitalKey = hospital.name.split(' ')[0] + (hospital.name.split(' ')[1] ? ' ' + hospital.name.split(' ')[1] : '')
+                        return (
+                          <Line
+                            key={hospital.id}
+                            type="monotone"
+                            dataKey={hospitalKey}
+                            stroke={COLORS[index % COLORS.length]}
+                            strokeWidth={2}
+                            dot={{ fill: COLORS[index % COLORS.length], r: 4 }}
+                          />
+                        )
+                      })}
                     </LineChart>
                   </ResponsiveContainer>
-                </div>
+                )}
+              </div>
               </div>
             </div>
 
@@ -1075,86 +1160,99 @@ export default function EnhancedMunicipalDashboard() {
                 <div>
                   <h3 className="text-lg font-bold text-gray-800">Hospitales Registrados</h3>
                   <p className="text-sm text-gray-500">
-                    Detalle completo de {hospitals.length} hospitales en {selectedMunicipio}
+                    Detalle completo de {hospitals.length} hospitales en {filters.nombre_municipio}
                   </p>
                 </div>
               </div>
               <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
-                      <th className="px-6 py-4 text-left font-semibold text-gray-700">Hospital</th>
-                      <th className="px-6 py-4 text-left font-semibold text-gray-700">Departamento</th>
-                      <th className="px-6 py-4 text-center font-semibold text-gray-700">Empleados</th>
-                      <th className="px-6 py-4 text-center font-semibold text-gray-700">Salidas</th>
-                      <th className="px-6 py-4 text-center font-semibold text-gray-700">Horas</th>
-                      <th className="px-6 py-4 text-center font-semibold text-gray-700">Eficiencia</th>
-                      <th className="px-6 py-4 text-center font-semibold text-gray-700">Ubicación</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {hospitals.map((hospital, index) => (
-                      <tr
-                        key={hospital.id}
-                        className={`border-b border-gray-100 hover:bg-blue-50/50 transition-colors ${
-                          index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
-                        }`}
-                      >
-                        <td className="px-6 py-4">
-                          <div className="font-medium text-gray-900">{hospital.name}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                            {hospital.department}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="font-medium text-blue-600">{hospital.employees}</span>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="font-medium text-red-600">{hospital.geofenceExits}</span>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="font-medium text-emerald-600">{hospital.hoursWorked}</span>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <div className="flex items-center justify-center">
-                            <span
-                              className={`font-medium ${
-                                hospital.efficiency >= 90
-                                  ? "text-emerald-600"
-                                  : hospital.efficiency >= 85
-                                    ? "text-amber-600"
-                                    : "text-red-600"
-                              }`}
-                            >
-                              {hospital.efficiency}%
+                {isLoadingData ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-gray-500">Cargando datos...</div>
+                  </div>
+                ) : (
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
+                        <th className="px-6 py-4 text-left font-semibold text-gray-700">Hospital</th>
+                        <th className="px-6 py-4 text-left font-semibold text-gray-700">Grupo/Departamento</th>
+                        <th className="px-6 py-4 text-center font-semibold text-gray-700">Empleados</th>
+                        <th className="px-6 py-4 text-center font-semibold text-gray-700">Salidas</th>
+                        <th className="px-6 py-4 text-center font-semibold text-gray-700">Horas Trabajadas</th>
+                        <th className="px-6 py-4 text-center font-semibold text-gray-700">Horas Fuera</th>
+                        <th className="px-6 py-4 text-center font-semibold text-gray-700">Eficiencia</th>
+                        <th className="px-6 py-4 text-center font-semibold text-gray-700">Ubicación</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {hospitals.map((hospital, index) => (
+                        <tr
+                          key={hospital.id}
+                          className={`border-b border-gray-100 hover:bg-blue-50/50 transition-colors ${
+                            index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
+                          }`}
+                        >
+                          <td className="px-6 py-4">
+                            <div className="font-medium text-gray-900">{hospital.name}</div>
+                            <div className="text-xs text-gray-500 mt-1">{hospital.direccion?.substring(0, 50)}...</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                              {hospital.department}
                             </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="text-xs text-gray-500 font-mono">
-                            {hospital.coords[1].toFixed(3)}, {hospital.coords[0].toFixed(3)}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                    {hospitals.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center">
-                          <div className="text-gray-400">
-                            <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                            <p className="text-lg font-medium">No hay hospitales registrados</p>
-                            <p className="text-sm">Selecciona un municipio con datos disponibles</p>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <span className="font-medium text-blue-600">{hospital.employees}</span>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <span className="font-medium text-red-600">{hospital.geofenceExits}</span>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <span className="font-medium text-emerald-600">{hospital.hoursWorked}h</span>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <span className="font-medium text-orange-600">{hospital.hoursOutside}h</span>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <div className="flex items-center justify-center">
+                              <span
+                                className={`font-medium ${
+                                  hospital.efficiency >= 90
+                                    ? "text-emerald-600"
+                                    : hospital.efficiency >= 70
+                                      ? "text-amber-600"
+                                      : "text-red-600"
+                                }`}
+                              >
+                                {hospital.efficiency}%
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <span className="text-xs text-gray-500 font-mono">
+                              {hospital.coords[1].toFixed(3)}, {hospital.coords[0].toFixed(3)}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                      {hospitals.length === 0 && !isLoadingData && (
+                        <tr>
+                          <td colSpan={8} className="px-6 py-12 text-center">
+                            <div className="text-gray-400">
+                              <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                              <p className="text-lg font-medium">No hay hospitales registrados</p>
+                              <p className="text-sm">Selecciona un municipio con datos disponibles</p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
           </div>
+            </>
+          )}
         </div>
       </div>
     </>
