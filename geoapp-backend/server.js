@@ -19,9 +19,9 @@ dotenv.config();
 const app = express();
 
 const allowedOrigins = [
-  "http://localhost:5173",
-  "https://geoapphospital.onrender.com",
-  // Add your frontend production domain if different
+  "http://localhost:5173",  // Tu frontend en desarrollo
+  "https://geoapphospital.onrender.com",  // Tu backend en producción
+  // Agrega aquí el dominio de tu frontend en producción cuando lo despliegues
 ];
 const corsOptions = {
   origin: function (origin, callback) {
