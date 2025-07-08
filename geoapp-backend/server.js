@@ -20,22 +20,30 @@ const app = express();
 
 const allowedOrigins = [
   "http://localhost:5173",
-  // Cambia esto por tu dominio real de frontend en producción si es diferente
+  "https://geoapphospital.onrender.com",
+  // Add your frontend production domain if different
 ];
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));
     }
   },
-  credentials: true
+  credentials: true,
+  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
 };
 
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
+
+// Handle preflight requests
+app.options('*', cors(corsOptions));
 
 app.use("/api/superadmin", superadminRoutes);
 app.use("/api/auth", loginRoutes);

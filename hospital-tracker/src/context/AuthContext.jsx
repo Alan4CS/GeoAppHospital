@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { API_BASE_URL } from "../config/api.js";
 
 const AuthContext = createContext();
 
@@ -10,7 +11,8 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     // Consultar /api/auth/me para saber si el usuario está autenticado
-    fetch("https://geoapphospital.onrender.com/api/auth/me", {
+    fetch(`${API_BASE_URL}/api/auth/me`, {
+      method: "GET",
       credentials: "include"
     })
       .then(async (res) => {
@@ -36,7 +38,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      await fetch("https://geoapphospital.onrender.com/api/auth/logout", {
+      await fetch(`${API_BASE_URL}/api/auth/logout`, {
         method: "POST",
         credentials: "include"
       });
