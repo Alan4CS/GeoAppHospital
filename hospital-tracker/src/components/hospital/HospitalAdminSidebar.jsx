@@ -7,10 +7,10 @@ export default function HospitalAdminSidebar({ activeTab, setActiveTab, sidebarO
   const { setIsAuthenticated } = useAuth();
 
   const options = [
-    {
-      label: "Dashboard",
-      icon: <BarChart3 className="h-5 w-5" />,
-      tab: "dashboard",
+     {
+      label: "Grupos",
+      icon: <Layers className="h-5 w-5" />,
+      tab: "grupos",
     },
     {
       label: "Empleados",
@@ -18,20 +18,20 @@ export default function HospitalAdminSidebar({ activeTab, setActiveTab, sidebarO
       tab: "empleados",
     },
     {
-      label: "Grupos",
-      icon: <Layers className="h-5 w-5" />,
-      tab: "grupos",
-    },
-    {
       label: "Monitoreo",
       icon: <Map className="h-5 w-5" />,
       tab: "monitoreo",
+    },
+    {
+      label: "Dashboard",
+      icon: <BarChart3 className="h-5 w-5" />,
+      tab: "dashboard",
     },
   ];
 
   return (
     <div
-      className={`${sidebarOpen ? "w-56" : "w-20"} bg-gradient-to-b from-blue-800 to-blue-900 text-white transition-all duration-200 flex flex-col h-screen fixed z-30`}
+      className={`${sidebarOpen ? "w-56" : "w-20"} bg-gradient-to-b from-teal-600 to-teal-700 text-white transition-all duration-200 flex flex-col h-screen fixed z-30`}
       onMouseEnter={() => setSidebarOpen(true)}
       onMouseLeave={() => setSidebarOpen(false)}
     >
@@ -55,7 +55,7 @@ export default function HospitalAdminSidebar({ activeTab, setActiveTab, sidebarO
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex items-center py-3 px-4 hover:bg-blue-700 transition-colors duration-200 w-full rounded-md ${activeTab === tab ? "bg-blue-700" : ""}`}
+              className={`flex items-center py-3 px-4 hover:bg-teal-500 transition-colors duration-200 w-full rounded-md ${activeTab === tab ? "bg-teal-500" : ""}`}
             >
               <div className="w-12 flex justify-center flex-shrink-0">
                 {icon}
@@ -79,7 +79,7 @@ export default function HospitalAdminSidebar({ activeTab, setActiveTab, sidebarO
             setIsAuthenticated(false);
             navigate("/");
           }}
-          className="flex items-center py-3 px-4 hover:bg-red-700 text-red-100 transition-colors duration-200 w-full rounded-md"
+          className="flex items-center py-3 px-4 hover:bg-red-600 text-red-100 transition-colors duration-200 w-full rounded-md"
         >
           <div className="w-12 flex justify-center flex-shrink-0">
             <LogOut className="h-5 w-5" />

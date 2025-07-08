@@ -77,7 +77,7 @@ export default function HospitalAdminGeoApp() {
               {activeTab === "grupos" && hospital && hospital.id_hospital && (
                 <GrupoListHospital hospitalId={hospital.id_hospital} />
               )}
-              {activeTab === "monitoreo" && <MonitoreoMap modoHospitalAdmin={true} hospitalId={hospital.id} />}
+              {activeTab === "monitoreo" && <MonitoreoMap modoHospitalAdmin={true} hospitalId={hospital.id_hospital} hospitalObj={hospital} />}
             </>
           )}
         </main>
