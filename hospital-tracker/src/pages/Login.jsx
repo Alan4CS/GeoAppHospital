@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { API_BASE_URL } from "../config/api.js";
 
 export default function Login() {
   const [form, setForm] = useState({ username: "", password: "" });
@@ -37,7 +38,7 @@ export default function Login() {
 
     try {
       const res = await fetch(
-        "https://geoapphospital.onrender.com/api/auth/login",
+        `${API_BASE_URL}/api/auth/login`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -55,7 +56,7 @@ export default function Login() {
       }
 
       // Tras login exitoso, consultar /api/auth/me para obtener el rol
-      const meRes = await fetch("https://geoapphospital.onrender.com/api/auth/me", {
+      const meRes = await fetch(`${API_BASE_URL}/api/auth/me`, {
         credentials: "include"
       });
       if (!meRes.ok) {
