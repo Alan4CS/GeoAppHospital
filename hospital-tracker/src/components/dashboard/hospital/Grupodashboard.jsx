@@ -58,6 +58,15 @@ const DesglosePorActividad = ({ empleados, dataEmpleados, totalDiasPeriodo, calc
 };
 
 // Componente auxiliar para el preview de empleados
+// Función para obtener indicador visual según el nivel de actividad
+const getActivityIndicator = (porcentaje) => {
+  const pct = parseFloat(porcentaje);
+  if (pct >= 80) return { emoji: '🟢', label: 'Muy activo', color: 'text-green-600' };
+  if (pct >= 50) return { emoji: '🟡', label: 'Activo', color: 'text-yellow-600' };
+  if (pct >= 20) return { emoji: '🟠', label: 'Poco activo', color: 'text-orange-600' };
+  return { emoji: '🔴', label: 'Esporádico', color: 'text-red-600' };
+};
+
 const PreviewEmpleados = ({ empleados, dataEmpleados, totalDiasPeriodo, calcularDiasTrabajados, limit = 3, colorScheme = 'green', onViewAll }) => {
   const empleadosConInfo = empleados.slice(0, limit).map(empleado => {
     // Buscar registros de este empleado en dataEmpleados
@@ -69,8 +78,9 @@ const PreviewEmpleados = ({ empleados, dataEmpleados, totalDiasPeriodo, calcular
     
     const diasTrabajados = calcularDiasTrabajados(registros);
     const porcentaje = totalDiasPeriodo > 0 ? ((diasTrabajados / totalDiasPeriodo) * 100).toFixed(1) : 0;
+    const indicator = getActivityIndicator(porcentaje);
     
-    return { ...empleado, diasTrabajados, porcentaje };
+    return { ...empleado, diasTrabajados, porcentaje, indicator };
   });
 
   return (
@@ -79,13 +89,18 @@ const PreviewEmpleados = ({ empleados, dataEmpleados, totalDiasPeriodo, calcular
         {empleadosConInfo.map(empleado => (
           <div key={empleado.id_user} className={`flex items-center justify-between text-sm bg-white rounded-lg p-2 border border-${colorScheme}-200`}>
             <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 bg-${colorScheme}-500 rounded-full`}></div>
+              <span className="text-lg">{empleado.indicator.emoji}</span>
               <span className={`text-${colorScheme}-700 truncate font-medium`}>
                 {empleado.nombre} {empleado.ap_paterno}
               </span>
             </div>
-            <div className={`text-xs text-${colorScheme}-600 font-semibold`}>
-              {empleado.porcentaje}% ({empleado.diasTrabajados}d)
+            <div className="flex flex-col items-end">
+              <span className={empleado.indicator.color + ' text-xs font-semibold'}>
+                {empleado.indicator.label}
+              </span>
+              <span className={`text-xs text-${colorScheme}-600`}>
+                {empleado.diasTrabajados} de {totalDiasPeriodo} días
+              </span>
             </div>
           </div>
         ))}
@@ -125,14 +140,16 @@ const EmployeeListModal = ({ isOpen, onClose, empleados, type, dataEmpleados, to
       
       const diasTrabajados = calcularDiasTrabajados(registros);
       const porcentaje = totalDiasPeriodo > 0 ? ((diasTrabajados / totalDiasPeriodo) * 100).toFixed(1) : 0;
+      const indicator = getActivityIndicator(porcentaje);
       
-      return { ...empleado, diasTrabajados, porcentaje };
+      return { ...empleado, diasTrabajados, porcentaje, indicator };
     });
   } else {
     empleadosConInfo = empleados.map(empleado => ({
       ...empleado,
       diasTrabajados: 0,
-      porcentaje: 0
+      porcentaje: 0,
+      indicator: { emoji: '🔴', label: 'Sin actividad', color: 'text-red-600' }
     }));
   }
 
@@ -191,11 +208,14 @@ const EmployeeListModal = ({ isOpen, onClose, empleados, type, dataEmpleados, to
               {empleadosFiltrados.map(empleado => (
                 <div key={empleado.id_user} className={`bg-${colorScheme}-50 border border-${colorScheme}-200 rounded-lg p-3`}>
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className={`font-medium text-${colorScheme}-800`}>
-                      {empleado.nombre} {empleado.ap_paterno} {empleado.ap_materno || ''}
-                    </h4>
-                    <span className={`text-xs font-bold text-${colorScheme}-700 bg-${colorScheme}-200 px-2 py-1 rounded-full`}>
-                      {empleado.porcentaje}%
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{empleado.indicator.emoji}</span>
+                      <h4 className={`font-medium text-${colorScheme}-800`}>
+                        {empleado.nombre} {empleado.ap_paterno} {empleado.ap_materno || ''}
+                      </h4>
+                    </div>
+                    <span className={empleado.indicator.color + ' text-xs font-bold bg-white px-2 py-1 rounded-full border'}>
+                      {empleado.indicator.label}
                     </span>
                   </div>
                   <div className="text-sm space-y-1">
@@ -203,8 +223,13 @@ const EmployeeListModal = ({ isOpen, onClose, empleados, type, dataEmpleados, to
                       <strong>Grupo:</strong> {empleado.nombre_grupo}
                     </div>
                     <div className={`text-${colorScheme}-600`}>
-                      <strong>Días trabajados:</strong> {empleado.diasTrabajados} de {totalDiasPeriodo}
+                      <strong>Días trabajados:</strong> {empleado.diasTrabajados} de {totalDiasPeriodo} días
                     </div>
+                    {type === 'activos' && (
+                      <div className={`text-${colorScheme}-600`}>
+                        <strong>Nivel de actividad:</strong> {empleado.porcentaje}% del período
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -214,6 +239,34 @@ const EmployeeListModal = ({ isOpen, onClose, empleados, type, dataEmpleados, to
 
         {/* Footer */}
         <div className="border-t border-gray-200 p-4 bg-gray-50">
+          {/* Leyenda de indicadores */}
+          {type === 'activos' && (
+            <div className="mb-3 pb-3 border-b border-gray-200">
+              <h4 className="text-xs font-medium text-gray-700 mb-2">Niveles de actividad:</h4>
+              <div className="flex flex-wrap gap-3 text-xs">
+                <div className="flex items-center gap-1">
+                  <span>🟢</span>
+                  <span className="text-green-600 font-medium">Muy activo</span>
+                  <span className="text-gray-500">(80%+ del período)</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span>🟡</span>
+                  <span className="text-yellow-600 font-medium">Activo</span>
+                  <span className="text-gray-500">(50-79% del período)</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span>🟠</span>
+                  <span className="text-orange-600 font-medium">Poco activo</span>
+                  <span className="text-gray-500">(20-49% del período)</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span>🔴</span>
+                  <span className="text-red-600 font-medium">Esporádico</span>
+                  <span className="text-gray-500">(&lt;20% del período)</span>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between text-sm text-gray-600">
             <span>Total: {empleadosFiltrados.length} empleados</span>
             <button
@@ -983,7 +1036,7 @@ export default function GrupoDashboard({
               Mostrando {filteredActivos.length} empleados activos de {filteredActivos.length + filteredInactivos.length} totales del grupo <strong>"{selectedGroupList}"</strong>.
               <br />
               <strong>Período:</strong> {cardData.totalWorkingDays} días | <strong>Vista:</strong> Grupo específico
-            </>
+            </> 
           ) : (
             <>
               Mostrando {cardData.activeEmployees} empleados activos de {cardData.totalEmployees} totales, 
@@ -1087,6 +1140,29 @@ export default function GrupoDashboard({
               categorizarEmpleadoPorActividad={categorizarEmpleadoPorActividad}
             />
 
+            {/* Leyenda de indicadores de actividad */}
+            <div className="bg-green-100 rounded-lg p-3 mb-4">
+              <div className="text-xs font-semibold text-green-800 mb-2">Indicadores de actividad:</div>
+              <div className="grid grid-cols-2 gap-1 text-xs text-green-700">
+                <div className="flex items-center gap-1">
+                  <span>🟢</span>
+                  <span>Muy activo (80%+)</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span>🟡</span>
+                  <span>Activo (50-79%)</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span>🟠</span>
+                  <span>Poco activo (20-49%)</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span>🔴</span>
+                  <span>Esporádico (&lt;20%)</span>
+                </div>
+              </div>
+            </div>
+
             {/* Preview de empleados con información de actividad */}
             <PreviewEmpleados 
               empleados={filteredActivos}
@@ -1169,45 +1245,60 @@ export default function GrupoDashboard({
                   <Calendar className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-blue-800">Análisis del Período</h4>
-                  <p className="text-sm text-blue-600">{cardData.totalWorkingDays} días</p>
+                  <h4 className="font-semibold text-blue-800">Estadísticas del Período</h4>
+                  <p className="text-sm text-blue-600">Análisis de {cardData.totalWorkingDays} días laborales</p>
                 </div>
               </div>
-              <div className="text-3xl font-bold text-blue-700">
-                {filteredActivos.length + filteredInactivos.length}
+              <div className="text-center">
+                <div className="text-3xl font-bold text-blue-700">
+                  {filteredActivos.length + filteredInactivos.length}
+                </div>
+                <div className="text-xs text-blue-600 font-medium">Total empleados</div>
               </div>
             </div>
             
-            {/* Métricas del período */}
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-blue-700">Tasa de actividad:</span>
-                <span className="font-semibold text-blue-800">
-                  {filteredActivos.length + filteredInactivos.length > 0 
-                    ? Math.round((filteredActivos.length / (filteredActivos.length + filteredInactivos.length)) * 100)
-                    : 0}%
-                </span>
-              </div>
-              
-              <div className="w-full bg-blue-200 rounded-full h-2">
-                <div 
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                  style={{
-                    width: `${filteredActivos.length + filteredInactivos.length > 0 
-                      ? (filteredActivos.length / (filteredActivos.length + filteredInactivos.length)) * 100
-                      : 0}%`
-                  }}
-                ></div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="bg-white rounded-lg p-2 text-center border border-blue-200">
-                  <div className="font-semibold text-blue-800">{selectedGroupList ? groupSpecificMetrics.averageWorkingDays : cardData.averageWorkingDays}</div>
-                  <div className="text-blue-600">Días promedio</div>
+            {/* Métricas del período reestructuradas */}
+            <div className="space-y-4">
+              {/* Participación Laboral */}
+              <div className="bg-white rounded-lg p-3 border border-blue-200">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-blue-700">Participación Laboral</span>
+                  <span className="text-lg font-bold text-blue-800">
+                    {filteredActivos.length + filteredInactivos.length > 0 
+                      ? Math.round((filteredActivos.length / (filteredActivos.length + filteredInactivos.length)) * 100)
+                      : 0}%
+                  </span>
                 </div>
-                <div className="bg-white rounded-lg p-2 text-center border border-blue-200">
-                  <div className="font-semibold text-blue-800">{selectedGroupList ? groupSpecificMetrics.consistentEmployees : cardData.consistentEmployees}</div>
-                  <div className="text-blue-600">Consistentes</div>
+                <div className="w-full bg-blue-200 rounded-full h-2 mb-1">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                    style={{
+                      width: `${filteredActivos.length + filteredInactivos.length > 0 
+                        ? (filteredActivos.length / (filteredActivos.length + filteredInactivos.length)) * 100
+                        : 0}%`
+                    }}
+                  ></div>
+                </div>
+                <div className="text-xs text-blue-600">
+                  {filteredActivos.length} empleados trabajaron durante el período
+                </div>
+              </div>
+              
+              {/* Métricas de rendimiento */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white rounded-lg p-3 text-center border border-blue-200">
+                  <div className="text-2xl font-bold text-blue-800 mb-1">
+                    {selectedGroupList ? groupSpecificMetrics.averageWorkingDays : cardData.averageWorkingDays}
+                  </div>
+                  <div className="text-xs text-blue-600 font-medium">Días promedio trabajados</div>
+                  <div className="text-xs text-blue-500 mt-1">por empleado activo</div>
+                </div>
+                <div className="bg-white rounded-lg p-3 text-center border border-blue-200">
+                  <div className="text-2xl font-bold text-blue-800 mb-1">
+                    {selectedGroupList ? groupSpecificMetrics.consistentEmployees : cardData.consistentEmployees}
+                  </div>
+                  <div className="text-xs text-blue-600 font-medium">Empleados constantes</div>
+                  <div className="text-xs text-blue-500 mt-1">trabajaron 80%+ del período</div>
                 </div>
               </div>
             </div>
