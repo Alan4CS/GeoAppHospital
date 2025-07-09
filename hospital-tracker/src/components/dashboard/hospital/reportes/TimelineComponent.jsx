@@ -30,7 +30,7 @@ const timelineStyles = StyleSheet.create({
     justifyContent: 'center', // Centra verticalmente
     alignItems: 'center', // Centra horizontalmente
     position: 'relative',
-    width: TIMELINE_WIDTH,
+    width: '100%', // Usar ancho relativo en lugar de fijo
     height: '100%', // Ocupa todo el alto del contenedor
     marginHorizontal: 'auto',
     overflow: 'visible', // <-- CAMBIO: antes 'hidden', ahora 'visible' para evitar recorte
@@ -64,14 +64,14 @@ const timelineStyles = StyleSheet.create({
     position: 'absolute',
     top: 35,
     left: 0,
-    width: TIMELINE_WIDTH,
+    width: '100%', // Usar ancho relativo
     height: BAR_HEIGHT + 35, // Más espacio para nodos y conectores
   },
   timelineBar: {
     position: 'absolute',
     top: 20, // Centrado verticalmente en el track
     left: 0,
-    width: TIMELINE_WIDTH,
+    width: '100%', // Usar ancho relativo
     height: BAR_HEIGHT,
     backgroundColor: '#e9ecef',
     borderRadius: 4,
@@ -181,12 +181,12 @@ const timelineStyles = StyleSheet.create({
   },
 });
 
-// Función mejorada para calcular posición absoluta
-function calculateAbsolutePosition(time, startTime, endTime, containerWidth = TIMELINE_WIDTH) {
+// Función mejorada para calcular posición absoluta en porcentaje (como WebTimelineComponent)
+function calculateAbsolutePosition(time, startTime, endTime) {
   const totalMs = endTime - startTime;
   const eventMs = time - startTime;
   if (totalMs <= 0) return 0;
-  return Math.max(0, Math.min(containerWidth, (eventMs / totalMs) * containerWidth));
+  return Math.max(0, Math.min(100, (eventMs / totalMs) * 100));
 }
 
 // Generar escala de tiempo con marcas cada hora
@@ -211,16 +211,14 @@ function generateTimeScale(startTime, endTime) {
 }
 
 function formatTime(date) {
-  return date.toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
+  // Si es un objeto Date, convertir a string ISO y extraer la hora
+  const isoString = date.toISOString();
+  return isoString.slice(11, 16); // Extrae "HH:mm"
 }
 
 function formatHora(fechaStr) {
-  const fecha = new Date(fechaStr);
-  return fecha.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  // Extraer hora directamente de la cadena sin conversiones de zona horaria
+  return fechaStr.slice(11, 16); // Extrae "HH:mm" de "YYYY-MM-DDTHH:mm:ss"
 }
 
 // Función para determinar el tipo de nodo
@@ -368,22 +366,21 @@ function generarEventosYIntervalosDelResumen(actividades) {
   return { eventos, intervalos };
 }
 
-// Función mejorada para evitar superposición de etiquetas
+// Función mejorada para evitar superposición de etiquetas (porcentajes)
 function calculateLabelPosition(eventos, currentIndex, basePosition) {
-  const MIN_DISTANCE = 20; // Aumentada la distancia mínima entre etiquetas
-  const LABEL_WIDTH = 100;
+  const MIN_DISTANCE_PERCENT = 15; // Distancia mínima en porcentaje
   let isAbove = currentIndex % 2 === 0; // Alternar arriba/abajo
-  let horizontalOffset = 0;
+  let horizontalOffsetPercent = 0;
   
   // Verificar superposición con eventos anteriores
   for (let i = 0; i < currentIndex; i++) {
     const prevPosition = eventos[i].__position;
     const distance = Math.abs(basePosition - prevPosition);
     
-    if (distance < MIN_DISTANCE) {
-      // Si hay superposición horizontal, aplicar desplazamiento
-      if (distance < LABEL_WIDTH / 2) {
-        horizontalOffset = basePosition > prevPosition ? 25 : -25;
+    if (distance < MIN_DISTANCE_PERCENT) {
+      // Si hay superposición horizontal, aplicar desplazamiento en porcentaje
+      if (distance < MIN_DISTANCE_PERCENT / 2) {
+        horizontalOffsetPercent = basePosition > prevPosition ? 5 : -5; // 5% de desplazamiento
       }
       // Forzar posición opuesta (arriba/abajo)
       isAbove = !isAbove;
@@ -391,7 +388,7 @@ function calculateLabelPosition(eventos, currentIndex, basePosition) {
     }
   }
   
-  return { isAbove, horizontalOffset };
+  return { isAbove, horizontalOffset: horizontalOffsetPercent };
 }
 
 const TimelineComponent = ({ actividades, titulo = "Cronologia" }) => {
@@ -426,17 +423,17 @@ const TimelineComponent = ({ actividades, titulo = "Cronologia" }) => {
   return (
     <View style={timelineStyles.timelineContainer} wrap={false}>
       <Text style={timelineStyles.timelineTitle}>{titulo}</Text>
-      <View style={timelineStyles.timelineWrapper}>
-        {/* Escala de tiempo superior */}
+      <View style={timelineStyles.timelineWrapper}>          {/* Escala de tiempo superior */}
         <View style={timelineStyles.timeScale}>
           {timeScale.map((time, idx) => {
             const position = calculateAbsolutePosition(time, displayStart, displayEnd);
+            const positionInPixels = (position / 100) * TIMELINE_WIDTH;
             return (
               <View key={idx}>
-                <Text style={[timelineStyles.timeLabel, { left: position }]}>
+                <Text style={[timelineStyles.timeLabel, { left: `${position}%` }]}>
                   {formatTime(time)}
                 </Text>
-                <View style={[timelineStyles.timeTick, { left: position }]} />
+                <View style={[timelineStyles.timeTick, { left: `${position}%` }]} />
               </View>
             );
           })}
@@ -453,8 +450,8 @@ const TimelineComponent = ({ actividades, titulo = "Cronologia" }) => {
               style={[
                 timelineStyles.nodeConnectorLine,
                 {
-                  left: eventPositions[0],
-                  width: eventPositions[eventPositions.length - 1] - eventPositions[0],
+                  left: `${eventPositions[0]}%`,
+                  width: `${eventPositions[eventPositions.length - 1] - eventPositions[0]}%`,
                 },
               ]}
             />
@@ -473,8 +470,8 @@ const TimelineComponent = ({ actividades, titulo = "Cronologia" }) => {
                   timelineStyles.timeInterval,
                   intervalo.dentro ? timelineStyles.intervalInside : timelineStyles.intervalOutside,
                   {
-                    left: startPos,
-                    width: width,
+                    left: `${startPos}%`,
+                    width: `${width}%`,
                   },
                 ]}
               />
@@ -507,7 +504,7 @@ const connectorStartY = isAbove ? nodeCenter - 25 : nodeCenter;
                 <View style={[
                   timelineStyles.eventConnector,
                   { 
-                    left: position, 
+                    left: `${position}%`, 
                     height: connectorHeight,
                     top: connectorStartY,
                   },
@@ -520,7 +517,7 @@ const connectorStartY = isAbove ? nodeCenter - 25 : nodeCenter;
                     nodeType === 'exit' && timelineStyles.eventNodeExit,
                     nodeType === 'break' && timelineStyles.eventNodeBreak,
                     nodeType === 'geofence' && timelineStyles.eventNodeGeofence,
-                    { left: position },
+                    { left: `${position}%` },
                   ]}
                 />
                 {/* Etiqueta del evento - CON DESPLAZAMIENTO PARA EVITAR SUPERPOSICIÓN */}
@@ -530,8 +527,8 @@ const connectorStartY = isAbove ? nodeCenter - 25 : nodeCenter;
                     labelBgStyle,
                     isAbove ? timelineStyles.eventLabelAbove : timelineStyles.eventLabelBelow,
                     { 
-                      left: position + horizontalOffset, // Aplicar desplazamiento horizontal
-                      marginLeft: -50 - horizontalOffset, // Ajustar centrado
+                      left: `${position + horizontalOffset}%`, // Usar porcentajes para el offset
+                      marginLeft: -50, // Mantener centrado base
                     },
                   ]}
                 >
@@ -550,18 +547,20 @@ const connectorStartY = isAbove ? nodeCenter - 25 : nodeCenter;
             const width = endPos - startPos;
             const centerPos = startPos + (width / 2);
             
-            let adjustedPos = Math.round(centerPos); // ✅ Redondeo para mayor precisión
-            const labelWidth = 60;
+            let adjustedPos = centerPos; // Usar porcentajes directamente
+            const labelWidthPercent = 10; // 10% del ancho total
 
+            // Verificar solapamiento con eventos y ajustar si es necesario
             eventosClave.forEach(evento => {
             const eventPos = evento.__position;
-            // ✅ Solo mover si el intervalo es corto y está muy cerca del evento
-            if (width < 80 && Math.abs(centerPos - eventPos) < labelWidth / 2) {
-                adjustedPos += (eventPos > centerPos ? 20 : -20);
+            // Solo mover si el intervalo es corto y está muy cerca del evento
+            if (width < 15 && Math.abs(centerPos - eventPos) < labelWidthPercent) {
+                adjustedPos += (eventPos > centerPos ? 3 : -3); // 3% de desplazamiento
             }
             });
 
-            adjustedPos = Math.max(labelWidth, Math.min(TIMELINE_WIDTH - labelWidth, adjustedPos)); // Limitar el movimiento
+            // Limitar el movimiento entre 5% y 95%
+            adjustedPos = Math.max(5, Math.min(95, adjustedPos));
 
             return (
             <Text
@@ -569,7 +568,7 @@ const connectorStartY = isAbove ? nodeCenter - 25 : nodeCenter;
                 style={[
                 timelineStyles.intervalLabel, 
                 { 
-                    left: adjustedPos,
+                    left: `${adjustedPos}%`,
                     marginLeft: -30, // Centrado respecto al punto calculado
                     color: intervalo.dentro ? '#198754' : '#dc3545',
                 }

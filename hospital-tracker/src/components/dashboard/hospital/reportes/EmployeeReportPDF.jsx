@@ -184,8 +184,8 @@ function getMunicipio(empleado) {
 }
 
 function formatHora(fechaStr) {
-  const fecha = new Date(fechaStr);
-  return format(fecha, "HH:mm", { locale: es });
+  // Extraer hora directamente de la cadena sin conversiones de zona horaria
+  return fechaStr.slice(11, 16); // Extrae "HH:mm" de "YYYY-MM-DDTHH:mm:ss"
 }
 
 function agrupaPorDia(actividades) {
