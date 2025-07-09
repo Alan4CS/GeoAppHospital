@@ -113,12 +113,10 @@ export default function EmpleadoDashboard({
   const canNavigatePrevious = currentMonth > minMonth
   const canNavigateNext = currentMonth < maxMonth
 
-  // Función helper para extraer fecha local de un timestamp - usando el mismo método que MonitoreoMap
+  // Función helper para extraer fecha local de un timestamp - usando slice directo
   const getLocalDateString = (fechaHora) => {
-    // Crear fecha usando el mismo método que MonitoreoMap
-    const fecha = new Date(fechaHora)
-    // Usar date-fns para formatear de manera consistente
-    return format(fecha, "yyyy-MM-dd", { locale: es })
+    // Extraer fecha directamente sin conversiones innecesarias
+    return fechaHora.slice(0, 10); // YYYY-MM-DD
   }
 
   // Fetch calendar data when employee or date range changes

@@ -1,5 +1,5 @@
 "use client"
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useState, useMemo, useCallback } from "react"
 import { Calendar, MapPin, Building2, Check, Users, TrendingUp, Clock, Download, Search } from "lucide-react"
 import AttendanceMatrixModal from "./AttendanceMatrix";
 
@@ -410,8 +410,7 @@ export default function GrupoDashboard({
     
     const diasUnicos = new Set();
     registros.forEach(registro => {
-      const fecha = new Date(registro.fecha_hora);
-      const fechaStr = fecha.toISOString().split('T')[0]; // YYYY-MM-DD
+      const fechaStr = registro.fecha_hora.slice(0, 10); // YYYY-MM-DD directamente
       diasUnicos.add(fechaStr);
     });
     
@@ -431,6 +430,7 @@ export default function GrupoDashboard({
   // Fetch grupos del hospital seleccionado
   useEffect(() => {
     async function fetchGrupos() {
+      console.log(`🔄 Iniciando fetch de datos - Hospital: ${filters.id_hospital}, Período: ${tempDateRange.startDate} a ${tempDateRange.endDate}`);
       setLoading(true);
       setError(null);
       if (filters.id_hospital && tempDateRange.startDate && tempDateRange.endDate) {
@@ -526,6 +526,7 @@ export default function GrupoDashboard({
 
             // Usar helper por días para horas dentro/fuera
             const stats = calcularEstadisticasEmpleadoPorDias(registros);
+            console.log(`📊 Empleado ${empleado.nombre}: Horas dentro=${stats.workedHours}, Horas fuera=${stats.outsideHours}`);
             totalDentro += stats.workedHours;
             totalFuera += stats.outsideHours;
             // totalExits se puede mantener igual (por eventos)
@@ -569,6 +570,9 @@ export default function GrupoDashboard({
             averageWorkingDays: Math.round(promedoDiasTrabajados * 10) / 10, // 1 decimal
             totalWorkingDays: totalDiasPeriodo
           });
+          
+          console.log(`🏥 TOTALES HOSPITAL - Horas dentro: ${Math.round(totalDentro * 100) / 100}, Horas fuera: ${Math.round(totalFuera * 100) / 100}`);
+          console.log(`🏥 Total empleados procesados: ${totalEmpleados}, Días del período: ${totalDiasPeriodo}`);
           setGroupDistributionData(
             Object.entries(empleadosPorGrupo).map(([grupo, lista]) => ({ grupo, cantidad: lista.length }))
           );
@@ -650,12 +654,17 @@ export default function GrupoDashboard({
   });
 
   // Filtrar listas de empleados activos e inactivos según el grupo seleccionado
-  const filteredActivos = selectedGroupList
-    ? empleadosActivos.filter(e => e.nombre_grupo === selectedGroupList)
-    : empleadosActivos;
-  const filteredInactivos = selectedGroupList
-    ? empleadosInactivos.filter(e => e.nombre_grupo === selectedGroupList)
-    : empleadosInactivos;
+  const filteredActivos = useMemo(() => {
+    return selectedGroupList
+      ? empleadosActivos.filter(e => e.nombre_grupo === selectedGroupList)
+      : empleadosActivos;
+  }, [selectedGroupList, empleadosActivos]);
+
+  const filteredInactivos = useMemo(() => {
+    return selectedGroupList
+      ? empleadosInactivos.filter(e => e.nombre_grupo === selectedGroupList)
+      : empleadosInactivos;
+  }, [selectedGroupList, empleadosInactivos]);
 
   // Efecto para recalcular métricas cuando cambie el grupo seleccionado
   useEffect(() => {
@@ -693,6 +702,7 @@ export default function GrupoDashboard({
           if (found && found.registros) {
             // Usar la misma función que se usa en el cálculo general
             const stats = calcularEstadisticasEmpleadoPorDias(found.registros);
+            console.log(`👥 Empleado del grupo "${selectedGroupList}" - ${empleado.nombre}: Horas dentro=${stats.workedHours}, Horas fuera=${stats.outsideHours}`);
             totalDentroGrupo += stats.workedHours;
             totalFueraGrupo += stats.outsideHours;
           }
@@ -710,6 +720,9 @@ export default function GrupoDashboard({
         totalDentro: totalDentroGrupo,
         totalFuera: totalFueraGrupo
       });
+      
+      console.log(`👥 TOTALES GRUPO "${selectedGroupList}" - Horas dentro: ${totalDentroGrupo}, Horas fuera: ${totalFueraGrupo}`);
+      console.log(`👥 Empleados del grupo: ${filteredActivos.length + filteredInactivos.length} (${filteredActivos.length} activos, ${filteredInactivos.length} inactivos)`);
     } else {
       // Si no hay grupo seleccionado, usar las métricas generales
       setGroupSpecificMetrics({
@@ -723,22 +736,15 @@ export default function GrupoDashboard({
         totalDentro: cardData.totalDentro || 0,
         totalFuera: cardData.totalFuera || 0
       });
+      
+      console.log(`🏥 USANDO MÉTRICAS GENERALES - Horas dentro: ${cardData.totalDentro || 0}, Horas fuera: ${cardData.totalFuera || 0}`);
     }
   }, [
     selectedGroupList, 
     filteredActivos, 
     filteredInactivos,
     dataEmpleados, 
-    cardData.totalWorkingDays, 
-    cardData.muyActivos, 
-    cardData.activos, 
-    cardData.pocoActivos, 
-    cardData.esporadicos, 
-    cardData.consistentEmployees, 
-    cardData.occasionalEmployees, 
-    cardData.averageWorkingDays,
-    cardData.totalDentro,
-    cardData.totalFuera
+    cardData
   ]);
 
   // Calcular días trabajados y porcentaje de asistencia
@@ -755,7 +761,7 @@ export default function GrupoDashboard({
   };
 
   // Función para generar la matriz de asistencia diaria
-  const generateAttendanceMatrix = () => {
+  const generateAttendanceMatrix = useCallback(() => {
     if (!empleadosHospital.length || !tempDateRange.startDate || !tempDateRange.endDate) return [];
 
     // Generar array de fechas del período
@@ -789,7 +795,7 @@ export default function GrupoDashboard({
       const dias = dateArray.map(day => {
         const dayString = day.toISOString().split('T')[0];
         const asistio = registros.some(r => {
-          const fecha = new Date(r.fecha_hora).toISOString().split('T')[0];
+          const fecha = r.fecha_hora.slice(0, 10);
           return fecha === dayString;
         });
         return {
@@ -809,7 +815,7 @@ export default function GrupoDashboard({
       };
     });
     return matrix;
-  };
+  }, [empleadosHospital, tempDateRange.startDate, tempDateRange.endDate, attendanceFilter, empleadosActivos, empleadosInactivos, dataEmpleados]);
 
   // Generar matriz cuando cambien los filtros o datos
   useEffect(() => {
@@ -817,7 +823,7 @@ export default function GrupoDashboard({
       const matrix = generateAttendanceMatrix();
       setAttendanceData(matrix);
     }
-  }, [showAttendanceMatrix, attendanceFilter, empleadosHospital, empleadosActivos, empleadosInactivos, dataEmpleados, tempDateRange]);
+  }, [showAttendanceMatrix, generateAttendanceMatrix]);
 
   const totalDias = tempDateRange.startDate && tempDateRange.endDate ? 
     Math.ceil((new Date(tempDateRange.endDate) - new Date(tempDateRange.startDate)) / (1000 * 60 * 60 * 24)) + 1 : 0;
