@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import {
   ClipboardList,
@@ -12,6 +10,7 @@ import {
   User,
 } from "lucide-react";
 import { useLocation } from "../../context/LocationContext";
+import { useAuth } from "../../context/AuthContext";
 
 const GrupoForm = ({
   editando = false,
@@ -37,6 +36,7 @@ const GrupoForm = ({
   const [touched, setTouched] = useState({});
   const [cargando, setCargando] = useState(false);
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const { userId } = useAuth();
 
   const { currentLocation, locationVersion, updateLocation } = useLocation();
 
@@ -48,7 +48,6 @@ const GrupoForm = ({
         console.log("📍 Usando ubicación de contexto:", currentLocation);
         updateFormLocation(currentLocation);
       } else {
-        const userId = localStorage.getItem("userId");
         if (userId) {
           console.log("🚀 Solicitando ubicación para el usuario:", userId);
           await updateLocation(userId);

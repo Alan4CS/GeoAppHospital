@@ -7,7 +7,7 @@ import GrupoListHospital from "../components/hospital/GrupoListHospital";
 import { useAuth } from "../context/AuthContext";
 
 export default function HospitalAdminGeoApp() {
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState("grupos");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [hospital, setHospital] = useState(null);
   const [loading, setLoading] = useState(true);
