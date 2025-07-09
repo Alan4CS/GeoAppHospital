@@ -187,7 +187,7 @@ router.post('/municipio', async (req, res) => {
 
 // 1. Entradas y Salidas por Día
 // GET /api/dashboards/estadual/entradas-salidas?id_estado=XX&fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
-router.get('/estadual/entradas-salidas', async (req, res) => {
+router.get('/estatal/entradas-salidas', async (req, res) => {
   try {
     const { id_estado, fechaInicio, fechaFin } = req.query;
     if (!id_estado || !fechaInicio || !fechaFin) {
