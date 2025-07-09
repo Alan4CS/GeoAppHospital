@@ -15,6 +15,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import sendCredentialsEmail from '../../helpers/emailHelper';
+import { useAuth } from "../../context/AuthContext";
 
 export default function EmpleadoForm({ onGuardar, onCancelar }) {
   const [form, setForm] = useState({
@@ -41,6 +42,7 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
   const [notificacion, setNotificacion] = useState(null);
   const { currentLocation, locationVersion, updateLocation } = useLocation();
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const { userId } = useAuth();
 
   // Configuración de campos del formulario
   const formFields = [
@@ -126,7 +128,6 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
         console.log("📍 Usando ubicación de contexto:", currentLocation);
         updateFormLocation(currentLocation);
       } else {
-        const userId = localStorage.getItem("userId");
         if (userId) {
           console.log("🚀 Solicitando ubicación para el usuario:", userId);
           await updateLocation(userId);
