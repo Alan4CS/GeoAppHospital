@@ -7,6 +7,7 @@ import { Calendar, Building2, MapPin, Clock, LogOut, Plus, Minus, Users, ArrowUp
 import { AreaChart, Area, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, LabelList } from 'recharts'
 import { feature } from "topojson-client"
 import { geoCentroid } from "d3-geo"
+import React from "react"
 
 // URL del mapa GeoJSON de México (estados)
 const MEXICO_GEOJSON = "/lib/mx.json"
@@ -170,13 +171,12 @@ const customScrollbarStyles = `
 `
 
 export default function EstatalDashboard() {
+  // --- HOOKS DE ESTADO Y EFECTOS ---
   const [selectedState, setSelectedState] = useState("")
   const [dateRange, setDateRange] = useState({
     startDate: format(new Date(new Date().setDate(new Date().getDate() - 30)), "yyyy-MM-dd"),
     endDate: format(new Date(), "yyyy-MM-dd"),
   })
-  const [stateData, setStateData] = useState([])
-  const [municipalityData, setMunicipalityData] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [hoveredMunicipality, setHoveredMunicipality] = useState(null)
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
@@ -186,15 +186,22 @@ export default function EstatalDashboard() {
     coordinates: [-102, 23],
     zoom: 3
   })
-
-  // Estados para el filtro de fechas mejorado
   const [selectedPreset, setSelectedPreset] = useState("30d")
   const [hasChanges, setHasChanges] = useState(false)
   const [tempDateRange, setTempDateRange] = useState({
     startDate: format(new Date(new Date().setDate(new Date().getDate() - 30)), "yyyy-MM-dd"),
     endDate: format(new Date(), "yyyy-MM-dd"),
   })
+  // Estados para datos de gráficas
+  const [entradasSalidasData, setEntradasSalidasData] = useState([]);
+  const [eventosData, setEventosData] = useState([]);
+  const [rankingHospitalesData, setRankingHospitalesData] = useState([]);
+  const [horasPorMunicipioData, setHorasPorMunicipioData] = useState([]);
+  const [municipalityData, setMunicipalityData] = useState([]); // <--- nuevo estado
+  const [loadingGraficas, setLoadingGraficas] = useState(false);
+  const [errorGraficas, setErrorGraficas] = useState(null);
 
+  // Estados para el filtro de fechas mejorado
   const datePresets = [
     { label: "Últimos 7 días", value: "7d", days: 7 },
     { label: "Últimos 15 días", value: "15d", days: 15 },
@@ -270,185 +277,13 @@ export default function EstatalDashboard() {
         )
       : 0
 
-  // Simular datos por estado y municipio
-  useEffect(() => {
-    setIsLoading(true)
-    // Datos simulados por estado
-    const mockStateData = [
-      { state: "MXROO", geofenceExits: 150, hoursWorked: 2400, hospitals: 12, employees: 240 },
-      { state: "MXYUC", geofenceExits: 80, hoursWorked: 1800, hospitals: 8, employees: 160 },
-      { state: "MXCAM", geofenceExits: 60, hoursWorked: 1500, hospitals: 6, employees: 120 },
-      { state: "MXCHP", geofenceExits: 95, hoursWorked: 2100, hospitals: 12, employees: 210 },
-      { state: "MXTAB", geofenceExits: 65, hoursWorked: 1400, hospitals: 6, employees: 130 },
-    ]
-    setStateData(mockStateData)
-    setSelectedState(mockStateData[0].state)
-    setIsLoading(false)
-  }, [dateRange])
+  // --- VARIABLES DERIVADAS (después de los hooks) ---
+  const totalHospitales = rankingHospitalesData?.length || 0;
+  const totalPersonal = horasPorMunicipioData?.reduce((acc, curr) => acc + (parseInt(curr.horas) || 0), 0) || 0;
+  const totalSalidas = entradasSalidasData?.reduce((acc, curr) => acc + (parseInt(curr.salidas) || 0), 0) || 0;
+  const totalHoras = horasPorMunicipioData?.reduce((acc, curr) => acc + (parseInt(curr.horas) || 0), 0) || 0;
 
-  // Simular datos por municipio del estado seleccionado
-  useEffect(() => {
-    if (!selectedState) return
-    setIsLoading(true)
-    // Datos simulados por municipio usando los nombres oficiales del GeoJSON
-    const mockMunicipalityData = {
-      MXROO: [
-        {
-          municipality: "Benito Juárez",
-          geofenceExits: 60,
-          hoursWorked: 900,
-          hospitals: 4,
-          employees: 90,
-          id: "MXROO_BJU",
-        },
-        {
-          municipality: "Solidaridad",
-          geofenceExits: 40,
-          hoursWorked: 700,
-          hospitals: 3,
-          employees: 60,
-          id: "MXROO_SOL",
-        },
-        {
-          municipality: "Othón P. Blanco",
-          geofenceExits: 30,
-          hoursWorked: 500,
-          hospitals: 2,
-          employees: 40,
-          id: "MXROO_OPB",
-        },
-        { municipality: "Tulum", geofenceExits: 20, hoursWorked: 300, hospitals: 1, employees: 20, id: "MXROO_TUL" },
-        { municipality: "Cozumel", geofenceExits: 15, hoursWorked: 250, hospitals: 1, employees: 15, id: "MXROO_COZ" },
-        {
-          municipality: "Felipe Carrillo Puerto",
-          geofenceExits: 10,
-          hoursWorked: 200,
-          hospitals: 1,
-          employees: 10,
-          id: "MXROO_FCP",
-        },
-        { municipality: "Bacalar", geofenceExits: 8, hoursWorked: 150, hospitals: 1, employees: 8, id: "MXROO_BAC" },
-        {
-          municipality: "José María Morelos",
-          geofenceExits: 5,
-          hoursWorked: 100,
-          hospitals: 1,
-          employees: 5,
-          id: "MXROO_JMM",
-        },
-        {
-          municipality: "Lázaro Cárdenas",
-          geofenceExits: 5,
-          hoursWorked: 100,
-          hospitals: 1,
-          employees: 5,
-          id: "MXROO_LCA",
-        },
-        {
-          municipality: "Isla Mujeres",
-          geofenceExits: 5,
-          hoursWorked: 100,
-          hospitals: 1,
-          employees: 5,
-          id: "MXROO_IMU",
-        },
-        {
-          municipality: "Puerto Morelos",
-          geofenceExits: 5,
-          hoursWorked: 100,
-          hospitals: 1,
-          employees: 5,
-          id: "MXROO_PMO",
-        },
-      ],
-      MXYUC: [
-        { municipality: "Mérida", geofenceExits: 50, hoursWorked: 1000, hospitals: 5, employees: 100, id: "MXYUC_MER" },
-        {
-          municipality: "Valladolid",
-          geofenceExits: 20,
-          hoursWorked: 400,
-          hospitals: 2,
-          employees: 30,
-          id: "MXYUC_VAL",
-        },
-        { municipality: "Progreso", geofenceExits: 10, hoursWorked: 400, hospitals: 1, employees: 30, id: "MXYUC_PRO" },
-        { municipality: "Tizimín", geofenceExits: 15, hoursWorked: 300, hospitals: 1, employees: 20, id: "MXYUC_TIZ" },
-        { municipality: "Kanasín", geofenceExits: 12, hoursWorked: 250, hospitals: 1, employees: 15, id: "MXYUC_KAN" },
-      ],
-      MXCAM: [
-        { municipality: "Campeche", geofenceExits: 30, hoursWorked: 700, hospitals: 3, employees: 60, id: "MXCAM_CAM" },
-        { municipality: "Carmen", geofenceExits: 20, hoursWorked: 500, hospitals: 2, employees: 40, id: "MXCAM_CAR" },
-        { municipality: "Calkiní", geofenceExits: 10, hoursWorked: 300, hospitals: 1, employees: 20, id: "MXCAM_CAL" },
-        { municipality: "Palizada", geofenceExits: 8, hoursWorked: 200, hospitals: 1, employees: 15, id: "MXCAM_PAL" },
-        { municipality: "Champotón", geofenceExits: 5, hoursWorked: 150, hospitals: 1, employees: 10, id: "MXCAM_CHA" },
-      ],
-      MXCHP: [
-        {
-          municipality: "Tuxtla Gutiérrez",
-          geofenceExits: 40,
-          hoursWorked: 900,
-          hospitals: 4,
-          employees: 90,
-          id: "MXCHP_TGZ",
-        },
-        {
-          municipality: "San Cristóbal de las Casas",
-          geofenceExits: 30,
-          hoursWorked: 700,
-          hospitals: 3,
-          employees: 60,
-          id: "MXCHP_SCC",
-        },
-        {
-          municipality: "Tapachula",
-          geofenceExits: 25,
-          hoursWorked: 500,
-          hospitals: 2,
-          employees: 40,
-          id: "MXCHP_TAP",
-        },
-        {
-          municipality: "Comitán de Domínguez",
-          geofenceExits: 20,
-          hoursWorked: 400,
-          hospitals: 2,
-          employees: 30,
-          id: "MXCHP_COM",
-        },
-        {
-          municipality: "Chiapa de Corzo",
-          geofenceExits: 15,
-          hoursWorked: 300,
-          hospitals: 1,
-          employees: 20,
-          id: "MXCHP_CHC",
-        },
-      ],
-      MXTAB: [
-        { municipality: "Centro", geofenceExits: 35, hoursWorked: 800, hospitals: 4, employees: 80, id: "MXTAB_CEN" },
-        { municipality: "Cárdenas", geofenceExits: 20, hoursWorked: 400, hospitals: 1, employees: 30, id: "MXTAB_CAR" },
-        {
-          municipality: "Comalcalco",
-          geofenceExits: 10,
-          hoursWorked: 200,
-          hospitals: 1,
-          employees: 20,
-          id: "MXTAB_COM",
-        },
-        { municipality: "Macuspana", geofenceExits: 8, hoursWorked: 150, hospitals: 1, employees: 15, id: "MXTAB_MAC" },
-        {
-          municipality: "Huimanguillo",
-          geofenceExits: 5,
-          hoursWorked: 100,
-          hospitals: 1,
-          employees: 10,
-          id: "MXTAB_HUI",
-        },
-      ],
-    }
-    setMunicipalityData(mockMunicipalityData[selectedState] || [])
-    setIsLoading(false)
-  }, [selectedState])  // Cargar municipios TopoJSON del sureste mexicano (mx_tj.json - versión optimizada)
+  // Cargar municipios TopoJSON del sureste mexicano (mx_tj.json - versión optimizada)
   useEffect(() => {
     async function fetchMunicipios() {
       try {
@@ -664,14 +499,83 @@ export default function EstatalDashboard() {
 
   // Mapeo rápido municipio-metricas para acceso O(1)
   const municipalityMap = useMemo(() => {
-    const map = new Map()
+    const map = new Map();
     municipalityData.forEach((m) => {
-      map.set(m.municipality.toLowerCase(), m)
-    })
-    return map
-  }, [municipalityData])
+      if (m && m.municipio) {
+        map.set(m.municipio.toLowerCase(), m);
+      } else if (m && m.municipality) {
+        map.set(m.municipality.toLowerCase(), m);
+      }
+    });
+    return map;
+  }, [municipalityData]);
 
   const mapContainerRef = useRef(null)
+
+  // Mapeo de código de estado tipo 'MXROO' a id_estado numérico
+  const stateCodeToId = {
+    MXAGU: '1', MXBCN: '2', MXBCS: '3', MXCAM: '4', MXCOA: '5', MXCOL: '6', MXCHP: '7', MXCHH: '8', MXCMX: '9',
+    MXDUR: '10', MXGUA: '11', MXGRO: '12', MXHID: '13', MXJAL: '14', MXMEX: '15', MXMIC: '16', MXMOR: '17', MXNAY: '18',
+    MXNLE: '19', MXOAX: '20', MXPUE: '21', MXQUE: '22', MXROO: '23', MXSLP: '24', MXSIN: '25', MXSON: '26', MXTAB: '27',
+    MXTAM: '28', MXTLA: '29', MXVER: '30', MXYUC: '31', MXZAC: '32'
+  };
+
+  // Efecto para cargar las gráficas
+  useEffect(() => {
+    async function fetchGraficas() {
+      if (!selectedState || !dateRange.startDate || !dateRange.endDate) return;
+      const id_estado = stateCodeToId[selectedState];
+      if (!id_estado) return;
+      setLoadingGraficas(true);
+      setErrorGraficas(null);
+      try {
+        const base = 'https://geoapphospital.onrender.com/api/dashboards/estatal';
+        const params = `?id_estado=${id_estado}&fechaInicio=${dateRange.startDate}&fechaFin=${dateRange.endDate}`;
+        const [entradasSalidasRes, eventosRes, rankingRes, horasRes] = await Promise.all([
+          fetch(`${base}/entradas-salidas${params}`),
+          fetch(`${base}/eventos-geocerca${params}`),
+          fetch(`${base}/ranking-hospitales${params}`),
+          fetch(`${base}/horas-municipio${params}`)
+        ]);
+        if (!entradasSalidasRes.ok || !eventosRes.ok || !rankingRes.ok || !horasRes.ok) {
+          throw new Error('Error al obtener datos de las gráficas');
+        }
+        const entradasSalidas = await entradasSalidasRes.json();
+        const eventos = await eventosRes.json();
+        const ranking = await rankingRes.json();
+        const horas = await horasRes.json();
+        setEntradasSalidasData(entradasSalidas);
+        setEventosData(eventos);
+        setRankingHospitalesData(ranking);
+        setHorasPorMunicipioData(horas);
+      } catch (err) {
+        setErrorGraficas(err.message || 'Error desconocido');
+      } finally {
+        setLoadingGraficas(false);
+      }
+    }
+    fetchGraficas();
+  }, [selectedState, dateRange]);
+
+  // Efecto para cargar la distribución municipal
+  useEffect(() => {
+    async function fetchMunicipalityData() {
+      if (!selectedState || !dateRange.startDate || !dateRange.endDate) return;
+      const id_estado = stateCodeToId[selectedState];
+      if (!id_estado) return;
+      try {
+        const base = 'https://geoapphospital.onrender.com/api/dashboards/estatal';
+        const params = `?id_estado=${id_estado}&fechaInicio=${dateRange.startDate}&fechaFin=${dateRange.endDate}`;
+        const res = await fetch(`${base}/distribucion-municipal${params}`);
+        if (!res.ok) throw new Error('Error al obtener distribución municipal');
+        const data = await res.json();
+        setMunicipalityData(data);
+      } catch (err) {
+        setMunicipalityData([]);
+      }
+    }
+    fetchMunicipalityData();
+  }, [selectedState, dateRange]);
 
   return (
     <>
@@ -726,9 +630,9 @@ export default function EstatalDashboard() {
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white shadow-sm text-base"
                   >
                     <option value="">Seleccionar Estado</option>
-                    {stateData.map((state) => (
-                      <option key={state.state} value={state.state}>
-                        {stateCodeToName[state.state] || state.state}
+                    {Object.entries(stateCodeToName).map(([code, name]) => (
+                      <option key={code} value={code}>
+                        {name || code}
                       </option>
                     ))}
                   </select>
@@ -827,7 +731,7 @@ export default function EstatalDashboard() {
                 <TrendingUp className="h-4 w-4 text-white/70" />
               </div>
               <p className="text-sm text-white/70">Total Hospitales</p>
-              <p className="text-2xl font-bold">24</p>
+              <p className="text-2xl font-bold">{totalHospitales}</p>
             </div>
 
             <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-6 text-white">
@@ -838,7 +742,7 @@ export default function EstatalDashboard() {
                 <TrendingUp className="h-4 w-4 text-white/70" />
               </div>
               <p className="text-sm text-white/70">Total Personal</p>
-              <p className="text-2xl font-bold">1,248</p>
+              <p className="text-2xl font-bold">{totalPersonal}</p>
             </div>
 
             <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-6 text-white">
@@ -849,7 +753,7 @@ export default function EstatalDashboard() {
                 <TrendingUp className="h-4 w-4 text-white/70" />
               </div>
               <p className="text-sm text-white/70">Salidas Totales</p>
-              <p className="text-2xl font-bold">567</p>
+              <p className="text-2xl font-bold">{totalSalidas}</p>
             </div>
 
             <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-6 text-white">
@@ -860,7 +764,7 @@ export default function EstatalDashboard() {
                 <TrendingUp className="h-4 w-4 text-white/70" />
               </div>
               <p className="text-sm text-white/70">Horas Totales</p>
-              <p className="text-2xl font-bold">1,920</p>
+              <p className="text-2xl font-bold">{totalHoras}</p>
             </div>
           </div>
 
@@ -1045,247 +949,77 @@ export default function EstatalDashboard() {
                 <MapTooltip x={tooltipPosition.x} y={tooltipPosition.y} municipality={hoveredMunicipality} containerRef={mapContainerRef} />
               </div>
             </div>
-
-            {/* Charts Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Municipality Distribution Chart */}
-              <div className="bg-white rounded-xl shadow-md p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-800">Distribución Municipal</h3>
-                    <p className="text-sm text-gray-500">Distribución de recursos por municipio</p>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 rounded-full bg-emerald-500 mr-2"></div>
-                      <span className="text-sm text-gray-600">Hospitales</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 rounded-full bg-indigo-500 mr-2"></div>
-                      <span className="text-sm text-gray-600">Empleados</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 rounded-full bg-red-500 mr-2"></div>
-                      <span className="text-sm text-gray-600">Salidas</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="h-[450px] overflow-y-auto pr-4 -ml-4 custom-scrollbar">
-                  <div className="min-h-[450px]">
-                    <ResponsiveContainer width="100%" height="100%" minHeight={450}>
-                      <BarChart 
-                        data={municipalityData} 
-                        layout="vertical" 
-                        barGap={12}
-                        barSize={24}
-                      >
-                        <defs>
-                          <linearGradient id="hospitalGradient" x1="0" y1="0" x2="1" y2="0">
-                            <stop offset="0%" stopColor="#10b981"/>
-                            <stop offset="100%" stopColor="#059669"/>
-                          </linearGradient>
-                          <linearGradient id="employeeGradient" x1="0" y1="0" x2="1" y2="0">
-                            <stop offset="0%" stopColor="#6366f1"/>
-                            <stop offset="100%" stopColor="#4f46e5"/>
-                          </linearGradient>
-                          <linearGradient id="exitGradient" x1="0" y1="0" x2="1" y2="0">
-                            <stop offset="0%" stopColor="#ef4444"/>
-                            <stop offset="100%" stopColor="#dc2626"/>
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid 
-                          horizontal={true}
-                          vertical={false}
-                          stroke="#E5E7EB"
-                          strokeDasharray="3 3"
-                        />
-                        <XAxis 
-                          type="number"
-                          tickLine={false}
-                          axisLine={false}
-                          tick={{
-                            fill: '#4B5563',
-                            fontSize: 12
-                          }}
-                          padding={{ left: 0, right: 40 }}
-                        />
-                        <YAxis 
-                          type="category" 
-                          dataKey="municipality" 
-                          width={150}
-                          tick={{
-                            fill: '#1F2937',
-                            fontSize: 13,
-                            fontWeight: 500
-                          }}
-                          tickLine={false}
-                          axisLine={false}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: 'white',
-                            borderRadius: '8px',
-                            border: '1px solid #e5e7eb',
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                            padding: '12px'
-                          }}
-                          labelStyle={{
-                            fontWeight: 'bold',
-                            marginBottom: '4px',
-                            color: '#1F2937'
-                          }}
-                          cursor={{ fill: '#F3F4F6' }}
-                        />
-                        <Bar 
-                          dataKey="hospitals" 
-                          name="Hospitales" 
-                          fill="url(#hospitalGradient)"
-                          radius={[0, 4, 4, 0]}
-                        >
-                          <LabelList 
-                            dataKey="hospitals" 
-                            position="right" 
-                            fill="#059669"
-                            fontSize={12}
-                            fontWeight={600}
-                            offset={10}
-                          />
-                        </Bar>
-                        <Bar 
-                          dataKey="employees" 
-                          name="Empleados" 
-                          fill="url(#employeeGradient)"
-                          radius={[0, 4, 4, 0]}
-                        >
-                          <LabelList 
-                            dataKey="employees" 
-                            position="right" 
-                            fill="#4f46e5"
-                            fontSize={12}
-                            fontWeight={600}
-                            offset={10}
-                          />
-                        </Bar>
-                        <Bar 
-                          dataKey="geofenceExits" 
-                          name="Salidas" 
-                          fill="url(#exitGradient)"
-                          radius={[0, 4, 4, 0]}
-                        >
-                          <LabelList 
-                            dataKey="geofenceExits" 
-                            position="right" 
-                            fill="#dc2626"
-                            fontSize={12}
-                            fontWeight={600}
-                            offset={10}
-                          />
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              </div>
-
-              {/* Hours Worked Trend */}
-              <div className="bg-white rounded-xl shadow-md p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-800">Tendencia de Horas</h3>
-                    <p className="text-sm text-gray-500">Distribución de horas trabajadas por municipio</p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 rounded-full bg-gradient-to-r from-violet-500 to-purple-600 mr-2"></div>
-                      <span className="text-sm text-gray-600">Horas Trabajadas</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="h-[450px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart 
-                      data={municipalityData} 
-                      margin={{ left: 20, right: 20, top: 10, bottom: 60 }}
-                    >
-                      <defs>
-                        <linearGradient id="hoursGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2}/>
-                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
-                          <stop offset="0%" stopColor="#8b5cf6"/>
-                          <stop offset="100%" stopColor="#6366f1"/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                      <XAxis 
-                        dataKey="municipality" 
-                        angle={-45} 
-                        textAnchor="end" 
-                        height={60}
-                        interval={0}
-                        tick={{
-                          fill: '#4B5563',
-                          fontSize: 12,
-                          fontWeight: 500
-                        }}
-                        tickLine={false}
-                      />
-                      <YAxis 
-                        tick={{
-                          fill: '#4B5563',
-                          fontSize: 12
-                        }}
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={(value) => `${value}h`}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: 'white',
-                          borderRadius: '8px',
-                          border: '1px solid #e5e7eb',
-                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                          padding: '12px'
-                        }}
-                        labelStyle={{
-                          fontWeight: 'bold',
-                          marginBottom: '4px',
-                          color: '#1F2937'
-                        }}
-                        formatter={(value) => [`${value} horas`, 'Horas Trabajadas']}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="hoursWorked"
-                        stroke="none"
-                        fillOpacity={1}
-                        fill="url(#hoursGradient)"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="hoursWorked"
-                        name="Horas Trabajadas"
-                        stroke="url(#lineGradient)"
-                        strokeWidth={3}
-                        dot={{
-                          fill: 'white',
-                          stroke: '#8b5cf6',
-                          strokeWidth: 2,
-                          r: 4
-                        }}
-                        activeDot={{
-                          fill: '#8b5cf6',
-                          stroke: 'white',
-                          strokeWidth: 2,
-                          r: 6
-                        }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
+            {/* Fin del mapa, se eliminó la gráfica de distribución municipal */}
+          </div>
+        </div>
+        {/* Grid de gráficas adicionales */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+         {loadingGraficas && (
+           <div className="col-span-2 text-center py-8">
+             <span className="text-lg text-gray-500">Cargando gráficas...</span>
+           </div>
+         )}
+         {errorGraficas && (
+           <div className="col-span-2 text-center py-8">
+             <span className="text-lg text-red-500">{errorGraficas}</span>
+           </div>
+         )}
+          {/* Entradas y Salidas por Día */}
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Entradas y Salidas por Día</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={entradasSalidasData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis dataKey="fecha" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="entradas" fill="#10b981" name="Entradas" />
+                <Bar dataKey="salidas" fill="#ef4444" name="Salidas" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          {/* Distribución de Eventos de Geocerca */}
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Distribución de Eventos de Geocerca</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie data={eventosData} dataKey="cantidad" nameKey="evento" cx="50%" cy="50%" outerRadius={100} label>
+                  {eventosData.map((entry, idx) => (
+                    <Cell key={`cell-${idx}`} fill={["#ef4444", "#10b981", "#f59e42", "#6366f1"][idx % 4]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          {/* Ranking de Hospitales por Salidas */}
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Ranking de Hospitales por Salidas</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={rankingHospitalesData} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis type="number" />
+                <YAxis dataKey="nombre_hospital" type="category" />
+                <Tooltip />
+                <Bar dataKey="salidas" fill="#6366f1" name="Salidas" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          {/* Horas trabajadas por municipio */}
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Horas trabajadas por municipio</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={horasPorMunicipioData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis dataKey="municipio" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="horas" stroke="#8b5cf6" strokeWidth={3} />
+                <Legend />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>
