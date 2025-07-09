@@ -183,4 +183,188 @@ router.post('/municipio', async (req, res) => {
   }
 });
 
+// --- ENDPOINTS Estatales PARA DASHBOARD ---
+
+// 1. Entradas y Salidas por Día
+// GET /api/dashboards/estadual/entradas-salidas?id_estado=XX&fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
+router.get('/estadual/entradas-salidas', async (req, res) => {
+  try {
+    const { id_estado, fechaInicio, fechaFin } = req.query;
+    if (!id_estado || !fechaInicio || !fechaFin) {
+      return res.status(400).json({ error: 'id_estado, fechaInicio y fechaFin son obligatorios' });
+    }
+    const query = `
+      SELECT 
+        DATE(r.fecha_hora AT TIME ZONE 'UTC' AT TIME ZONE 'America/Mexico_City') as fecha,
+        SUM(CASE WHEN r.tipo_registro = 1 THEN 1 ELSE 0 END) as entradas,
+        SUM(CASE WHEN r.tipo_registro = 0 THEN 1 ELSE 0 END) as salidas
+      FROM registro_ubicaciones r
+      JOIN user_data u ON r.id_user = u.id_user
+      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3
+      GROUP BY fecha
+      ORDER BY fecha
+    `;
+    const result = await pool.query(query, [id_estado, fechaInicio, fechaFin]);
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener entradas y salidas por día' });
+  }
+});
+
+// 2. Distribución de Eventos de Geocerca
+// GET /api/dashboards/estadual/eventos-geocerca?id_estado=XX&fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
+router.get('/estatal/eventos-geocerca', async (req, res) => {
+  try {
+    const { id_estado, fechaInicio, fechaFin } = req.query;
+    if (!id_estado || !fechaInicio || !fechaFin) {
+      return res.status(400).json({ error: 'id_estado, fechaInicio y fechaFin son obligatorios' });
+    }
+    const query = `
+      SELECT 
+        r.evento,
+        COUNT(*) as cantidad
+      FROM registro_ubicaciones r
+      JOIN user_data u ON r.id_user = u.id_user
+      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.evento IS NOT NULL
+      GROUP BY r.evento
+      ORDER BY r.evento
+    `;
+    const result = await pool.query(query, [id_estado, fechaInicio, fechaFin]);
+    // Agregar nombre del evento
+    const eventosNombres = [
+      'Salió geocerca',
+      'Entró geocerca',
+      'Inicio descanso',
+      'Termino descanso'
+    ];
+    const data = result.rows.map(r => ({
+      evento: eventosNombres[r.evento] || `Evento ${r.evento}`,
+      cantidad: parseInt(r.cantidad)
+    }));
+    res.json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener distribución de eventos' });
+  }
+});
+
+// 3. Ranking de Hospitales por Salidas
+// GET /api/dashboards/estadual/ranking-hospitales?id_estado=XX&fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
+router.get('/estatal/ranking-hospitales', async (req, res) => {
+  try {
+    const { id_estado, fechaInicio, fechaFin } = req.query;
+    if (!id_estado || !fechaInicio || !fechaFin) {
+      return res.status(400).json({ error: 'id_estado, fechaInicio y fechaFin son obligatorios' });
+    }
+    const query = `
+      SELECT 
+        h.nombre_hospital,
+        SUM(CASE WHEN r.tipo_registro = 0 THEN 1 ELSE 0 END) as salidas
+      FROM registro_ubicaciones r
+      JOIN user_data u ON r.id_user = u.id_user
+      JOIN hospitals h ON u.id_hospital = h.id_hospital
+      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3
+      GROUP BY h.nombre_hospital
+      ORDER BY salidas DESC
+    `;
+    const result = await pool.query(query, [id_estado, fechaInicio, fechaFin]);
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener ranking de hospitales' });
+  }
+});
+
+// 4. Horas trabajadas por municipio
+// GET /api/dashboards/estadual/horas-municipio?id_estado=XX&fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
+router.get('/estatal/horas-municipio', async (req, res) => {
+  try {
+    const { id_estado, fechaInicio, fechaFin } = req.query;
+    if (!id_estado || !fechaInicio || !fechaFin) {
+      return res.status(400).json({ error: 'id_estado, fechaInicio y fechaFin son obligatorios' });
+    }
+    const query = `
+      SELECT 
+        m.nombre_municipio as municipio,
+        COUNT(*) as horas
+      FROM registro_ubicaciones r
+      JOIN user_data u ON r.id_user = u.id_user
+      JOIN municipios m ON u.id_municipio = m.id_municipio
+      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.tipo_registro = 1
+      GROUP BY m.nombre_municipio
+      ORDER BY horas DESC
+    `;
+    const result = await pool.query(query, [id_estado, fechaInicio, fechaFin]);
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener horas por municipio' });
+  }
+});
+
+// 5. Distribución Municipal por municipio
+// GET /api/dashboards/estadual/distribucion-municipal?id_estado=XX&fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
+router.get('/estatal/distribucion-municipal', async (req, res) => {
+  try {
+    const { id_estado, fechaInicio, fechaFin } = req.query;
+    if (!id_estado || !fechaInicio || !fechaFin) {
+      return res.status(400).json({ error: 'id_estado, fechaInicio y fechaFin son obligatorios' });
+    }
+    // Query para hospitales por municipio
+    const hospitalsQuery = `
+      SELECT m.nombre_municipio as municipio, COUNT(h.id_hospital) as hospitals
+      FROM hospitals h
+      JOIN municipios m ON h.id_municipio = m.id_municipio
+      WHERE m.id_estado = $1
+      GROUP BY m.nombre_municipio
+    `;
+    // Query para empleados por municipio
+    const employeesQuery = `
+      SELECT m.nombre_municipio as municipio, COUNT(u.id_user) as employees
+      FROM user_data u
+      JOIN municipios m ON u.id_municipio = m.id_municipio
+      WHERE m.id_estado = $1
+      GROUP BY m.nombre_municipio
+    `;
+    // Query para salidas y horas trabajadas por municipio
+    const registrosQuery = `
+      SELECT m.nombre_municipio as municipio,
+        SUM(CASE WHEN r.tipo_registro = 0 THEN 1 ELSE 0 END) as geofenceExits,
+        SUM(CASE WHEN r.tipo_registro = 1 THEN 1 ELSE 0 END) as hoursWorked
+      FROM registro_ubicaciones r
+      JOIN user_data u ON r.id_user = u.id_user
+      JOIN municipios m ON u.id_municipio = m.id_municipio
+      WHERE m.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3
+      GROUP BY m.nombre_municipio
+    `;
+    // Ejecutar queries en paralelo
+    const [hospitalsRes, employeesRes, registrosRes] = await Promise.all([
+      pool.query(hospitalsQuery, [id_estado]),
+      pool.query(employeesQuery, [id_estado]),
+      pool.query(registrosQuery, [id_estado, fechaInicio, fechaFin])
+    ]);
+    // Unir resultados por municipio
+    const municipios = {};
+    hospitalsRes.rows.forEach(row => {
+      municipios[row.municipio] = { municipio: row.municipio, hospitals: parseInt(row.hospitals) || 0 };
+    });
+    employeesRes.rows.forEach(row => {
+      if (!municipios[row.municipio]) municipios[row.municipio] = { municipio: row.municipio };
+      municipios[row.municipio].employees = parseInt(row.employees) || 0;
+    });
+    registrosRes.rows.forEach(row => {
+      if (!municipios[row.municipio]) municipios[row.municipio] = { municipio: row.municipio };
+      municipios[row.municipio].geofenceExits = parseInt(row.geofenceExits) || 0;
+      municipios[row.municipio].hoursWorked = parseInt(row.hoursWorked) || 0;
+    });
+    // Formatear respuesta
+    const result = Object.values(municipios).filter(m => m.employees && m.employees > 0);
+    res.json(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener la distribución municipal' });
+  }
+});
+
 export default router;
