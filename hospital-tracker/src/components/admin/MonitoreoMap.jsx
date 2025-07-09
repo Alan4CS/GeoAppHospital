@@ -1045,7 +1045,7 @@ const MonitoreoMap = ({
                   {/* Info general */}
                   <div className="popup-info">
                     <span className="popup-state"><FaHospital className="mr-1 text-blue-600 inline" />{employee.hospital}</span>
-                    <span className="popup-address"><FaClock className="mr-1 inline" />Última conexión: {format(employee.lastConnection, "d 'de' MMMM, HH:mm", { locale: es })}</span>
+                    <span className="popup-address"><FaClock className="mr-1 inline" />Última conexión: {format(new Date(employee.lastConnection.getTime() + employee.lastConnection.getTimezoneOffset() * 60000), "d 'de' MMMM, HH:mm", { locale: es })}</span>
                   </div>
                   {/* Estado de registro y geocerca */}
                   <div className="popup-stats">
