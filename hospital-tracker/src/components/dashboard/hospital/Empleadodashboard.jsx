@@ -179,10 +179,10 @@ export default function EmpleadoDashboard({
     return 'Actividad registrada'
   }
 
-  // Función para formatear hora - usando el mismo método que MonitoreoMap
+  // Función para formatear hora - extracción directa sin conversiones
   const formatHora = (fechaStr) => {
-    const fecha = new Date(fechaStr);
-    return format(fecha, "HH:mm", { locale: es });
+    // Extraer hora directamente de la cadena sin conversiones de zona horaria
+    return fechaStr.slice(11, 16); // Extrae "HH:mm" de "YYYY-MM-DDTHH:mm:ss"
   }
 
   // Función para formatear horas decimales a 'Xh Ymin'

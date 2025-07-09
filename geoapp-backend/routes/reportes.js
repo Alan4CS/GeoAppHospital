@@ -13,7 +13,7 @@ router.post('/empleado', async (req, res) => {
       SELECT u.id_user, u.nombre, u.ap_paterno, u.ap_materno, u.id_group, u.id_estado, u.id_municipio, 
              g.nombre_grupo, e.nombre_estado, m.nombre_municipio, h.nombre_hospital,
              r.id_registro, r.latitud, r.longitud, 
-             (r.fecha_hora AT TIME ZONE 'UTC' AT TIME ZONE 'America/Mexico_City') AS fecha_hora,
+             r.fecha_hora,
              r.dentro_geocerca, r.tipo_registro, r.evento
       FROM user_data u
       LEFT JOIN registro_ubicaciones r ON u.id_user = r.id_user

@@ -211,16 +211,14 @@ function generateTimeScale(startTime, endTime) {
 }
 
 function formatTime(date) {
-  return date.toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
+  // Si es un objeto Date, convertir a string ISO y extraer la hora
+  const isoString = date.toISOString();
+  return isoString.slice(11, 16); // Extrae "HH:mm"
 }
 
 function formatHora(fechaStr) {
-  const fecha = new Date(fechaStr);
-  return fecha.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  // Extraer hora directamente de la cadena sin conversiones de zona horaria
+  return fechaStr.slice(11, 16); // Extrae "HH:mm" de "YYYY-MM-DDTHH:mm:ss"
 }
 
 // Función para determinar el tipo de nodo
