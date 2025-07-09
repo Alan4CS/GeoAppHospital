@@ -244,12 +244,11 @@ export default function EnhancedMunicipalDashboard() {
         if (response.ok) {
           const data = await response.json()
           setEstados(data)
-          console.log("✅ Estados cargados desde el backend:", data)
         } else {
-          console.error("❌ Error al cargar estados:", response.status)
+          console.error("Error al cargar estados:", response.status)
         }
       } catch (error) {
-        console.error("❌ Error al cargar estados:", error)
+        console.error("Error al cargar estados:", error)
       }
     }
     fetchEstados()
@@ -264,12 +263,11 @@ export default function EnhancedMunicipalDashboard() {
           if (response.ok) {
             const data = await response.json()
             setMunicipios(data)
-            console.log("✅ Municipios cargados desde el backend:", data)
           } else {
-            console.error("❌ Error al cargar municipios:", response.status)
+            console.error("Error al cargar municipios:", response.status)
           }
         } catch (error) {
-          console.error("❌ Error al cargar municipios:", error)
+          console.error("Error al cargar municipios:", error)
         }
       } else {
         setMunicipios([])
@@ -401,11 +399,9 @@ export default function EnhancedMunicipalDashboard() {
 
   // Función para obtener datos reales del endpoint
   const fetchMunicipalData = async (id_municipio, startDate, endDate) => {
-    console.log(`🔄 Iniciando fetchMunicipalData para municipio ID: ${id_municipio} (${startDate} a ${endDate})`)
     setIsLoadingData(true)
     try {
       if (!id_municipio) {
-        console.log(`⚠️ No se proporcionó id_municipio, retornando datos vacíos`)
         setApiData({ empleados: [], hospitales: [] })
         setIsLoadingData(false)
         return
@@ -416,7 +412,6 @@ export default function EnhancedMunicipalDashboard() {
         fechaInicio: `${startDate} 00:00:00`,
         fechaFin: `${endDate} 23:59:59`
       }
-      console.log(`🚀 Haciendo petición al endpoint con body:`, requestBody)
       
       const response = await fetch("https://geoapphospital.onrender.com/api/dashboards/municipio", {
         method: "POST",
@@ -424,17 +419,14 @@ export default function EnhancedMunicipalDashboard() {
         body: JSON.stringify(requestBody)
       })
       
-      console.log(`📡 Respuesta del servidor: ${response.status} ${response.statusText}`)
-      
       if (!response.ok) {
         throw new Error(`Error HTTP: ${response.status}`)
       }
       
       const data = await response.json()
-      console.log(`✅ Datos recibidos:`, data)
       setApiData(data)
     } catch (error) {
-      console.error("❌ Error fetching municipal data:", error)
+      console.error("Error fetching municipal data:", error)
       setApiData(null)
     } finally {
       setIsLoadingData(false)
@@ -443,12 +435,8 @@ export default function EnhancedMunicipalDashboard() {
 
   // Efecto para cargar datos cuando cambian los filtros
   useEffect(() => {
-    console.log(`🔄 useEffect activado: id_estado=${filters.id_estado}, id_municipio=${filters.id_municipio}, fechas=${dateRange.startDate} - ${dateRange.endDate}`)
     if (filters.id_municipio) {
-      console.log(`✅ Condiciones cumplidas, llamando fetchMunicipalData`)
       fetchMunicipalData(filters.id_municipio, dateRange.startDate, dateRange.endDate)
-    } else {
-      console.log(`⚠️ Condiciones no cumplidas: id_municipio=${filters.id_municipio}`)
     }
   }, [filters.id_municipio, dateRange.startDate, dateRange.endDate])
 
@@ -511,12 +499,8 @@ export default function EnhancedMunicipalDashboard() {
         hospital.nombre_estado === filters.nombre_estado
       ) : []
     
-    console.log("🔍 Hospitales del municipio para calcular total:", hospitalesDelMunicipio)
-    console.log("🔍 Primer hospital ejemplo:", hospitalesDelMunicipio[0])
-    
     const totalEmployeesInMunicipality = hospitalesDelMunicipio
       .reduce((sum, hospital) => {
-        console.log(`Hospital: ${hospital.nombre_hospital}, total_empleados: ${hospital.total_empleados}`)
         return sum + (hospital.total_empleados || 0)
       }, 0)
     
