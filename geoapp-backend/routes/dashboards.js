@@ -72,4 +72,115 @@ router.post('/grupo', async (req, res) => {
   }
 });
 
+// POST /api/dashboards/municipio
+// Recibe: { id_municipio, fechaInicio, fechaFin }
+// Devuelve: { empleados: [...], hospitales: [...] }
+router.post('/municipio', async (req, res) => {
+  try {
+    const { id_municipio, fechaInicio, fechaFin } = req.body;
+    
+    // Validar que todos los campos requeridos estén presentes
+    if (!id_municipio || !fechaInicio || !fechaFin) {
+      return res.status(400).json({ error: 'id_municipio, fechaInicio y fechaFin son obligatorios' });
+    }
+
+    // Construir filtros para empleados
+    let where = 'u.id_municipio = $1 AND r.fecha_hora BETWEEN $2 AND $3';
+    const values = [id_municipio, fechaInicio, fechaFin];
+
+    // Consulta empleados y sus registros del municipio
+    const queryEmpleados = `
+      SELECT u.id_user, u.nombre, u.ap_paterno, u.ap_materno, u.id_group, u.id_hospital, u.id_estado, u.id_municipio,
+             g.nombre_grupo, e.nombre_estado, m.nombre_municipio, h.nombre_hospital,
+             r.id_registro, r.latitud, r.longitud, 
+             (r.fecha_hora AT TIME ZONE 'UTC' AT TIME ZONE 'America/Mexico_City') AS fecha_hora,
+             r.dentro_geocerca, r.tipo_registro, r.evento
+      FROM user_data u
+      LEFT JOIN registro_ubicaciones r ON u.id_user = r.id_user
+      LEFT JOIN groups g ON u.id_group = g.id_group
+      LEFT JOIN estados e ON u.id_estado = e.id_estado
+      LEFT JOIN municipios m ON u.id_municipio = m.id_municipio
+      LEFT JOIN hospitals h ON u.id_hospital = h.id_hospital
+      WHERE ${where}
+      ORDER BY u.id_user, r.fecha_hora ASC
+    `;
+
+    const resultEmpleados = await pool.query(queryEmpleados, values);
+
+    // Agrupar empleados por id_user
+    const empleadosMap = {};
+    for (const row of resultEmpleados.rows) {
+      if (!empleadosMap[row.id_user]) {
+        empleadosMap[row.id_user] = {
+          empleado: {
+            id_user: row.id_user,
+            nombre: row.nombre,
+            ap_paterno: row.ap_paterno,
+            ap_materno: row.ap_materno,
+            id_group: row.id_group,
+            id_hospital: row.id_hospital,
+            grupo: row.nombre_grupo,
+            estado: row.nombre_estado,
+            municipio: row.nombre_municipio,
+            hospital: row.nombre_hospital,
+          },
+          registros: [],
+        };
+      }
+      
+      // Solo agregar registros si existen (id_registro no es null)
+      if (row.id_registro) {
+        empleadosMap[row.id_user].registros.push({
+          id_registro: row.id_registro,
+          latitud: row.latitud,
+          longitud: row.longitud,
+          fecha_hora: row.fecha_hora,
+          dentro_geocerca: row.dentro_geocerca,
+          tipo_registro: row.tipo_registro,
+          evento: row.evento,
+        });
+      }
+    }
+
+    const empleados = Object.values(empleadosMap);
+
+    // Consulta para obtener todos los hospitales del municipio con total de empleados
+    const queryHospitales = `
+      SELECT h.id_hospital, h.nombre_hospital, h.latitud_hospital, h.longitud_hospital, h.direccion_hospital,
+             e.nombre_estado, m.nombre_municipio,
+             COUNT(u.id_user) as total_empleados
+      FROM hospitals h
+      JOIN municipios m ON h.id_municipio = m.id_municipio
+      JOIN estados e ON m.id_estado = e.id_estado
+      LEFT JOIN user_data u ON h.id_hospital = u.id_hospital
+      WHERE h.id_municipio = $1
+      GROUP BY h.id_hospital, h.nombre_hospital, h.latitud_hospital, h.longitud_hospital, h.direccion_hospital,
+               e.nombre_estado, m.nombre_municipio
+      ORDER BY h.nombre_hospital ASC
+    `;
+
+    const resultHospitales = await pool.query(queryHospitales, [id_municipio]);
+
+    const hospitales = resultHospitales.rows.map(row => ({
+      id_hospital: row.id_hospital,
+      nombre_hospital: row.nombre_hospital,
+      latitud: row.latitud_hospital,
+      longitud: row.longitud_hospital,
+      direccion: row.direccion_hospital,
+      nombre_estado: row.nombre_estado,
+      nombre_municipio: row.nombre_municipio,
+      total_empleados: parseInt(row.total_empleados) || 0,
+    }));
+
+    res.json({ 
+      empleados,
+      hospitales 
+    });
+
+  } catch (error) {
+    console.error('Error en endpoint /municipio:', error);
+    res.status(500).json({ error: 'Error al obtener los datos del municipio' });
+  }
+});
+
 export default router;
