@@ -85,7 +85,7 @@ const stateCodeMapping = {
 }
 
 // Componente Tooltip mejorado con portal y ajuste automático
-const MapTooltip = ({ x, y, municipality, containerRef }) => {
+const MapTooltip = ({ x, y, municipality, containerRef, loadingTooltip }) => {
   const [pos, setPos] = useState({ left: x, top: y })
   const tooltipRef = useRef(null)
 
@@ -127,24 +127,41 @@ const MapTooltip = ({ x, y, municipality, containerRef }) => {
         maxWidth: "250px",
       }}
     >
-      <h4 className="font-bold text-gray-800 mb-2 border-b pb-1 text-sm">{municipality.municipality}</h4>
+      <h4 className="font-bold text-gray-800 mb-2 border-b pb-1 text-sm">
+        {municipality.municipio || municipality.municipality}
+      </h4>
       <div className="space-y-1 text-xs">
-        <div className="flex justify-between items-center">
-          <span className="text-gray-600">Registros de Salida:</span>
-          <span className="font-medium text-red-600">{municipality.geofenceExits}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-600">Horas:</span>
-          <span className="font-medium text-emerald-600">{municipality.hoursWorked}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-600">Hospitales:</span>
-          <span className="font-medium text-blue-600">{municipality.hospitals}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-600">Empleados:</span>
-          <span className="font-medium text-purple-600">{municipality.employees}</span>
-        </div>
+        {loadingTooltip ? (
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 border border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <span>Cargando datos...</span>
+          </div>
+        ) : (
+          <>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Registros de Salida:</span>
+              <span className="font-medium text-red-600">{municipality.geofenceExits || 0}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Horas:</span>
+              <span className="font-medium text-emerald-600">{municipality.hoursWorked || 0}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Hospitales:</span>
+              <span className="font-medium text-blue-600">{municipality.hospitals || 0}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Empleados:</span>
+              <span className="font-medium text-purple-600">{municipality.employees || 0}</span>
+            </div>
+            {municipality.estado && (
+              <div className="flex justify-between items-center pt-1 border-t border-gray-200">
+                <span className="text-gray-600">Estado:</span>
+                <span className="font-medium">{municipality.estado}</span>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   )
@@ -201,6 +218,11 @@ export default function EstatalDashboard() {
   const [metricas, setMetricas] = useState({}); // <--- nuevo estado para métricas
   const [loadingGraficas, setLoadingGraficas] = useState(false);
   const [errorGraficas, setErrorGraficas] = useState(null);
+  
+  // Estados para tooltip dinámico
+  const [loadingTooltip, setLoadingTooltip] = useState(false);
+  const [tooltipData, setTooltipData] = useState(null);
+  const [hoveredMunicipalityId, setHoveredMunicipalityId] = useState(null);
 
   // Estados para el filtro de fechas mejorado
   const datePresets = [
@@ -581,6 +603,26 @@ export default function EstatalDashboard() {
     fetchMunicipalityData();
   }, [selectedState, dateRange]);
 
+  // Función para obtener datos del tooltip dinámicamente
+  const fetchMunicipalityTooltipData = async (municipioId) => {
+    if (!municipioId || !dateRange.startDate || !dateRange.endDate) return null;
+    
+    setLoadingTooltip(true);
+    try {
+      const base = 'https://geoapphospital.onrender.com/api/dashboards/estatal';
+      const params = `?id_municipio=${municipioId}&fechaInicio=${dateRange.startDate}&fechaFin=${dateRange.endDate}`;
+      const res = await fetch(`${base}/municipio-detalle${params}`);
+      if (!res.ok) throw new Error('Error al obtener detalle del municipio');
+      const data = await res.json();
+      return data;
+    } catch (err) {
+      console.error('Error fetching municipality tooltip data:', err);
+      return null;
+    } finally {
+      setLoadingTooltip(false);
+    }
+  };
+
   return (
     <>
       <style jsx global>{customScrollbarStyles}</style>
@@ -880,13 +922,15 @@ export default function EstatalDashboard() {
                           return geographies
                             .map((geo) => {
                               const munName = geo.properties?.mun_name
+                              const munId = geo.properties?.mun_code || geo.properties?.id_municipio
+                              
                               if (!munName) {
                                 console.warn("[Warning] Municipality name not found in GeoJSON properties:", geo.properties)
                                 return null
                               }
 
                               // Debug: Mostrar el nombre del municipio del GeoJSON
-                              console.log("[Debug] GeoJSON Municipality:", munName)
+                              console.log("[Debug] GeoJSON Municipality:", munName, "ID:", munId)
 
                               const munData = municipalityMap.get(munName.toLowerCase())
 
@@ -923,8 +967,22 @@ export default function EstatalDashboard() {
                                       strokeWidth: 0.7,
                                     },
                                   }}
-                                  onMouseEnter={() => {
-                                    setHoveredMunicipality(munData)
+                                  onMouseEnter={async () => {
+                                    setHoveredMunicipalityId(munId);
+                                    if (munId) {
+                                      const data = await fetchMunicipalityTooltipData(munId);
+                                      if (data) {
+                                        setTooltipData(data);
+                                        setHoveredMunicipality(data);
+                                      } else {
+                                        // Fallback to existing data if API call fails
+                                        setHoveredMunicipality(munData);
+                                        setTooltipData(null);
+                                      }
+                                    } else {
+                                      setHoveredMunicipality(munData);
+                                      setTooltipData(null);
+                                    }
                                   }}
                                   onMouseMove={(e) => {
                                     const mapContainer = e.currentTarget.closest(".h-\\[450px\\]")
@@ -937,7 +995,9 @@ export default function EstatalDashboard() {
                                     }
                                   }}
                                   onMouseLeave={() => {
-                                    setHoveredMunicipality(null)
+                                    setHoveredMunicipality(null);
+                                    setTooltipData(null);
+                                    setHoveredMunicipalityId(null);
                                   }}
                                 />
                               )
@@ -950,7 +1010,13 @@ export default function EstatalDashboard() {
                 </ComposableMap>
 
                 {/* Tooltip */}
-                <MapTooltip x={tooltipPosition.x} y={tooltipPosition.y} municipality={hoveredMunicipality} containerRef={mapContainerRef} />
+                <MapTooltip 
+                  x={tooltipPosition.x} 
+                  y={tooltipPosition.y} 
+                  municipality={hoveredMunicipality} 
+                  containerRef={mapContainerRef} 
+                  loadingTooltip={loadingTooltip}
+                />
               </div>
             </div>
             {/* Fin del mapa, se eliminó la gráfica de distribución municipal */}
@@ -970,44 +1036,86 @@ export default function EstatalDashboard() {
          )}
           {/* Entradas y Salidas de Geocerca por Día */}
           <div className="bg-white rounded-xl shadow-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Entradas y Salidas de Geocerca por Día</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Entradas y salidas de geocerca por día</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={entradasSalidasData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="fecha" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="entradas" fill="#10b981" name="Entradas a Geocerca" />
-                <Bar dataKey="salidas" fill="#ef4444" name="Salidas de Geocerca" />
+                <XAxis 
+                  dataKey="fecha" 
+                  tick={{ fontSize: 11 }}
+                  interval={0}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                  tickFormatter={(value) => {
+                    // Formatear fecha para mostrar solo YYYY-MM-DD
+                    if (value && value.includes('T')) {
+                      return value.split('T')[0];
+                    }
+                    return value;
+                  }}
+                />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip 
+                  contentStyle={{ fontSize: '12px' }}
+                  labelStyle={{ fontSize: '12px' }}
+                />
+                <Legend 
+                  wrapperStyle={{ fontSize: '12px' }}
+                />
+                <Bar dataKey="entradas" fill="#10b981" name="Entradas a geocerca" />
+                <Bar dataKey="salidas" fill="#ef4444" name="Salidas de geocerca" />
               </BarChart>
             </ResponsiveContainer>
           </div>
           {/* Distribución de Eventos de Geocerca */}
           <div className="bg-white rounded-xl shadow-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Distribución de Eventos de Geocerca</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Distribución de eventos de geocerca</h3>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
-                <Pie data={eventosData} dataKey="cantidad" nameKey="evento" cx="50%" cy="50%" outerRadius={100} label>
+                <Pie 
+                  data={eventosData} 
+                  dataKey="cantidad" 
+                  nameKey="evento" 
+                  cx="50%" 
+                  cy="50%" 
+                  outerRadius={80} 
+                  label={{ fontSize: 11 }}
+                  labelLine={false}
+                >
                   {eventosData.map((entry, idx) => (
                     <Cell key={`cell-${idx}`} fill={["#ef4444", "#10b981", "#f59e42", "#6366f1"][idx % 4]} />
                   ))}
                 </Pie>
-                <Tooltip />
-                <Legend />
+                <Tooltip 
+                  contentStyle={{ fontSize: '12px' }}
+                />
+                <Legend 
+                  wrapperStyle={{ fontSize: '12px' }}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
           {/* Ranking de Hospitales por Registros de Salida */}
           <div className="bg-white rounded-xl shadow-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Ranking de Hospitales por Registros de Salida</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Ranking de hospitales por registros de salida</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={rankingHospitalesData} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis type="number" />
-                <YAxis dataKey="nombre_hospital" type="category" />
-                <Tooltip />
-                <Bar dataKey="salidas" fill="#6366f1" name="Registros de Salida" />
+                <XAxis 
+                  type="number" 
+                  tick={{ fontSize: 11 }}
+                />
+                <YAxis 
+                  dataKey="nombre_hospital" 
+                  type="category" 
+                  tick={{ fontSize: 15 }}
+                  width={120}
+                />
+                <Tooltip 
+                  contentStyle={{ fontSize: '12px' }}
+                />
+                <Bar dataKey="salidas" fill="#6366f1" name="Registros de salida" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -1015,14 +1123,31 @@ export default function EstatalDashboard() {
           <div className="bg-white rounded-xl shadow-md p-6">
             <h3 className="text-lg font-bold text-gray-800 mb-2">Horas trabajadas por municipio</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={horasPorMunicipioData}>
+              <AreaChart data={horasPorMunicipioData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="municipio" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="horas" stroke="#8b5cf6" strokeWidth={3} />
-                <Legend />
-              </LineChart>
+                <XAxis 
+                  dataKey="municipio" 
+                  tick={{ fontSize: 11 }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip 
+                  contentStyle={{ fontSize: '12px' }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="horas" 
+                  stroke="#8b5cf6" 
+                  strokeWidth={3} 
+                  fill="#8b5cf6" 
+                  fillOpacity={0.3}
+                />
+                <Legend 
+                  wrapperStyle={{ fontSize: '12px' }}
+                />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>

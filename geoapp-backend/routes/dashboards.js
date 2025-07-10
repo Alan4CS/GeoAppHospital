@@ -429,4 +429,82 @@ router.get('/estatal/distribucion-municipal', async (req, res) => {
   }
 });
 
+// 6. Detalle de un municipio específico para tooltip del mapa
+// GET /api/dashboards/estatal/municipio-detalle?id_municipio=XX&fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
+router.get('/estatal/municipio-detalle', async (req, res) => {
+  try {
+    const { id_municipio, fechaInicio, fechaFin } = req.query;
+    if (!id_municipio || !fechaInicio || !fechaFin) {
+      return res.status(400).json({ error: 'id_municipio, fechaInicio y fechaFin son obligatorios' });
+    }
+
+    // Query para hospitales en el municipio
+    const hospitalsQuery = `
+      SELECT COUNT(h.id_hospital) as hospitals
+      FROM hospitals h
+      WHERE h.id_municipio = $1
+    `;
+
+    // Query para empleados en el municipio
+    const employeesQuery = `
+      SELECT COUNT(u.id_user) as employees
+      FROM user_data u
+      WHERE u.id_municipio = $1
+    `;
+
+    // Query para salidas de geocerca en el período
+    const geofenceExitsQuery = `
+      SELECT COUNT(*) as geofenceExits
+      FROM registro_ubicaciones r
+      JOIN user_data u ON r.id_user = u.id_user
+      WHERE u.id_municipio = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.evento = 0
+    `;
+
+    // Query para horas trabajadas en el período
+    const hoursWorkedQuery = `
+      SELECT COUNT(*) as hoursWorked
+      FROM registro_ubicaciones r
+      JOIN user_data u ON r.id_user = u.id_user
+      WHERE u.id_municipio = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.tipo_registro = 1
+    `;
+
+    // Query para obtener el nombre del municipio
+    const municipioQuery = `
+      SELECT m.nombre_municipio, e.nombre_estado
+      FROM municipios m
+      JOIN estados e ON m.id_estado = e.id_estado
+      WHERE m.id_municipio = $1
+    `;
+
+    // Ejecutar todas las queries en paralelo
+    const [hospitalsRes, employeesRes, geofenceRes, hoursRes, municipioRes] = await Promise.all([
+      pool.query(hospitalsQuery, [id_municipio]),
+      pool.query(employeesQuery, [id_municipio]),
+      pool.query(geofenceExitsQuery, [id_municipio, fechaInicio, fechaFin]),
+      pool.query(hoursWorkedQuery, [id_municipio, fechaInicio, fechaFin]),
+      pool.query(municipioQuery, [id_municipio])
+    ]);
+
+    // Verificar que el municipio existe
+    if (municipioRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Municipio no encontrado' });
+    }
+
+    const result = {
+      id_municipio: parseInt(id_municipio),
+      municipio: municipioRes.rows[0].nombre_municipio,
+      estado: municipioRes.rows[0].nombre_estado,
+      hospitals: parseInt(hospitalsRes.rows[0]?.hospitals) || 0,
+      employees: parseInt(employeesRes.rows[0]?.employees) || 0,
+      geofenceExits: parseInt(geofenceRes.rows[0]?.geofenceexits) || 0,
+      hoursWorked: parseInt(hoursRes.rows[0]?.hoursworked) || 0
+    };
+
+    res.json(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener detalle del municipio' });
+  }
+});
+
 export default router;
