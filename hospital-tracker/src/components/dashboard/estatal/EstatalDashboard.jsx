@@ -223,6 +223,10 @@ export default function EstatalDashboard() {
   const [loadingTooltip, setLoadingTooltip] = useState(false);
   const [tooltipData, setTooltipData] = useState(null);
   const [hoveredMunicipalityId, setHoveredMunicipalityId] = useState(null);
+  
+  // Estados para mapeo de municipios
+  const [municipiosList, setMunicipiosList] = useState([]);
+  const [municipiosMap, setMunicipiosMap] = useState(new Map());
 
   // Estados para el filtro de fechas mejorado
   const datePresets = [
@@ -500,6 +504,19 @@ export default function EstatalDashboard() {
       .catch(() => setStateMapConfig({}))
   }, [])
 
+  // Efecto para cargar municipios cuando cambia el estado seleccionado
+  useEffect(() => {
+    if (selectedState) {
+      const id_estado = stateCodeToId[selectedState];
+      if (id_estado) {
+        fetchMunicipiosByEstado(id_estado);
+      }
+    } else {
+      setMunicipiosList([]);
+      setMunicipiosMap(new Map());
+    }
+  }, [selectedState]);
+
   // Efecto para actualizar la posición del mapa cuando cambia el estado seleccionado
   useEffect(() => {
     if (selectedState) {
@@ -620,6 +637,32 @@ export default function EstatalDashboard() {
       return null;
     } finally {
       setLoadingTooltip(false);
+    }
+  };
+
+  // Función para obtener municipios por estado
+  const fetchMunicipiosByEstado = async (id_estado) => {
+    if (!id_estado) return;
+    
+    try {
+      const res = await fetch(`https://geoapphospital.onrender.com/api/dashboards/municipios-by-estado/${id_estado}`);
+      if (!res.ok) throw new Error('Error al obtener municipios');
+      const data = await res.json();
+      
+      setMunicipiosList(data);
+      
+      // Crear mapa nombre -> id_municipio para búsqueda rápida
+      const map = new Map();
+      data.forEach(municipio => {
+        map.set(municipio.nombre_municipio.toLowerCase(), municipio.id_municipio);
+      });
+      setMunicipiosMap(map);
+      
+      console.log('[Debug] Municipios loaded for state:', id_estado, 'Count:', data.length);
+    } catch (err) {
+      console.error('Error fetching municipios:', err);
+      setMunicipiosList([]);
+      setMunicipiosMap(new Map());
     }
   };
 
@@ -929,8 +972,11 @@ export default function EstatalDashboard() {
                                 return null
                               }
 
+                              // Usar el mapeo correcto para obtener el ID del municipio
+                              const correctMunId = municipiosMap.get(munName.toLowerCase()) || munId
+
                               // Debug: Mostrar el nombre del municipio del GeoJSON
-                              console.log("[Debug] GeoJSON Municipality:", munName, "ID:", munId)
+                              console.log("[Debug] GeoJSON Municipality:", munName, "Original ID:", munId, "Mapped ID:", correctMunId)
 
                               const munData = municipalityMap.get(munName.toLowerCase())
 
@@ -968,9 +1014,9 @@ export default function EstatalDashboard() {
                                     },
                                   }}
                                   onMouseEnter={async () => {
-                                    setHoveredMunicipalityId(munId);
-                                    if (munId) {
-                                      const data = await fetchMunicipalityTooltipData(munId);
+                                    setHoveredMunicipalityId(correctMunId);
+                                    if (correctMunId) {
+                                      const data = await fetchMunicipalityTooltipData(correctMunId);
                                       if (data) {
                                         setTooltipData(data);
                                         setHoveredMunicipality(data);
