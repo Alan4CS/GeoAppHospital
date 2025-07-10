@@ -152,7 +152,7 @@ router.post('/municipio', async (req, res) => {
       FROM hospitals h
       JOIN municipios m ON h.id_municipio = m.id_municipio
       JOIN estados e ON m.id_estado = e.id_estado
-      LEFT JOIN user_data u ON h.id_hospital = u.id_hospital
+      LEFT JOIN user_data u ON h.id_hospital = u.id_hospital AND u.id_group IS NOT NULL
       WHERE h.id_municipio = $1
       GROUP BY h.id_hospital, h.nombre_hospital, h.latitud_hospital, h.longitud_hospital, h.direccion_hospital,
                e.nombre_estado, m.nombre_municipio
@@ -185,6 +185,68 @@ router.post('/municipio', async (req, res) => {
 
 // --- ENDPOINTS Estatales PARA DASHBOARD ---
 
+// 0. Métricas para las tarjetas del dashboard
+// GET /api/dashboards/estatal/metricas?id_estado=XX&fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
+router.get('/estatal/metricas', async (req, res) => {
+  try {
+    const { id_estado, fechaInicio, fechaFin } = req.query;
+    if (!id_estado || !fechaInicio || !fechaFin) {
+      return res.status(400).json({ error: 'id_estado, fechaInicio y fechaFin son obligatorios' });
+    }
+
+    // Query para total de hospitales únicos en el estado
+    const hospitalesQuery = `
+      SELECT COUNT(DISTINCT h.id_hospital) as total_hospitales
+      FROM hospitals h
+      JOIN municipios m ON h.id_municipio = m.id_municipio
+      WHERE m.id_estado = $1
+    `;
+
+    // Query para total de empleados únicos en el estado (solo los que tienen hospital y grupo asignados)
+    const empleadosQuery = `
+      SELECT COUNT(DISTINCT u.id_user) as total_empleados
+      FROM user_data u
+      WHERE u.id_estado = $1 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
+    `;
+
+    // Query para total de salidas de geocerca en el período (solo empleados con hospital y grupo asignados)
+    const salidasGeocercaQuery = `
+      SELECT COUNT(*) as total_salidas_geocerca
+      FROM registro_ubicaciones r
+      JOIN user_data u ON r.id_user = u.id_user
+      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.evento = 0 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
+    `;
+
+    // Query para total de registros de entrada (horas trabajadas) en el período (solo empleados con hospital y grupo asignados)
+    const horasTrabajadasQuery = `
+      SELECT COUNT(*) as total_horas_trabajadas
+      FROM registro_ubicaciones r
+      JOIN user_data u ON r.id_user = u.id_user
+      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.tipo_registro = 1 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
+    `;
+
+    // Ejecutar todas las queries en paralelo
+    const [hospitalesRes, empleadosRes, salidasRes, horasRes] = await Promise.all([
+      pool.query(hospitalesQuery, [id_estado]),
+      pool.query(empleadosQuery, [id_estado]),
+      pool.query(salidasGeocercaQuery, [id_estado, fechaInicio, fechaFin]),
+      pool.query(horasTrabajadasQuery, [id_estado, fechaInicio, fechaFin])
+    ]);
+
+    const metricas = {
+      total_hospitales: parseInt(hospitalesRes.rows[0]?.total_hospitales) || 0,
+      total_empleados: parseInt(empleadosRes.rows[0]?.total_empleados) || 0,
+      total_salidas_geocerca: parseInt(salidasRes.rows[0]?.total_salidas_geocerca) || 0,
+      total_horas_trabajadas: parseInt(horasRes.rows[0]?.total_horas_trabajadas) || 0
+    };
+
+    res.json(metricas);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener métricas del dashboard' });
+  }
+});
+
 // 1. Entradas y Salidas por Día
 // GET /api/dashboards/estadual/entradas-salidas?id_estado=XX&fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
 router.get('/estatal/entradas-salidas', async (req, res) => {
@@ -196,11 +258,11 @@ router.get('/estatal/entradas-salidas', async (req, res) => {
     const query = `
       SELECT 
         DATE(r.fecha_hora) as fecha,
-        SUM(CASE WHEN r.tipo_registro = 1 THEN 1 ELSE 0 END) as entradas,
-        SUM(CASE WHEN r.tipo_registro = 0 THEN 1 ELSE 0 END) as salidas
+        SUM(CASE WHEN r.evento = 1 THEN 1 ELSE 0 END) as entradas,
+        SUM(CASE WHEN r.evento = 0 THEN 1 ELSE 0 END) as salidas
       FROM registro_ubicaciones r
       JOIN user_data u ON r.id_user = u.id_user
-      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3
+      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.evento IN (0, 1) AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
       GROUP BY fecha
       ORDER BY fecha
     `;
@@ -226,7 +288,7 @@ router.get('/estatal/eventos-geocerca', async (req, res) => {
         COUNT(*) as cantidad
       FROM registro_ubicaciones r
       JOIN user_data u ON r.id_user = u.id_user
-      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.evento IS NOT NULL
+      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.evento IS NOT NULL AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
       GROUP BY r.evento
       ORDER BY r.evento
     `;
@@ -264,7 +326,7 @@ router.get('/estatal/ranking-hospitales', async (req, res) => {
       FROM registro_ubicaciones r
       JOIN user_data u ON r.id_user = u.id_user
       JOIN hospitals h ON u.id_hospital = h.id_hospital
-      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3
+      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
       GROUP BY h.nombre_hospital
       ORDER BY salidas DESC
     `;
@@ -291,7 +353,7 @@ router.get('/estatal/horas-municipio', async (req, res) => {
       FROM registro_ubicaciones r
       JOIN user_data u ON r.id_user = u.id_user
       JOIN municipios m ON u.id_municipio = m.id_municipio
-      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.tipo_registro = 1
+      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.tipo_registro = 1 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
       GROUP BY m.nombre_municipio
       ORDER BY horas DESC
     `;
@@ -319,23 +381,23 @@ router.get('/estatal/distribucion-municipal', async (req, res) => {
       WHERE m.id_estado = $1
       GROUP BY m.nombre_municipio
     `;
-    // Query para empleados por municipio
+    // Query para empleados por municipio (solo los que tienen hospital y grupo asignados)
     const employeesQuery = `
       SELECT m.nombre_municipio as municipio, COUNT(u.id_user) as employees
       FROM user_data u
       JOIN municipios m ON u.id_municipio = m.id_municipio
-      WHERE m.id_estado = $1
+      WHERE m.id_estado = $1 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
       GROUP BY m.nombre_municipio
     `;
-    // Query para salidas y horas trabajadas por municipio
+    // Query para salidas de geocerca y horas trabajadas por municipio
     const registrosQuery = `
       SELECT m.nombre_municipio as municipio,
-        SUM(CASE WHEN r.tipo_registro = 0 THEN 1 ELSE 0 END) as geofenceExits,
+        SUM(CASE WHEN r.evento = 0 THEN 1 ELSE 0 END) as geofenceExits,
         SUM(CASE WHEN r.tipo_registro = 1 THEN 1 ELSE 0 END) as hoursWorked
       FROM registro_ubicaciones r
       JOIN user_data u ON r.id_user = u.id_user
       JOIN municipios m ON u.id_municipio = m.id_municipio
-      WHERE m.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3
+      WHERE m.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
       GROUP BY m.nombre_municipio
     `;
     // Ejecutar queries en paralelo
@@ -364,6 +426,109 @@ router.get('/estatal/distribucion-municipal', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al obtener la distribución municipal' });
+  }
+});
+
+// 6. Detalle de un municipio específico para tooltip del mapa
+// GET /api/dashboards/estatal/municipio-detalle?id_municipio=XX&fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
+router.get('/estatal/municipio-detalle', async (req, res) => {
+  try {
+    const { id_municipio, fechaInicio, fechaFin } = req.query;
+    if (!id_municipio || !fechaInicio || !fechaFin) {
+      return res.status(400).json({ error: 'id_municipio, fechaInicio y fechaFin son obligatorios' });
+    }
+
+    // Query para hospitales en el municipio
+    const hospitalsQuery = `
+      SELECT COUNT(h.id_hospital) as hospitals
+      FROM hospitals h
+      WHERE h.id_municipio = $1
+    `;
+
+    // Query para empleados en el municipio (solo los que tienen hospital y grupo asignados)
+    const employeesQuery = `
+      SELECT COUNT(u.id_user) as employees
+      FROM user_data u
+      WHERE u.id_municipio = $1 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
+    `;
+
+    // Query para salidas de geocerca en el período (solo empleados con hospital y grupo asignados)
+    const geofenceExitsQuery = `
+      SELECT COUNT(*) as geofenceExits
+      FROM registro_ubicaciones r
+      JOIN user_data u ON r.id_user = u.id_user
+      WHERE u.id_municipio = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.evento = 0 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
+    `;
+
+    // Query para horas trabajadas en el período (solo empleados con hospital y grupo asignados)
+    const hoursWorkedQuery = `
+      SELECT COUNT(*) as hoursWorked
+      FROM registro_ubicaciones r
+      JOIN user_data u ON r.id_user = u.id_user
+      WHERE u.id_municipio = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.tipo_registro = 1 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
+    `;
+
+    // Query para obtener el nombre del municipio
+    const municipioQuery = `
+      SELECT m.nombre_municipio, e.nombre_estado
+      FROM municipios m
+      JOIN estados e ON m.id_estado = e.id_estado
+      WHERE m.id_municipio = $1
+    `;
+
+    // Ejecutar todas las queries en paralelo
+    const [hospitalsRes, employeesRes, geofenceRes, hoursRes, municipioRes] = await Promise.all([
+      pool.query(hospitalsQuery, [id_municipio]),
+      pool.query(employeesQuery, [id_municipio]),
+      pool.query(geofenceExitsQuery, [id_municipio, fechaInicio, fechaFin]),
+      pool.query(hoursWorkedQuery, [id_municipio, fechaInicio, fechaFin]),
+      pool.query(municipioQuery, [id_municipio])
+    ]);
+
+    // Verificar que el municipio existe
+    if (municipioRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Municipio no encontrado' });
+    }
+
+    const result = {
+      id_municipio: parseInt(id_municipio),
+      municipio: municipioRes.rows[0].nombre_municipio,
+      estado: municipioRes.rows[0].nombre_estado,
+      hospitals: parseInt(hospitalsRes.rows[0]?.hospitals) || 0,
+      employees: parseInt(employeesRes.rows[0]?.employees) || 0,
+      geofenceExits: parseInt(geofenceRes.rows[0]?.geofenceexits) || 0,
+      hoursWorked: parseInt(hoursRes.rows[0]?.hoursworked) || 0
+    };
+
+    res.json(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener detalle del municipio' });
+  }
+});
+
+// Endpoint para obtener municipios por estado
+// GET /api/dashboards/municipios-by-estado/:id_estado
+router.get("/municipios-by-estado/:id_estado", async (req, res) => {
+  const { id_estado } = req.params;
+
+  try {
+    // 1. Buscar Municipios
+    const municipios = await pool.query(
+      `SELECT
+         m.id_municipio, 
+         m.nombre_municipio 
+       FROM municipios m
+       JOIN estados e ON m.id_estado = e.id_estado
+       WHERE m.id_estado = $1
+       ORDER BY m.nombre_municipio ASC`,
+      [id_estado]
+    );
+
+    res.json(municipios.rows);
+  } catch (error) {
+    console.error("❌ Error al obtener los municipios por estado:", error);
+    res.status(500).json({ error: "Error al obtener municipios" });
   }
 });
 

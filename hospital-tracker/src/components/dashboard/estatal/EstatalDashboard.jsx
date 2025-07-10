@@ -85,7 +85,7 @@ const stateCodeMapping = {
 }
 
 // Componente Tooltip mejorado con portal y ajuste automático
-const MapTooltip = ({ x, y, municipality, containerRef }) => {
+const MapTooltip = ({ x, y, municipality, containerRef, loadingTooltip }) => {
   const [pos, setPos] = useState({ left: x, top: y })
   const tooltipRef = useRef(null)
 
@@ -127,24 +127,41 @@ const MapTooltip = ({ x, y, municipality, containerRef }) => {
         maxWidth: "250px",
       }}
     >
-      <h4 className="font-bold text-gray-800 mb-2 border-b pb-1 text-sm">{municipality.municipality}</h4>
+      <h4 className="font-bold text-gray-800 mb-2 border-b pb-1 text-sm">
+        {municipality.municipio || municipality.municipality}
+      </h4>
       <div className="space-y-1 text-xs">
-        <div className="flex justify-between items-center">
-          <span className="text-gray-600">Salidas:</span>
-          <span className="font-medium text-red-600">{municipality.geofenceExits}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-600">Horas:</span>
-          <span className="font-medium text-emerald-600">{municipality.hoursWorked}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-600">Hospitales:</span>
-          <span className="font-medium text-blue-600">{municipality.hospitals}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-600">Empleados:</span>
-          <span className="font-medium text-purple-600">{municipality.employees}</span>
-        </div>
+        {loadingTooltip ? (
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 border border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <span>Cargando datos...</span>
+          </div>
+        ) : (
+          <>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Registros de Salida:</span>
+              <span className="font-medium text-red-600">{municipality.geofenceExits || 0}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Horas:</span>
+              <span className="font-medium text-emerald-600">{municipality.hoursWorked || 0}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Hospitales:</span>
+              <span className="font-medium text-blue-600">{municipality.hospitals || 0}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Empleados:</span>
+              <span className="font-medium text-purple-600">{municipality.employees || 0}</span>
+            </div>
+            {municipality.estado && (
+              <div className="flex justify-between items-center pt-1 border-t border-gray-200">
+                <span className="text-gray-600">Estado:</span>
+                <span className="font-medium">{municipality.estado}</span>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   )
@@ -198,8 +215,18 @@ export default function EstatalDashboard() {
   const [rankingHospitalesData, setRankingHospitalesData] = useState([]);
   const [horasPorMunicipioData, setHorasPorMunicipioData] = useState([]);
   const [municipalityData, setMunicipalityData] = useState([]); // <--- nuevo estado
+  const [metricas, setMetricas] = useState({}); // <--- nuevo estado para métricas
   const [loadingGraficas, setLoadingGraficas] = useState(false);
   const [errorGraficas, setErrorGraficas] = useState(null);
+  
+  // Estados para tooltip dinámico
+  const [loadingTooltip, setLoadingTooltip] = useState(false);
+  const [tooltipData, setTooltipData] = useState(null);
+  const [hoveredMunicipalityId, setHoveredMunicipalityId] = useState(null);
+  
+  // Estados para mapeo de municipios
+  const [municipiosList, setMunicipiosList] = useState([]);
+  const [municipiosMap, setMunicipiosMap] = useState(new Map());
 
   // Estados para el filtro de fechas mejorado
   const datePresets = [
@@ -278,10 +305,10 @@ export default function EstatalDashboard() {
       : 0
 
   // --- VARIABLES DERIVADAS (después de los hooks) ---
-  const totalHospitales = rankingHospitalesData?.length || 0;
-  const totalPersonal = horasPorMunicipioData?.reduce((acc, curr) => acc + (parseInt(curr.horas) || 0), 0) || 0;
-  const totalSalidas = entradasSalidasData?.reduce((acc, curr) => acc + (parseInt(curr.salidas) || 0), 0) || 0;
-  const totalHoras = horasPorMunicipioData?.reduce((acc, curr) => acc + (parseInt(curr.horas) || 0), 0) || 0;
+  const totalHospitales = metricas?.total_hospitales || 0;
+  const totalPersonal = metricas?.total_empleados || 0;
+  const totalSalidas = metricas?.total_salidas_geocerca || 0;
+  const totalHoras = metricas?.total_horas_trabajadas || 0;
 
   // Cargar municipios TopoJSON del sureste mexicano (mx_tj.json - versión optimizada)
   useEffect(() => {
@@ -477,6 +504,19 @@ export default function EstatalDashboard() {
       .catch(() => setStateMapConfig({}))
   }, [])
 
+  // Efecto para cargar municipios cuando cambia el estado seleccionado
+  useEffect(() => {
+    if (selectedState) {
+      const id_estado = stateCodeToId[selectedState];
+      if (id_estado) {
+        fetchMunicipiosByEstado(id_estado);
+      }
+    } else {
+      setMunicipiosList([]);
+      setMunicipiosMap(new Map());
+    }
+  }, [selectedState]);
+
   // Efecto para actualizar la posición del mapa cuando cambia el estado seleccionado
   useEffect(() => {
     if (selectedState) {
@@ -520,7 +560,7 @@ export default function EstatalDashboard() {
     MXTAM: '28', MXTLA: '29', MXVER: '30', MXYUC: '31', MXZAC: '32'
   };
 
-  // Efecto para cargar las gráficas
+  // Efecto para cargar las gráficas y métricas
   useEffect(() => {
     async function fetchGraficas() {
       if (!selectedState || !dateRange.startDate || !dateRange.endDate) return;
@@ -531,23 +571,26 @@ export default function EstatalDashboard() {
       try {
         const base = 'https://geoapphospital.onrender.com/api/dashboards/estatal';
         const params = `?id_estado=${id_estado}&fechaInicio=${dateRange.startDate}&fechaFin=${dateRange.endDate}`;
-        const [entradasSalidasRes, eventosRes, rankingRes, horasRes] = await Promise.all([
+        const [entradasSalidasRes, eventosRes, rankingRes, horasRes, metricasRes] = await Promise.all([
           fetch(`${base}/entradas-salidas${params}`),
           fetch(`${base}/eventos-geocerca${params}`),
           fetch(`${base}/ranking-hospitales${params}`),
-          fetch(`${base}/horas-municipio${params}`)
+          fetch(`${base}/horas-municipio${params}`),
+          fetch(`${base}/metricas${params}`)
         ]);
-        if (!entradasSalidasRes.ok || !eventosRes.ok || !rankingRes.ok || !horasRes.ok) {
+        if (!entradasSalidasRes.ok || !eventosRes.ok || !rankingRes.ok || !horasRes.ok || !metricasRes.ok) {
           throw new Error('Error al obtener datos de las gráficas');
         }
         const entradasSalidas = await entradasSalidasRes.json();
         const eventos = await eventosRes.json();
         const ranking = await rankingRes.json();
         const horas = await horasRes.json();
+        const metricasData = await metricasRes.json();
         setEntradasSalidasData(entradasSalidas);
         setEventosData(eventos);
         setRankingHospitalesData(ranking);
         setHorasPorMunicipioData(horas);
+        setMetricas(metricasData);
       } catch (err) {
         setErrorGraficas(err.message || 'Error desconocido');
       } finally {
@@ -576,6 +619,52 @@ export default function EstatalDashboard() {
     }
     fetchMunicipalityData();
   }, [selectedState, dateRange]);
+
+  // Función para obtener datos del tooltip dinámicamente
+  const fetchMunicipalityTooltipData = async (municipioId) => {
+    if (!municipioId || !dateRange.startDate || !dateRange.endDate) return null;
+    
+    setLoadingTooltip(true);
+    try {
+      const base = 'https://geoapphospital.onrender.com/api/dashboards/estatal';
+      const params = `?id_municipio=${municipioId}&fechaInicio=${dateRange.startDate}&fechaFin=${dateRange.endDate}`;
+      const res = await fetch(`${base}/municipio-detalle${params}`);
+      if (!res.ok) throw new Error('Error al obtener detalle del municipio');
+      const data = await res.json();
+      return data;
+    } catch (err) {
+      console.error('Error fetching municipality tooltip data:', err);
+      return null;
+    } finally {
+      setLoadingTooltip(false);
+    }
+  };
+
+  // Función para obtener municipios por estado
+  const fetchMunicipiosByEstado = async (id_estado) => {
+    if (!id_estado) return;
+    
+    try {
+      const res = await fetch(`https://geoapphospital.onrender.com/api/dashboards/municipios-by-estado/${id_estado}`);
+      if (!res.ok) throw new Error('Error al obtener municipios');
+      const data = await res.json();
+      
+      setMunicipiosList(data);
+      
+      // Crear mapa nombre -> id_municipio para búsqueda rápida
+      const map = new Map();
+      data.forEach(municipio => {
+        map.set(municipio.nombre_municipio.toLowerCase(), municipio.id_municipio);
+      });
+      setMunicipiosMap(map);
+      
+      console.log('[Debug] Municipios loaded for state:', id_estado, 'Count:', data.length);
+    } catch (err) {
+      console.error('Error fetching municipios:', err);
+      setMunicipiosList([]);
+      setMunicipiosMap(new Map());
+    }
+  };
 
   return (
     <>
@@ -741,7 +830,7 @@ export default function EstatalDashboard() {
                 </div>
                 <TrendingUp className="h-4 w-4 text-white/70" />
               </div>
-              <p className="text-sm text-white/70">Total Personal</p>
+              <p className="text-sm text-white/70">Total Empleados</p>
               <p className="text-2xl font-bold">{totalPersonal}</p>
             </div>
 
@@ -752,7 +841,7 @@ export default function EstatalDashboard() {
                 </div>
                 <TrendingUp className="h-4 w-4 text-white/70" />
               </div>
-              <p className="text-sm text-white/70">Salidas Totales</p>
+              <p className="text-sm text-white/70">Salidas de Geocerca</p>
               <p className="text-2xl font-bold">{totalSalidas}</p>
             </div>
 
@@ -763,7 +852,7 @@ export default function EstatalDashboard() {
                 </div>
                 <TrendingUp className="h-4 w-4 text-white/70" />
               </div>
-              <p className="text-sm text-white/70">Horas Totales</p>
+              <p className="text-sm text-white/70">Registros de Entrada</p>
               <p className="text-2xl font-bold">{totalHoras}</p>
             </div>
           </div>
@@ -785,7 +874,7 @@ export default function EstatalDashboard() {
                         : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                     }`}
                   >
-                    Salidas
+                    Registros de Salida
                   </button>
                   <button
                     onClick={() => setMetricToShow("hoursWorked")}
@@ -876,13 +965,18 @@ export default function EstatalDashboard() {
                           return geographies
                             .map((geo) => {
                               const munName = geo.properties?.mun_name
+                              const munId = geo.properties?.mun_code || geo.properties?.id_municipio
+                              
                               if (!munName) {
                                 console.warn("[Warning] Municipality name not found in GeoJSON properties:", geo.properties)
                                 return null
                               }
 
+                              // Usar el mapeo correcto para obtener el ID del municipio
+                              const correctMunId = municipiosMap.get(munName.toLowerCase()) || munId
+
                               // Debug: Mostrar el nombre del municipio del GeoJSON
-                              console.log("[Debug] GeoJSON Municipality:", munName)
+                              console.log("[Debug] GeoJSON Municipality:", munName, "Original ID:", munId, "Mapped ID:", correctMunId)
 
                               const munData = municipalityMap.get(munName.toLowerCase())
 
@@ -919,8 +1013,22 @@ export default function EstatalDashboard() {
                                       strokeWidth: 0.7,
                                     },
                                   }}
-                                  onMouseEnter={() => {
-                                    setHoveredMunicipality(munData)
+                                  onMouseEnter={async () => {
+                                    setHoveredMunicipalityId(correctMunId);
+                                    if (correctMunId) {
+                                      const data = await fetchMunicipalityTooltipData(correctMunId);
+                                      if (data) {
+                                        setTooltipData(data);
+                                        setHoveredMunicipality(data);
+                                      } else {
+                                        // Fallback to existing data if API call fails
+                                        setHoveredMunicipality(munData);
+                                        setTooltipData(null);
+                                      }
+                                    } else {
+                                      setHoveredMunicipality(munData);
+                                      setTooltipData(null);
+                                    }
                                   }}
                                   onMouseMove={(e) => {
                                     const mapContainer = e.currentTarget.closest(".h-\\[450px\\]")
@@ -933,7 +1041,9 @@ export default function EstatalDashboard() {
                                     }
                                   }}
                                   onMouseLeave={() => {
-                                    setHoveredMunicipality(null)
+                                    setHoveredMunicipality(null);
+                                    setTooltipData(null);
+                                    setHoveredMunicipalityId(null);
                                   }}
                                 />
                               )
@@ -946,7 +1056,13 @@ export default function EstatalDashboard() {
                 </ComposableMap>
 
                 {/* Tooltip */}
-                <MapTooltip x={tooltipPosition.x} y={tooltipPosition.y} municipality={hoveredMunicipality} containerRef={mapContainerRef} />
+                <MapTooltip 
+                  x={tooltipPosition.x} 
+                  y={tooltipPosition.y} 
+                  municipality={hoveredMunicipality} 
+                  containerRef={mapContainerRef} 
+                  loadingTooltip={loadingTooltip}
+                />
               </div>
             </div>
             {/* Fin del mapa, se eliminó la gráfica de distribución municipal */}
@@ -964,46 +1080,88 @@ export default function EstatalDashboard() {
              <span className="text-lg text-red-500">{errorGraficas}</span>
            </div>
          )}
-          {/* Entradas y Salidas por Día */}
+          {/* Entradas y Salidas de Geocerca por Día */}
           <div className="bg-white rounded-xl shadow-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Entradas y Salidas por Día</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Entradas y salidas de geocerca por día</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={entradasSalidasData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="fecha" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="entradas" fill="#10b981" name="Entradas" />
-                <Bar dataKey="salidas" fill="#ef4444" name="Salidas" />
+                <XAxis 
+                  dataKey="fecha" 
+                  tick={{ fontSize: 11 }}
+                  interval={0}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                  tickFormatter={(value) => {
+                    // Formatear fecha para mostrar solo YYYY-MM-DD
+                    if (value && value.includes('T')) {
+                      return value.split('T')[0];
+                    }
+                    return value;
+                  }}
+                />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip 
+                  contentStyle={{ fontSize: '12px' }}
+                  labelStyle={{ fontSize: '12px' }}
+                />
+                <Legend 
+                  wrapperStyle={{ fontSize: '12px' }}
+                />
+                <Bar dataKey="entradas" fill="#10b981" name="Entradas a geocerca" />
+                <Bar dataKey="salidas" fill="#ef4444" name="Salidas de geocerca" />
               </BarChart>
             </ResponsiveContainer>
           </div>
           {/* Distribución de Eventos de Geocerca */}
           <div className="bg-white rounded-xl shadow-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Distribución de Eventos de Geocerca</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Distribución de eventos de geocerca</h3>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
-                <Pie data={eventosData} dataKey="cantidad" nameKey="evento" cx="50%" cy="50%" outerRadius={100} label>
+                <Pie 
+                  data={eventosData} 
+                  dataKey="cantidad" 
+                  nameKey="evento" 
+                  cx="50%" 
+                  cy="50%" 
+                  outerRadius={80} 
+                  label={{ fontSize: 11 }}
+                  labelLine={false}
+                >
                   {eventosData.map((entry, idx) => (
                     <Cell key={`cell-${idx}`} fill={["#ef4444", "#10b981", "#f59e42", "#6366f1"][idx % 4]} />
                   ))}
                 </Pie>
-                <Tooltip />
-                <Legend />
+                <Tooltip 
+                  contentStyle={{ fontSize: '12px' }}
+                />
+                <Legend 
+                  wrapperStyle={{ fontSize: '12px' }}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
-          {/* Ranking de Hospitales por Salidas */}
+          {/* Ranking de Hospitales por Registros de Salida */}
           <div className="bg-white rounded-xl shadow-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Ranking de Hospitales por Salidas</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Ranking de hospitales por registros de salida</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={rankingHospitalesData} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis type="number" />
-                <YAxis dataKey="nombre_hospital" type="category" />
-                <Tooltip />
-                <Bar dataKey="salidas" fill="#6366f1" name="Salidas" />
+                <XAxis 
+                  type="number" 
+                  tick={{ fontSize: 11 }}
+                />
+                <YAxis 
+                  dataKey="nombre_hospital" 
+                  type="category" 
+                  tick={{ fontSize: 15 }}
+                  width={120}
+                />
+                <Tooltip 
+                  contentStyle={{ fontSize: '12px' }}
+                />
+                <Bar dataKey="salidas" fill="#6366f1" name="Registros de salida" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -1011,14 +1169,31 @@ export default function EstatalDashboard() {
           <div className="bg-white rounded-xl shadow-md p-6">
             <h3 className="text-lg font-bold text-gray-800 mb-2">Horas trabajadas por municipio</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={horasPorMunicipioData}>
+              <AreaChart data={horasPorMunicipioData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="municipio" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="horas" stroke="#8b5cf6" strokeWidth={3} />
-                <Legend />
-              </LineChart>
+                <XAxis 
+                  dataKey="municipio" 
+                  tick={{ fontSize: 11 }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip 
+                  contentStyle={{ fontSize: '12px' }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="horas" 
+                  stroke="#8b5cf6" 
+                  strokeWidth={3} 
+                  fill="#8b5cf6" 
+                  fillOpacity={0.3}
+                />
+                <Legend 
+                  wrapperStyle={{ fontSize: '12px' }}
+                />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
