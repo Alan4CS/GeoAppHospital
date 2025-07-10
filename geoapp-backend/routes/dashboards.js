@@ -3,6 +3,44 @@ import { pool } from '../db/index.js';
 
 const router = express.Router();
 
+// Función auxiliar para mapear IDs de estado a códigos de mapa
+const getStateCodeMapping = () => {
+  return {
+    1: 'MXAGU',   // Aguascalientes
+    2: 'MXBCN',   // Baja California
+    3: 'MXBCS',   // Baja California Sur
+    4: 'MXCAM',   // Campeche
+    5: 'MXCOA',   // Coahuila
+    6: 'MXCOL',   // Colima
+    7: 'MXCHP',   // Chiapas
+    8: 'MXCHH',   // Chihuahua
+    9: 'MXCMX',   // Ciudad de México
+    10: 'MXDUR',  // Durango
+    11: 'MXGUA',  // Guanajuato
+    12: 'MXGRO',  // Guerrero
+    13: 'MXHID',  // Hidalgo
+    14: 'MXJAL',  // Jalisco
+    15: 'MXMEX',  // México
+    16: 'MXMIC',  // Michoacán
+    17: 'MXMOR',  // Morelos
+    18: 'MXNAY',  // Nayarit
+    19: 'MXNLE',  // Nuevo León
+    20: 'MXOAX',  // Oaxaca
+    21: 'MXPUE',  // Puebla
+    22: 'MXQUE',  // Querétaro
+    23: 'MXROO',  // Quintana Roo
+    24: 'MXSLP',  // San Luis Potosí
+    25: 'MXSIN',  // Sinaloa
+    26: 'MXSON',  // Sonora
+    27: 'MXTAB',  // Tabasco
+    28: 'MXTAM',  // Tamaulipas
+    29: 'MXTLA',  // Tlaxcala
+    30: 'MXVER',  // Veracruz
+    31: 'MXYUC',  // Yucatán
+    32: 'MXZAC'   // Zacatecas
+  };
+};
+
 // POST /api/dashboards/grupo
 // Recibe: { id_hospital, fechaInicio, fechaFin }
 // Devuelve: [{ empleado: {...}, registros: [...] }, ...]
@@ -529,6 +567,240 @@ router.get("/municipios-by-estado/:id_estado", async (req, res) => {
   } catch (error) {
     console.error("❌ Error al obtener los municipios por estado:", error);
     res.status(500).json({ error: "Error al obtener municipios" });
+  }
+});
+
+// --- ENDPOINTS NACIONALES PARA DASHBOARD ---
+
+// 1. Endpoint principal para estadísticas por estado
+// GET /api/dashboards/nacional/estadisticas-estados?fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
+router.get('/nacional/estadisticas-estados', async (req, res) => {
+  try {
+    const { fechaInicio, fechaFin } = req.query;
+    if (!fechaInicio || !fechaFin) {
+      return res.status(400).json({ error: 'fechaInicio y fechaFin son obligatorios' });
+    }
+
+    // Query para obtener estadísticas por estado
+    const query = `
+      SELECT 
+        e.id_estado as state,
+        e.nombre_estado as stateName,
+        COUNT(DISTINCT h.id_hospital) as hospitals,
+        COUNT(DISTINCT CASE WHEN u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL THEN u.id_user END) as employees,
+        COALESCE(sg.geofenceExits, 0) as geofenceExits,
+        COALESCE(ht.hoursWorked, 0) as hoursWorked
+      FROM estados e
+      LEFT JOIN municipios m ON e.id_estado = m.id_estado
+      LEFT JOIN hospitals h ON m.id_municipio = h.id_municipio
+      LEFT JOIN user_data u ON h.id_hospital = u.id_hospital
+      LEFT JOIN (
+        SELECT 
+          e2.id_estado,
+          COUNT(*) as geofenceExits
+        FROM registro_ubicaciones r
+        JOIN user_data u2 ON r.id_user = u2.id_user
+        JOIN estados e2 ON u2.id_estado = e2.id_estado
+        WHERE r.fecha_hora BETWEEN $1 AND $2 
+          AND r.evento = 0 
+          AND u2.id_hospital IS NOT NULL 
+          AND u2.id_group IS NOT NULL
+        GROUP BY e2.id_estado
+      ) sg ON e.id_estado = sg.id_estado
+      LEFT JOIN (
+        SELECT 
+          e3.id_estado,
+          COUNT(*) as hoursWorked
+        FROM registro_ubicaciones r2
+        JOIN user_data u3 ON r2.id_user = u3.id_user
+        JOIN estados e3 ON u3.id_estado = e3.id_estado
+        WHERE r2.fecha_hora BETWEEN $1 AND $2 
+          AND r2.tipo_registro = 1 
+          AND u3.id_hospital IS NOT NULL 
+          AND u3.id_group IS NOT NULL
+        GROUP BY e3.id_estado
+      ) ht ON e.id_estado = ht.id_estado
+      GROUP BY e.id_estado, e.nombre_estado, sg.geofenceExits, ht.hoursWorked
+      ORDER BY e.nombre_estado
+    `;
+
+    const result = await pool.query(query, [fechaInicio, fechaFin]);
+    
+    // Mapear los códigos de estado a formato de mapa (MX + código)
+    const stateCodeMapping = getStateCodeMapping();
+
+    const data = result.rows.map(row => ({
+      state: stateCodeMapping[row.state] || `MX${row.state}`,
+      stateName: row.statename,
+      hospitals: parseInt(row.hospitals) || 0,
+      employees: parseInt(row.employees) || 0,
+      geofenceExits: parseInt(row.geofenceexits) || 0,
+      hoursWorked: parseInt(row.hoursworked) || 0
+    }));
+
+    res.json({
+      success: true,
+      data,
+      period: {
+        startDate: fechaInicio,
+        endDate: fechaFin
+      }
+    });
+
+  } catch (error) {
+    console.error('Error en endpoint nacional/estadisticas-estados:', error);
+    res.status(500).json({ error: 'Error al obtener estadísticas por estado' });
+  }
+});
+
+// 2. Endpoint para totales nacionales
+// GET /api/dashboards/nacional/totales?fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
+router.get('/nacional/totales', async (req, res) => {
+  try {
+    const { fechaInicio, fechaFin } = req.query;
+    if (!fechaInicio || !fechaFin) {
+      return res.status(400).json({ error: 'fechaInicio y fechaFin son obligatorios' });
+    }
+
+    // Query para total de hospitales únicos
+    const hospitalesQuery = `
+      SELECT COUNT(DISTINCT h.id_hospital) as totalHospitals
+      FROM hospitals h
+    `;
+
+    // Query para total de empleados únicos (solo los que tienen hospital y grupo asignados)
+    const empleadosQuery = `
+      SELECT COUNT(DISTINCT u.id_user) as totalEmployees
+      FROM user_data u
+      WHERE u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
+    `;
+
+    // Query para total de salidas de geocerca en el período
+    const salidasGeocercaQuery = `
+      SELECT COUNT(*) as totalGeofenceExits
+      FROM registro_ubicaciones r
+      JOIN user_data u ON r.id_user = u.id_user
+      WHERE r.fecha_hora BETWEEN $1 AND $2 
+        AND r.evento = 0 
+        AND u.id_hospital IS NOT NULL 
+        AND u.id_group IS NOT NULL
+    `;
+
+    // Query para total de horas trabajadas en el período
+    const horasTrabajadasQuery = `
+      SELECT COUNT(*) as totalHoursWorked
+      FROM registro_ubicaciones r
+      JOIN user_data u ON r.id_user = u.id_user
+      WHERE r.fecha_hora BETWEEN $1 AND $2 
+        AND r.tipo_registro = 1 
+        AND u.id_hospital IS NOT NULL 
+        AND u.id_group IS NOT NULL
+    `;
+
+    // Ejecutar todas las queries en paralelo
+    const [hospitalesRes, empleadosRes, salidasRes, horasRes] = await Promise.all([
+      pool.query(hospitalesQuery),
+      pool.query(empleadosQuery),
+      pool.query(salidasGeocercaQuery, [fechaInicio, fechaFin]),
+      pool.query(horasTrabajadasQuery, [fechaInicio, fechaFin])
+    ]);
+
+    const totales = {
+      totalHospitals: parseInt(hospitalesRes.rows[0]?.totalhospitals) || 0,
+      totalEmployees: parseInt(empleadosRes.rows[0]?.totalemployees) || 0,
+      totalGeofenceExits: parseInt(salidasRes.rows[0]?.totalgeofenceexits) || 0,
+      totalHoursWorked: parseInt(horasRes.rows[0]?.totalhoursworked) || 0
+    };
+
+    res.json({
+      success: true,
+      data: totales,
+      period: {
+        startDate: fechaInicio,
+        endDate: fechaFin
+      }
+    });
+
+  } catch (error) {
+    console.error('Error en endpoint nacional/totales:', error);
+    res.status(500).json({ error: 'Error al obtener totales nacionales' });
+  }
+});
+
+// 3. Endpoint para ranking de estados (Top 10)
+// GET /api/dashboards/nacional/ranking-estados?fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD&metric=geofenceExits|hoursWorked&limit=10
+router.get('/nacional/ranking-estados', async (req, res) => {
+  try {
+    const { fechaInicio, fechaFin, metric = 'geofenceExits', limit = 10 } = req.query;
+    if (!fechaInicio || !fechaFin) {
+      return res.status(400).json({ error: 'fechaInicio y fechaFin son obligatorios' });
+    }
+
+    let query;
+    if (metric === 'geofenceExits') {
+      query = `
+        SELECT 
+          e.id_estado as state,
+          e.nombre_estado as stateName,
+          COUNT(*) as value
+        FROM registro_ubicaciones r
+        JOIN user_data u ON r.id_user = u.id_user
+        JOIN estados e ON u.id_estado = e.id_estado
+        WHERE r.fecha_hora BETWEEN $1 AND $2 
+          AND r.evento = 0 
+          AND u.id_hospital IS NOT NULL 
+          AND u.id_group IS NOT NULL
+        GROUP BY e.id_estado, e.nombre_estado
+        ORDER BY value DESC
+        LIMIT $3
+      `;
+    } else if (metric === 'hoursWorked') {
+      query = `
+        SELECT 
+          e.id_estado as state,
+          e.nombre_estado as stateName,
+          COUNT(*) as value
+        FROM registro_ubicaciones r
+        JOIN user_data u ON r.id_user = u.id_user
+        JOIN estados e ON u.id_estado = e.id_estado
+        WHERE r.fecha_hora BETWEEN $1 AND $2 
+          AND r.tipo_registro = 1 
+          AND u.id_hospital IS NOT NULL 
+          AND u.id_group IS NOT NULL
+        GROUP BY e.id_estado, e.nombre_estado
+        ORDER BY value DESC
+        LIMIT $3
+      `;
+    } else {
+      return res.status(400).json({ error: 'metric debe ser geofenceExits o hoursWorked' });
+    }
+
+    const result = await pool.query(query, [fechaInicio, fechaFin, limit]);
+
+    // Mapear los códigos de estado
+    const stateCodeMapping = getStateCodeMapping();
+
+    const data = result.rows.map((row, index) => ({
+      state: stateCodeMapping[row.state] || `MX${row.state}`,
+      stateName: row.statename,
+      value: parseInt(row.value) || 0,
+      rank: index + 1
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        [metric]: data
+      },
+      period: {
+        startDate: fechaInicio,
+        endDate: fechaFin
+      }
+    });
+
+  } catch (error) {
+    console.error('Error en endpoint nacional/ranking-estados:', error);
+    res.status(500).json({ error: 'Error al obtener ranking de estados' });
   }
 });
 

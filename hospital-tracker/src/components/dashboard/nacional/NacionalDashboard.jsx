@@ -13,6 +13,9 @@ import {
   Check,
 } from "lucide-react";
 
+// Configuración de la API
+const API_BASE_URL = "http://localhost:4000";
+
 // Mapeo de códigos de estado a nombres
 const stateCodeToName = {
   MXAGU: "Aguascalientes",
@@ -71,6 +74,14 @@ export default function NacionalDashboard() {
   });
 
   const [stateData, setStateData] = useState([]);
+  const [totalStats, setTotalStats] = useState({
+    hospitals: 0,
+    employees: 0,
+    totalExits: 0,
+    totalHours: 0,
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [geocercaTooltip, setGeocercaTooltip] = useState({
     content: "",
     position: { x: 0, y: 0 },
@@ -162,240 +173,56 @@ export default function NacionalDashboard() {
         )
       : 0;
 
-  // Datos simulados usando los códigos de estado
+  // Función para cargar datos desde la API
+  const loadDashboardData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const fechaInicio = dateRange.startDate;
+      const fechaFin = dateRange.endDate;
+      
+      // Cargar estadísticas por estado y totales en paralelo
+      const [estadisticasRes, totalesRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/dashboards/nacional/estadisticas-estados?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`),
+        fetch(`${API_BASE_URL}/api/dashboards/nacional/totales?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`)
+      ]);
+
+      if (!estadisticasRes.ok || !totalesRes.ok) {
+        throw new Error('Error al cargar datos del dashboard');
+      }
+
+      const estadisticasData = await estadisticasRes.json();
+      const totalesData = await totalesRes.json();
+
+      if (estadisticasData.success) {
+        setStateData(estadisticasData.data);
+      }
+      
+      if (totalesData.success) {
+        setTotalStats({
+          hospitals: totalesData.data.totalHospitals,
+          employees: totalesData.data.totalEmployees,
+          totalExits: totalesData.data.totalGeofenceExits,
+          totalHours: totalesData.data.totalHoursWorked,
+        });
+      }
+
+    } catch (error) {
+      console.error('Error cargando datos del dashboard:', error);
+      setError('Error al cargar los datos del dashboard');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const mockData = [
-      {
-        state: "MXAGU",
-        geofenceExits: 45,
-        hoursWorked: 1200,
-        hospitals: 4,
-        employees: 80,
-      },
-      {
-        state: "MXBCN",
-        geofenceExits: 180,
-        hoursWorked: 3200,
-        hospitals: 15,
-        employees: 320,
-      },
-      {
-        state: "MXBCS",
-        geofenceExits: 35,
-        hoursWorked: 800,
-        hospitals: 3,
-        employees: 60,
-      },
-      {
-        state: "MXCAM",
-        geofenceExits: 60,
-        hoursWorked: 1500,
-        hospitals: 6,
-        employees: 120,
-      },
-      {
-        state: "MXCHP",
-        geofenceExits: 95,
-        hoursWorked: 2100,
-        hospitals: 12,
-        employees: 210,
-      },
-      {
-        state: "MXCHH",
-        geofenceExits: 140,
-        hoursWorked: 2800,
-        hospitals: 14,
-        employees: 280,
-      },
-      {
-        state: "MXCMX",
-        geofenceExits: 320,
-        hoursWorked: 5500,
-        hospitals: 35,
-        employees: 550,
-      },
-      {
-        state: "MXCOA",
-        geofenceExits: 110,
-        hoursWorked: 2400,
-        hospitals: 11,
-        employees: 240,
-      },
-      {
-        state: "MXCOL",
-        geofenceExits: 25,
-        hoursWorked: 600,
-        hospitals: 2,
-        employees: 40,
-      },
-      {
-        state: "MXDUR",
-        geofenceExits: 70,
-        hoursWorked: 1600,
-        hospitals: 7,
-        employees: 140,
-      },
-      {
-        state: "MXGUA",
-        geofenceExits: 160,
-        hoursWorked: 3000,
-        hospitals: 16,
-        employees: 300,
-      },
-      {
-        state: "MXGRO",
-        geofenceExits: 85,
-        hoursWorked: 1900,
-        hospitals: 9,
-        employees: 180,
-      },
-      {
-        state: "MXHID",
-        geofenceExits: 75,
-        hoursWorked: 1700,
-        hospitals: 8,
-        employees: 160,
-      },
-      {
-        state: "MXJAL",
-        geofenceExits: 220,
-        hoursWorked: 4200,
-        hospitals: 25,
-        employees: 420,
-      },
-      {
-        state: "MXMEX",
-        geofenceExits: 280,
-        hoursWorked: 4800,
-        hospitals: 30,
-        employees: 480,
-      },
-      {
-        state: "MXMIC",
-        geofenceExits: 120,
-        hoursWorked: 2600,
-        hospitals: 13,
-        employees: 260,
-      },
-      {
-        state: "MXMOR",
-        geofenceExits: 55,
-        hoursWorked: 1300,
-        hospitals: 5,
-        employees: 100,
-      },
-      {
-        state: "MXNAY",
-        geofenceExits: 40,
-        hoursWorked: 900,
-        hospitals: 4,
-        employees: 70,
-      },
-      {
-        state: "MXNLE",
-        geofenceExits: 200,
-        hoursWorked: 3800,
-        hospitals: 22,
-        employees: 380,
-      },
-      {
-        state: "MXOAX",
-        geofenceExits: 90,
-        hoursWorked: 2000,
-        hospitals: 10,
-        employees: 200,
-      },
-      {
-        state: "MXPUE",
-        geofenceExits: 130,
-        hoursWorked: 2700,
-        hospitals: 14,
-        employees: 270,
-      },
-      {
-        state: "MXQUE",
-        geofenceExits: 80,
-        hoursWorked: 1800,
-        hospitals: 8,
-        employees: 150,
-      },
-      {
-        state: "MXROO",
-        geofenceExits: 150,
-        hoursWorked: 2400,
-        hospitals: 12,
-        employees: 240,
-      },
-      {
-        state: "MXSLP",
-        geofenceExits: 95,
-        hoursWorked: 2200,
-        hospitals: 10,
-        employees: 190,
-      },
-      {
-        state: "MXSIN",
-        geofenceExits: 105,
-        hoursWorked: 2300,
-        hospitals: 11,
-        employees: 220,
-      },
-      {
-        state: "MXSON",
-        geofenceExits: 125,
-        hoursWorked: 2500,
-        hospitals: 12,
-        employees: 250,
-      },
-      {
-        state: "MXTAB",
-        geofenceExits: 65,
-        hoursWorked: 1400,
-        hospitals: 6,
-        employees: 130,
-      },
-      {
-        state: "MXTAM",
-        geofenceExits: 115,
-        hoursWorked: 2400,
-        hospitals: 12,
-        employees: 230,
-      },
-      {
-        state: "MXTLA",
-        geofenceExits: 30,
-        hoursWorked: 700,
-        hospitals: 3,
-        employees: 50,
-      },
-      {
-        state: "MXVER",
-        geofenceExits: 170,
-        hoursWorked: 3400,
-        hospitals: 18,
-        employees: 340,
-      },
-      {
-        state: "MXYUC",
-        geofenceExits: 80,
-        hoursWorked: 1800,
-        hospitals: 8,
-        employees: 160,
-      },
-      {
-        state: "MXZAC",
-        geofenceExits: 50,
-        hoursWorked: 1100,
-        hospitals: 5,
-        employees: 90,
-      },
-    ];
-    setStateData(mockData);
+    loadDashboardData();
   }, [dateRange]);
 
   // Escalas de color para los mapas de calor
   const geofenceColorScale = scaleQuantile()
-    .domain(stateData.map((d) => d.geofenceExits))
+    .domain(stateData.length > 0 ? stateData.map((d) => d.geofenceExits).filter(val => val > 0) : [0, 1])
     .range([
       "#fef2f2",
       "#fecaca",
@@ -409,7 +236,7 @@ export default function NacionalDashboard() {
     ]);
 
   const hoursColorScale = scaleQuantile()
-    .domain(stateData.map((d) => d.hoursWorked))
+    .domain(stateData.length > 0 ? stateData.map((d) => d.hoursWorked).filter(val => val > 0) : [0, 1])
     .range([
       "#eff6ff",
       "#dbeafe",
@@ -422,12 +249,24 @@ export default function NacionalDashboard() {
       "#1e40af",
     ]);
 
-  // Estadísticas totales
-  const totalStats = {
-    hospitals: stateData.reduce((sum, state) => sum + state.hospitals, 0),
-    employees: stateData.reduce((sum, state) => sum + state.employees, 0),
-    totalExits: stateData.reduce((sum, state) => sum + state.geofenceExits, 0),
-    totalHours: stateData.reduce((sum, state) => sum + state.hoursWorked, 0),
+  // Función para obtener color de geocerca de manera segura
+  const getGeofenceColor = (value) => {
+    if (!value || value === 0) return "#f8fafc";
+    try {
+      return geofenceColorScale(value);
+    } catch (error) {
+      return "#fef2f2"; // Color más claro como fallback
+    }
+  };
+
+  // Función para obtener color de horas de manera segura
+  const getHoursColor = (value) => {
+    if (!value || value === 0) return "#f8fafc";
+    try {
+      return hoursColorScale(value);
+    } catch (error) {
+      return "#eff6ff"; // Color más claro como fallback
+    }
   };
 
   // Top 10 estados
@@ -544,7 +383,31 @@ export default function NacionalDashboard() {
             )}
         </div>
 
+        {/* Loading y Error States */}
+        {loading && (
+          <div className="bg-white rounded-2xl shadow-lg p-8 mb-6 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">Cargando datos del dashboard...</p>
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl shadow-lg p-6 mb-6">
+            <div className="flex items-center">
+              <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center mr-3">
+                <Calendar className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-red-800">Error al cargar datos</h3>
+                <p className="text-red-600">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Compact KPI Cards */}
+        {!loading && !error && (
+          <>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg p-4 text-white">
             <div className="flex items-center justify-between mb-2">
@@ -648,7 +511,7 @@ export default function NacionalDashboard() {
                               geography={geo}
                               fill={
                                 stateInfo
-                                  ? geofenceColorScale(stateInfo.geofenceExits)
+                                  ? getGeofenceColor(stateInfo.geofenceExits)
                                   : "#f8fafc"
                               }
                               stroke="#000000"
@@ -684,9 +547,7 @@ export default function NacionalDashboard() {
                                   outline: "none",
                                   cursor: "pointer",
                                   fill: stateInfo
-                                    ? geofenceColorScale(
-                                        stateInfo.geofenceExits
-                                      )
+                                    ? getGeofenceColor(stateInfo.geofenceExits)
                                     : "#f8fafc",
                                   transition: "all 0.2s ease",
                                 },
@@ -770,38 +631,45 @@ export default function NacionalDashboard() {
                   </div>
                 </div>
                 <div className="space-y-3">
-                  {topGeofenceStates.map((state, index) => (
-                    <div
-                      key={state.state}
-                      className="flex items-center group hover:bg-red-50 rounded-lg p-2 transition-colors"
-                    >
-                      <div className="w-6 h-6 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3 flex-shrink-0 shadow-md">
-                        {index + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-semibold text-gray-900 truncate">
-                            {stateCodeToName[state.state] || state.state}
-                          </span>
-                          <span className="text-xs font-bold text-red-600">
-                            {state.geofenceExits}
-                          </span>
+                  {topGeofenceStates.length > 0 ? (
+                    topGeofenceStates.map((state, index) => (
+                      <div
+                        key={state.state}
+                        className="flex items-center group hover:bg-red-50 rounded-lg p-2 transition-colors"
+                      >
+                        <div className="w-6 h-6 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3 flex-shrink-0 shadow-md">
+                          {index + 1}
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-gradient-to-r from-red-500 to-red-600 h-2 rounded-full transition-all duration-500 shadow-sm"
-                            style={{
-                              width: `${
-                                (state.geofenceExits /
-                                  topGeofenceStates[0].geofenceExits) *
-                                100
-                              }%`,
-                            }}
-                          />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-semibold text-gray-900 truncate">
+                              {stateCodeToName[state.state] || state.state}
+                            </span>
+                            <span className="text-xs font-bold text-red-600">
+                              {state.geofenceExits}
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-gradient-to-r from-red-500 to-red-600 h-2 rounded-full transition-all duration-500 shadow-sm"
+                              style={{
+                                width: `${
+                                  topGeofenceStates[0]?.geofenceExits > 0
+                                    ? (state.geofenceExits / topGeofenceStates[0].geofenceExits) * 100
+                                    : 0
+                                }%`,
+                              }}
+                            />
+                          </div>
                         </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <MapPin className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No hay datos disponibles</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             </div>
@@ -853,7 +721,7 @@ export default function NacionalDashboard() {
                               geography={geo}
                               fill={
                                 stateInfo
-                                  ? hoursColorScale(stateInfo.hoursWorked)
+                                  ? getHoursColor(stateInfo.hoursWorked)
                                   : "#f8fafc"
                               }
                               stroke="#000000"
@@ -889,7 +757,7 @@ export default function NacionalDashboard() {
                                   outline: "none",
                                   cursor: "pointer",
                                   fill: stateInfo
-                                    ? hoursColorScale(stateInfo.hoursWorked)
+                                    ? getHoursColor(stateInfo.hoursWorked)
                                     : "#f8fafc",
                                   transition: "all 0.2s ease",
                                 },
@@ -971,43 +839,52 @@ export default function NacionalDashboard() {
                   </div>
                 </div>
                 <div className="space-y-3">
-                  {topHoursStates.map((state, index) => (
-                    <div
-                      key={state.state}
-                      className="flex items-center group hover:bg-blue-50 rounded-lg p-2 transition-colors"
-                    >
-                      <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3 flex-shrink-0 shadow-md">
-                        {index + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-semibold text-gray-900 truncate">
-                            {stateCodeToName[state.state] || state.state}
-                          </span>
-                          <span className="text-xs font-bold text-blue-600">
-                            {state.hoursWorked.toLocaleString()}h
-                          </span>
+                  {topHoursStates.length > 0 ? (
+                    topHoursStates.map((state, index) => (
+                      <div
+                        key={state.state}
+                        className="flex items-center group hover:bg-blue-50 rounded-lg p-2 transition-colors"
+                      >
+                        <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3 flex-shrink-0 shadow-md">
+                          {index + 1}
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500 shadow-sm"
-                            style={{
-                              width: `${
-                                (state.hoursWorked /
-                                  topHoursStates[0].hoursWorked) *
-                                100
-                              }%`,
-                            }}
-                          />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-semibold text-gray-900 truncate">
+                              {stateCodeToName[state.state] || state.state}
+                            </span>
+                            <span className="text-xs font-bold text-blue-600">
+                              {state.hoursWorked.toLocaleString()}h
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500 shadow-sm"
+                              style={{
+                                width: `${
+                                  topHoursStates[0]?.hoursWorked > 0
+                                    ? (state.hoursWorked / topHoursStates[0].hoursWorked) * 100
+                                    : 0
+                                }%`,
+                              }}
+                            />
+                          </div>
                         </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No hay datos disponibles</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             </div>
           </div>
         </div>
+          </>
+        )}
       </div>
     </div>
   );
