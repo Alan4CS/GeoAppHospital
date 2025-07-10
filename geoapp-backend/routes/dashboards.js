@@ -152,7 +152,7 @@ router.post('/municipio', async (req, res) => {
       FROM hospitals h
       JOIN municipios m ON h.id_municipio = m.id_municipio
       JOIN estados e ON m.id_estado = e.id_estado
-      LEFT JOIN user_data u ON h.id_hospital = u.id_hospital
+      LEFT JOIN user_data u ON h.id_hospital = u.id_hospital AND u.id_group IS NOT NULL
       WHERE h.id_municipio = $1
       GROUP BY h.id_hospital, h.nombre_hospital, h.latitud_hospital, h.longitud_hospital, h.direccion_hospital,
                e.nombre_estado, m.nombre_municipio
@@ -202,27 +202,27 @@ router.get('/estatal/metricas', async (req, res) => {
       WHERE m.id_estado = $1
     `;
 
-    // Query para total de empleados únicos en el estado (solo los que tienen hospital asignado)
+    // Query para total de empleados únicos en el estado (solo los que tienen hospital y grupo asignados)
     const empleadosQuery = `
       SELECT COUNT(DISTINCT u.id_user) as total_empleados
       FROM user_data u
-      WHERE u.id_estado = $1 AND u.id_hospital IS NOT NULL
+      WHERE u.id_estado = $1 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
     `;
 
-    // Query para total de salidas de geocerca en el período (solo empleados con hospital asignado)
+    // Query para total de salidas de geocerca en el período (solo empleados con hospital y grupo asignados)
     const salidasGeocercaQuery = `
       SELECT COUNT(*) as total_salidas_geocerca
       FROM registro_ubicaciones r
       JOIN user_data u ON r.id_user = u.id_user
-      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.evento = 0 AND u.id_hospital IS NOT NULL
+      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.evento = 0 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
     `;
 
-    // Query para total de registros de entrada (horas trabajadas) en el período (solo empleados con hospital asignado)
+    // Query para total de registros de entrada (horas trabajadas) en el período (solo empleados con hospital y grupo asignados)
     const horasTrabajadasQuery = `
       SELECT COUNT(*) as total_horas_trabajadas
       FROM registro_ubicaciones r
       JOIN user_data u ON r.id_user = u.id_user
-      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.tipo_registro = 1 AND u.id_hospital IS NOT NULL
+      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.tipo_registro = 1 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
     `;
 
     // Ejecutar todas las queries en paralelo
@@ -262,7 +262,7 @@ router.get('/estatal/entradas-salidas', async (req, res) => {
         SUM(CASE WHEN r.evento = 0 THEN 1 ELSE 0 END) as salidas
       FROM registro_ubicaciones r
       JOIN user_data u ON r.id_user = u.id_user
-      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.evento IN (0, 1) AND u.id_hospital IS NOT NULL
+      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.evento IN (0, 1) AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
       GROUP BY fecha
       ORDER BY fecha
     `;
@@ -288,7 +288,7 @@ router.get('/estatal/eventos-geocerca', async (req, res) => {
         COUNT(*) as cantidad
       FROM registro_ubicaciones r
       JOIN user_data u ON r.id_user = u.id_user
-      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.evento IS NOT NULL AND u.id_hospital IS NOT NULL
+      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.evento IS NOT NULL AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
       GROUP BY r.evento
       ORDER BY r.evento
     `;
@@ -326,7 +326,7 @@ router.get('/estatal/ranking-hospitales', async (req, res) => {
       FROM registro_ubicaciones r
       JOIN user_data u ON r.id_user = u.id_user
       JOIN hospitals h ON u.id_hospital = h.id_hospital
-      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND u.id_hospital IS NOT NULL
+      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
       GROUP BY h.nombre_hospital
       ORDER BY salidas DESC
     `;
@@ -353,7 +353,7 @@ router.get('/estatal/horas-municipio', async (req, res) => {
       FROM registro_ubicaciones r
       JOIN user_data u ON r.id_user = u.id_user
       JOIN municipios m ON u.id_municipio = m.id_municipio
-      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.tipo_registro = 1 AND u.id_hospital IS NOT NULL
+      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.tipo_registro = 1 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
       GROUP BY m.nombre_municipio
       ORDER BY horas DESC
     `;
@@ -381,12 +381,12 @@ router.get('/estatal/distribucion-municipal', async (req, res) => {
       WHERE m.id_estado = $1
       GROUP BY m.nombre_municipio
     `;
-    // Query para empleados por municipio (solo los que tienen hospital asignado)
+    // Query para empleados por municipio (solo los que tienen hospital y grupo asignados)
     const employeesQuery = `
       SELECT m.nombre_municipio as municipio, COUNT(u.id_user) as employees
       FROM user_data u
       JOIN municipios m ON u.id_municipio = m.id_municipio
-      WHERE m.id_estado = $1 AND u.id_hospital IS NOT NULL
+      WHERE m.id_estado = $1 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
       GROUP BY m.nombre_municipio
     `;
     // Query para salidas de geocerca y horas trabajadas por municipio
@@ -397,7 +397,7 @@ router.get('/estatal/distribucion-municipal', async (req, res) => {
       FROM registro_ubicaciones r
       JOIN user_data u ON r.id_user = u.id_user
       JOIN municipios m ON u.id_municipio = m.id_municipio
-      WHERE m.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND u.id_hospital IS NOT NULL
+      WHERE m.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
       GROUP BY m.nombre_municipio
     `;
     // Ejecutar queries en paralelo
@@ -445,27 +445,27 @@ router.get('/estatal/municipio-detalle', async (req, res) => {
       WHERE h.id_municipio = $1
     `;
 
-    // Query para empleados en el municipio (solo los que tienen hospital asignado)
+    // Query para empleados en el municipio (solo los que tienen hospital y grupo asignados)
     const employeesQuery = `
       SELECT COUNT(u.id_user) as employees
       FROM user_data u
-      WHERE u.id_municipio = $1 AND u.id_hospital IS NOT NULL
+      WHERE u.id_municipio = $1 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
     `;
 
-    // Query para salidas de geocerca en el período (solo empleados con hospital asignado)
+    // Query para salidas de geocerca en el período (solo empleados con hospital y grupo asignados)
     const geofenceExitsQuery = `
       SELECT COUNT(*) as geofenceExits
       FROM registro_ubicaciones r
       JOIN user_data u ON r.id_user = u.id_user
-      WHERE u.id_municipio = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.evento = 0 AND u.id_hospital IS NOT NULL
+      WHERE u.id_municipio = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.evento = 0 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
     `;
 
-    // Query para horas trabajadas en el período (solo empleados con hospital asignado)
+    // Query para horas trabajadas en el período (solo empleados con hospital y grupo asignados)
     const hoursWorkedQuery = `
       SELECT COUNT(*) as hoursWorked
       FROM registro_ubicaciones r
       JOIN user_data u ON r.id_user = u.id_user
-      WHERE u.id_municipio = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.tipo_registro = 1 AND u.id_hospital IS NOT NULL
+      WHERE u.id_municipio = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.tipo_registro = 1 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
     `;
 
     // Query para obtener el nombre del municipio
