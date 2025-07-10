@@ -185,6 +185,68 @@ router.post('/municipio', async (req, res) => {
 
 // --- ENDPOINTS Estatales PARA DASHBOARD ---
 
+// 0. Métricas para las tarjetas del dashboard
+// GET /api/dashboards/estatal/metricas?id_estado=XX&fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
+router.get('/estatal/metricas', async (req, res) => {
+  try {
+    const { id_estado, fechaInicio, fechaFin } = req.query;
+    if (!id_estado || !fechaInicio || !fechaFin) {
+      return res.status(400).json({ error: 'id_estado, fechaInicio y fechaFin son obligatorios' });
+    }
+
+    // Query para total de hospitales únicos en el estado
+    const hospitalesQuery = `
+      SELECT COUNT(DISTINCT h.id_hospital) as total_hospitales
+      FROM hospitals h
+      JOIN municipios m ON h.id_municipio = m.id_municipio
+      WHERE m.id_estado = $1
+    `;
+
+    // Query para total de empleados únicos en el estado
+    const empleadosQuery = `
+      SELECT COUNT(DISTINCT u.id_user) as total_empleados
+      FROM user_data u
+      WHERE u.id_estado = $1
+    `;
+
+    // Query para total de salidas de geocerca en el período
+    const salidasGeocercaQuery = `
+      SELECT COUNT(*) as total_salidas_geocerca
+      FROM registro_ubicaciones r
+      JOIN user_data u ON r.id_user = u.id_user
+      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.evento = 0
+    `;
+
+    // Query para total de registros de entrada (horas trabajadas) en el período
+    const horasTrabajadasQuery = `
+      SELECT COUNT(*) as total_horas_trabajadas
+      FROM registro_ubicaciones r
+      JOIN user_data u ON r.id_user = u.id_user
+      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.tipo_registro = 1
+    `;
+
+    // Ejecutar todas las queries en paralelo
+    const [hospitalesRes, empleadosRes, salidasRes, horasRes] = await Promise.all([
+      pool.query(hospitalesQuery, [id_estado]),
+      pool.query(empleadosQuery, [id_estado]),
+      pool.query(salidasGeocercaQuery, [id_estado, fechaInicio, fechaFin]),
+      pool.query(horasTrabajadasQuery, [id_estado, fechaInicio, fechaFin])
+    ]);
+
+    const metricas = {
+      total_hospitales: parseInt(hospitalesRes.rows[0]?.total_hospitales) || 0,
+      total_empleados: parseInt(empleadosRes.rows[0]?.total_empleados) || 0,
+      total_salidas_geocerca: parseInt(salidasRes.rows[0]?.total_salidas_geocerca) || 0,
+      total_horas_trabajadas: parseInt(horasRes.rows[0]?.total_horas_trabajadas) || 0
+    };
+
+    res.json(metricas);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener métricas del dashboard' });
+  }
+});
+
 // 1. Entradas y Salidas por Día
 // GET /api/dashboards/estadual/entradas-salidas?id_estado=XX&fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
 router.get('/estatal/entradas-salidas', async (req, res) => {
@@ -196,11 +258,11 @@ router.get('/estatal/entradas-salidas', async (req, res) => {
     const query = `
       SELECT 
         DATE(r.fecha_hora) as fecha,
-        SUM(CASE WHEN r.tipo_registro = 1 THEN 1 ELSE 0 END) as entradas,
-        SUM(CASE WHEN r.tipo_registro = 0 THEN 1 ELSE 0 END) as salidas
+        SUM(CASE WHEN r.evento = 1 THEN 1 ELSE 0 END) as entradas,
+        SUM(CASE WHEN r.evento = 0 THEN 1 ELSE 0 END) as salidas
       FROM registro_ubicaciones r
       JOIN user_data u ON r.id_user = u.id_user
-      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3
+      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.evento IN (0, 1)
       GROUP BY fecha
       ORDER BY fecha
     `;
@@ -327,10 +389,10 @@ router.get('/estatal/distribucion-municipal', async (req, res) => {
       WHERE m.id_estado = $1
       GROUP BY m.nombre_municipio
     `;
-    // Query para salidas y horas trabajadas por municipio
+    // Query para salidas de geocerca y horas trabajadas por municipio
     const registrosQuery = `
       SELECT m.nombre_municipio as municipio,
-        SUM(CASE WHEN r.tipo_registro = 0 THEN 1 ELSE 0 END) as geofenceExits,
+        SUM(CASE WHEN r.evento = 0 THEN 1 ELSE 0 END) as geofenceExits,
         SUM(CASE WHEN r.tipo_registro = 1 THEN 1 ELSE 0 END) as hoursWorked
       FROM registro_ubicaciones r
       JOIN user_data u ON r.id_user = u.id_user

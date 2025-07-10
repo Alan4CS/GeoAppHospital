@@ -130,7 +130,7 @@ const MapTooltip = ({ x, y, municipality, containerRef }) => {
       <h4 className="font-bold text-gray-800 mb-2 border-b pb-1 text-sm">{municipality.municipality}</h4>
       <div className="space-y-1 text-xs">
         <div className="flex justify-between items-center">
-          <span className="text-gray-600">Salidas:</span>
+          <span className="text-gray-600">Registros de Salida:</span>
           <span className="font-medium text-red-600">{municipality.geofenceExits}</span>
         </div>
         <div className="flex justify-between items-center">
@@ -198,6 +198,7 @@ export default function EstatalDashboard() {
   const [rankingHospitalesData, setRankingHospitalesData] = useState([]);
   const [horasPorMunicipioData, setHorasPorMunicipioData] = useState([]);
   const [municipalityData, setMunicipalityData] = useState([]); // <--- nuevo estado
+  const [metricas, setMetricas] = useState({}); // <--- nuevo estado para métricas
   const [loadingGraficas, setLoadingGraficas] = useState(false);
   const [errorGraficas, setErrorGraficas] = useState(null);
 
@@ -278,10 +279,10 @@ export default function EstatalDashboard() {
       : 0
 
   // --- VARIABLES DERIVADAS (después de los hooks) ---
-  const totalHospitales = rankingHospitalesData?.length || 0;
-  const totalPersonal = horasPorMunicipioData?.reduce((acc, curr) => acc + (parseInt(curr.horas) || 0), 0) || 0;
-  const totalSalidas = entradasSalidasData?.reduce((acc, curr) => acc + (parseInt(curr.salidas) || 0), 0) || 0;
-  const totalHoras = horasPorMunicipioData?.reduce((acc, curr) => acc + (parseInt(curr.horas) || 0), 0) || 0;
+  const totalHospitales = metricas?.total_hospitales || 0;
+  const totalPersonal = metricas?.total_empleados || 0;
+  const totalSalidas = metricas?.total_salidas_geocerca || 0;
+  const totalHoras = metricas?.total_horas_trabajadas || 0;
 
   // Cargar municipios TopoJSON del sureste mexicano (mx_tj.json - versión optimizada)
   useEffect(() => {
@@ -520,7 +521,7 @@ export default function EstatalDashboard() {
     MXTAM: '28', MXTLA: '29', MXVER: '30', MXYUC: '31', MXZAC: '32'
   };
 
-  // Efecto para cargar las gráficas
+  // Efecto para cargar las gráficas y métricas
   useEffect(() => {
     async function fetchGraficas() {
       if (!selectedState || !dateRange.startDate || !dateRange.endDate) return;
@@ -531,23 +532,26 @@ export default function EstatalDashboard() {
       try {
         const base = 'https://geoapphospital.onrender.com/api/dashboards/estatal';
         const params = `?id_estado=${id_estado}&fechaInicio=${dateRange.startDate}&fechaFin=${dateRange.endDate}`;
-        const [entradasSalidasRes, eventosRes, rankingRes, horasRes] = await Promise.all([
+        const [entradasSalidasRes, eventosRes, rankingRes, horasRes, metricasRes] = await Promise.all([
           fetch(`${base}/entradas-salidas${params}`),
           fetch(`${base}/eventos-geocerca${params}`),
           fetch(`${base}/ranking-hospitales${params}`),
-          fetch(`${base}/horas-municipio${params}`)
+          fetch(`${base}/horas-municipio${params}`),
+          fetch(`${base}/metricas${params}`)
         ]);
-        if (!entradasSalidasRes.ok || !eventosRes.ok || !rankingRes.ok || !horasRes.ok) {
+        if (!entradasSalidasRes.ok || !eventosRes.ok || !rankingRes.ok || !horasRes.ok || !metricasRes.ok) {
           throw new Error('Error al obtener datos de las gráficas');
         }
         const entradasSalidas = await entradasSalidasRes.json();
         const eventos = await eventosRes.json();
         const ranking = await rankingRes.json();
         const horas = await horasRes.json();
+        const metricasData = await metricasRes.json();
         setEntradasSalidasData(entradasSalidas);
         setEventosData(eventos);
         setRankingHospitalesData(ranking);
         setHorasPorMunicipioData(horas);
+        setMetricas(metricasData);
       } catch (err) {
         setErrorGraficas(err.message || 'Error desconocido');
       } finally {
@@ -741,7 +745,7 @@ export default function EstatalDashboard() {
                 </div>
                 <TrendingUp className="h-4 w-4 text-white/70" />
               </div>
-              <p className="text-sm text-white/70">Total Personal</p>
+              <p className="text-sm text-white/70">Total Empleados</p>
               <p className="text-2xl font-bold">{totalPersonal}</p>
             </div>
 
@@ -752,7 +756,7 @@ export default function EstatalDashboard() {
                 </div>
                 <TrendingUp className="h-4 w-4 text-white/70" />
               </div>
-              <p className="text-sm text-white/70">Salidas Totales</p>
+              <p className="text-sm text-white/70">Salidas de Geocerca</p>
               <p className="text-2xl font-bold">{totalSalidas}</p>
             </div>
 
@@ -763,7 +767,7 @@ export default function EstatalDashboard() {
                 </div>
                 <TrendingUp className="h-4 w-4 text-white/70" />
               </div>
-              <p className="text-sm text-white/70">Horas Totales</p>
+              <p className="text-sm text-white/70">Registros de Entrada</p>
               <p className="text-2xl font-bold">{totalHoras}</p>
             </div>
           </div>
@@ -785,7 +789,7 @@ export default function EstatalDashboard() {
                         : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                     }`}
                   >
-                    Salidas
+                    Registros de Salida
                   </button>
                   <button
                     onClick={() => setMetricToShow("hoursWorked")}
@@ -964,9 +968,9 @@ export default function EstatalDashboard() {
              <span className="text-lg text-red-500">{errorGraficas}</span>
            </div>
          )}
-          {/* Entradas y Salidas por Día */}
+          {/* Entradas y Salidas de Geocerca por Día */}
           <div className="bg-white rounded-xl shadow-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Entradas y Salidas por Día</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Entradas y Salidas de Geocerca por Día</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={entradasSalidasData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
@@ -974,8 +978,8 @@ export default function EstatalDashboard() {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="entradas" fill="#10b981" name="Entradas" />
-                <Bar dataKey="salidas" fill="#ef4444" name="Salidas" />
+                <Bar dataKey="entradas" fill="#10b981" name="Entradas a Geocerca" />
+                <Bar dataKey="salidas" fill="#ef4444" name="Salidas de Geocerca" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -994,16 +998,16 @@ export default function EstatalDashboard() {
               </PieChart>
             </ResponsiveContainer>
           </div>
-          {/* Ranking de Hospitales por Salidas */}
+          {/* Ranking de Hospitales por Registros de Salida */}
           <div className="bg-white rounded-xl shadow-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Ranking de Hospitales por Salidas</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Ranking de Hospitales por Registros de Salida</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={rankingHospitalesData} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                 <XAxis type="number" />
                 <YAxis dataKey="nombre_hospital" type="category" />
                 <Tooltip />
-                <Bar dataKey="salidas" fill="#6366f1" name="Salidas" />
+                <Bar dataKey="salidas" fill="#6366f1" name="Registros de Salida" />
               </BarChart>
             </ResponsiveContainer>
           </div>
