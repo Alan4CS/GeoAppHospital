@@ -330,6 +330,7 @@ export default function GrupoDashboard({
     totalHours: 0,
     totalDentro: 0,
     totalFuera: 0,
+    totalDescanso: 0,
     averageWorkingDays: 0, // Promedio de días trabajados por empleado activo
     totalWorkingDays: 0 // Total de días del período
   });
@@ -491,10 +492,12 @@ export default function GrupoDashboard({
           let totalHours = 0;
           let totalDentro = 0;
           let totalFuera = 0;
+          let totalDescanso = 0;
           const groupDist = {};
           const hoursTrend = {};
           const groupHours = {};
           const groupHoursFuera = {};
+          const groupHoursDescanso = {};
 
           // Calcular días del período
           const fechaInicio = new Date(tempDateRange.startDate);
@@ -524,16 +527,19 @@ export default function GrupoDashboard({
               porcentajeActividad: (diasTrabajados / totalDiasPeriodo) * 100
             });
 
-            // Usar helper por días para horas dentro/fuera
+            // Usar helper por días para horas dentro/fuera/descanso
             const stats = calcularEstadisticasEmpleadoPorDias(registros);
-            console.log(`📊 Empleado ${empleado.nombre}: Horas dentro=${stats.workedHours}, Horas fuera=${stats.outsideHours}`);
+            console.log(`📊 Empleado ${empleado.nombre}: Horas dentro=${stats.workedHours}, Horas fuera=${stats.outsideHours}, Horas descanso=${stats.restHours}`);
             totalDentro += stats.workedHours;
             totalFuera += stats.outsideHours;
+            totalDescanso += stats.restHours;
             // totalExits se puede mantener igual (por eventos)
             if (!groupHours[empleado.grupo]) groupHours[empleado.grupo] = 0;
             if (!groupHoursFuera[empleado.grupo]) groupHoursFuera[empleado.grupo] = 0;
+            if (!groupHoursDescanso[empleado.grupo]) groupHoursDescanso[empleado.grupo] = 0;
             groupHours[empleado.grupo] += stats.workedHours;
             groupHoursFuera[empleado.grupo] += stats.outsideHours;
+            groupHoursDescanso[empleado.grupo] += stats.restHours;
             registros.forEach(reg => {
               if (reg.horas) totalHours += Number(reg.horas);
               const hora = reg.hora ? reg.hora.slice(0, 5) : null;
@@ -567,11 +573,12 @@ export default function GrupoDashboard({
             totalHours: Math.round(totalHours * 100) / 100,
             totalDentro: Math.round(totalDentro * 100) / 100,
             totalFuera: Math.round(totalFuera * 100) / 100,
+            totalDescanso: Math.round(totalDescanso * 100) / 100,
             averageWorkingDays: Math.round(promedoDiasTrabajados * 10) / 10, // 1 decimal
             totalWorkingDays: totalDiasPeriodo
           });
           
-          console.log(`🏥 TOTALES HOSPITAL - Horas dentro: ${Math.round(totalDentro * 100) / 100}, Horas fuera: ${Math.round(totalFuera * 100) / 100}`);
+          console.log(`🏥 TOTALES HOSPITAL - Horas dentro: ${Math.round(totalDentro * 100) / 100}, Horas fuera: ${Math.round(totalFuera * 100) / 100}, Horas descanso: ${Math.round(totalDescanso * 100) / 100}`);
           console.log(`🏥 Total empleados procesados: ${totalEmpleados}, Días del período: ${totalDiasPeriodo}`);
           setGroupDistributionData(
             Object.entries(empleadosPorGrupo).map(([grupo, lista]) => ({ grupo, cantidad: lista.length }))
@@ -584,7 +591,8 @@ export default function GrupoDashboard({
             Object.entries(groupHours).map(([grupo, horas]) => ({
               grupo,
               horas,
-              horasFuera: groupHoursFuera[grupo] || 0
+              horasFuera: groupHoursFuera[grupo] || 0,
+              horasDescanso: groupHoursDescanso[grupo] || 0
             }))
           );
         } catch (err) {
@@ -606,6 +614,7 @@ export default function GrupoDashboard({
           totalHours: 0, 
           totalDentro: 0, 
           totalFuera: 0,
+          totalDescanso: 0,
           averageWorkingDays: 0,
           totalWorkingDays: 0
         });
@@ -650,7 +659,8 @@ export default function GrupoDashboard({
     occasionalEmployees: 0,
     averageWorkingDays: 0,
     totalDentro: 0,
-    totalFuera: 0
+    totalFuera: 0,
+    totalDescanso: 0
   });
 
   // Filtrar listas de empleados activos e inactivos según el grupo seleccionado
@@ -692,6 +702,7 @@ export default function GrupoDashboard({
       // Calcular horas específicas del grupo seleccionado
       let totalDentroGrupo = 0;
       let totalFueraGrupo = 0;
+      let totalDescansoGrupo = 0;
 
       if (dataEmpleados && Array.isArray(dataEmpleados)) {
         // Obtener todos los empleados del grupo (activos e inactivos)
@@ -702,9 +713,10 @@ export default function GrupoDashboard({
           if (found && found.registros) {
             // Usar la misma función que se usa en el cálculo general
             const stats = calcularEstadisticasEmpleadoPorDias(found.registros);
-            console.log(`👥 Empleado del grupo "${selectedGroupList}" - ${empleado.nombre}: Horas dentro=${stats.workedHours}, Horas fuera=${stats.outsideHours}`);
+            console.log(`👥 Empleado del grupo "${selectedGroupList}" - ${empleado.nombre}: Horas dentro=${stats.workedHours}, Horas fuera=${stats.outsideHours}, Horas descanso=${stats.restHours}`);
             totalDentroGrupo += stats.workedHours;
             totalFueraGrupo += stats.outsideHours;
+            totalDescansoGrupo += stats.restHours;
           }
         });
       }
@@ -718,10 +730,11 @@ export default function GrupoDashboard({
         occasionalEmployees: pocoActivos + esporadicos,
         averageWorkingDays: Math.round(promedioGrupo * 10) / 10,
         totalDentro: totalDentroGrupo,
-        totalFuera: totalFueraGrupo
+        totalFuera: totalFueraGrupo,
+        totalDescanso: totalDescansoGrupo
       });
       
-      console.log(`👥 TOTALES GRUPO "${selectedGroupList}" - Horas dentro: ${totalDentroGrupo}, Horas fuera: ${totalFueraGrupo}`);
+      console.log(`👥 TOTALES GRUPO "${selectedGroupList}" - Horas dentro: ${totalDentroGrupo}, Horas fuera: ${totalFueraGrupo}, Horas descanso: ${totalDescansoGrupo}`);
       console.log(`👥 Empleados del grupo: ${filteredActivos.length + filteredInactivos.length} (${filteredActivos.length} activos, ${filteredInactivos.length} inactivos)`);
     } else {
       // Si no hay grupo seleccionado, usar las métricas generales
@@ -734,10 +747,11 @@ export default function GrupoDashboard({
         occasionalEmployees: cardData.occasionalEmployees || 0,
         averageWorkingDays: cardData.averageWorkingDays || 0,
         totalDentro: cardData.totalDentro || 0,
-        totalFuera: cardData.totalFuera || 0
+        totalFuera: cardData.totalFuera || 0,
+        totalDescanso: cardData.totalDescanso || 0
       });
       
-      console.log(`🏥 USANDO MÉTRICAS GENERALES - Horas dentro: ${cardData.totalDentro || 0}, Horas fuera: ${cardData.totalFuera || 0}`);
+      console.log(`🏥 USANDO MÉTRICAS GENERALES - Horas dentro: ${cardData.totalDentro || 0}, Horas fuera: ${cardData.totalFuera || 0}, Horas descanso: ${cardData.totalDescanso || 0}`);
     }
   }, [
     selectedGroupList, 
@@ -1265,28 +1279,32 @@ export default function GrupoDashboard({
             
             {/* Métricas del período reestructuradas */}
             <div className="space-y-4">
-              {/* Participación Laboral */}
+              {/* Participación Real */}
               <div className="bg-white rounded-lg p-3 border border-blue-200">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium text-blue-700">Participación Laboral</span>
+                  <span className="text-sm font-medium text-blue-700">Participación Real</span>
                   <span className="text-lg font-bold text-blue-800">
-                    {filteredActivos.length + filteredInactivos.length > 0 
-                      ? Math.round((filteredActivos.length / (filteredActivos.length + filteredInactivos.length)) * 100)
-                      : 0}%
+                    {(() => {
+                      const totalDias = cardData.totalWorkingDays || 1;
+                      const promedioDias = selectedGroupList ? groupSpecificMetrics.averageWorkingDays : cardData.averageWorkingDays;
+                      return Math.round((promedioDias / totalDias) * 100);
+                    })()}%
                   </span>
                 </div>
                 <div className="w-full bg-blue-200 rounded-full h-2 mb-1">
                   <div 
                     className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
                     style={{
-                      width: `${filteredActivos.length + filteredInactivos.length > 0 
-                        ? (filteredActivos.length / (filteredActivos.length + filteredInactivos.length)) * 100
-                        : 0}%`
+                      width: `${(() => {
+                        const totalDias = cardData.totalWorkingDays || 1;
+                        const promedioDias = selectedGroupList ? groupSpecificMetrics.averageWorkingDays : cardData.averageWorkingDays;
+                        return (promedioDias / totalDias) * 100;
+                      })()}%`
                     }}
                   ></div>
                 </div>
                 <div className="text-xs text-blue-600">
-                  {filteredActivos.length} empleados trabajaron durante el período
+                  Promedio: {selectedGroupList ? groupSpecificMetrics.averageWorkingDays : cardData.averageWorkingDays} de {cardData.totalWorkingDays} días
                 </div>
               </div>
               
@@ -1312,7 +1330,7 @@ export default function GrupoDashboard({
         </div>
 
         {/* Métricas de Horas - Integradas en el resumen */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
           {/* Horas en Geocerca */}
           <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-6">
             <div className="flex items-center justify-between mb-4">
@@ -1419,6 +1437,67 @@ export default function GrupoDashboard({
                       const totalFuera = selectedGroupList ? groupSpecificMetrics.totalFuera : cardData.totalFuera;
                       return totalDentro + totalFuera > 0 
                         ? (totalFuera / (totalDentro + totalFuera)) * 100
+                        : 0;
+                    })()}%`
+                  }}
+                ></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Horas de Descanso */}
+          <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 border border-yellow-200 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center">
+                  <Clock className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-yellow-800">Horas de Descanso</h4>
+                  <p className="text-sm text-yellow-600">Tiempo en descanso</p>
+                </div>
+              </div>
+              <div className="text-3xl font-bold text-yellow-700">
+                {Math.floor((selectedGroupList ? groupSpecificMetrics.totalDescanso : cardData.totalDescanso) ?? 0)}h
+              </div>
+            </div>
+            
+            {/* Detalle de minutos */}
+            <div className="bg-yellow-100 rounded-lg p-3 mb-4">
+              <div className="text-xs font-semibold text-yellow-800 mb-1">Tiempo total:</div>
+              <div className="text-sm text-yellow-700 font-medium">
+                {formatHorasMinutos((selectedGroupList ? groupSpecificMetrics.totalDescanso : cardData.totalDescanso) ?? 0)}
+              </div>
+            </div>
+
+            {/* Información adicional */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-yellow-700">Porcentaje del total:</span>
+                <span className="font-semibold text-yellow-800">
+                  {(() => {
+                    const totalDentro = selectedGroupList ? groupSpecificMetrics.totalDentro : cardData.totalDentro;
+                    const totalFuera = selectedGroupList ? groupSpecificMetrics.totalFuera : cardData.totalFuera;
+                    const totalDescanso = selectedGroupList ? groupSpecificMetrics.totalDescanso : cardData.totalDescanso;
+                    const total = totalDentro + totalFuera + totalDescanso;
+                    return total > 0 
+                      ? Math.round((totalDescanso / total) * 100)
+                      : 0;
+                  })()}%
+                </span>
+              </div>
+              
+              <div className="w-full bg-yellow-200 rounded-full h-2">
+                <div 
+                  className="bg-yellow-600 h-2 rounded-full transition-all duration-300" 
+                  style={{
+                    width: `${(() => {
+                      const totalDentro = selectedGroupList ? groupSpecificMetrics.totalDentro : cardData.totalDentro;
+                      const totalFuera = selectedGroupList ? groupSpecificMetrics.totalFuera : cardData.totalFuera;
+                      const totalDescanso = selectedGroupList ? groupSpecificMetrics.totalDescanso : cardData.totalDescanso;
+                      const total = totalDentro + totalFuera + totalDescanso;
+                      return total > 0 
+                        ? (totalDescanso / total) * 100
                         : 0;
                     })()}%`
                   }}
@@ -1822,7 +1901,7 @@ export default function GrupoDashboard({
       {/* Nueva gráfica: Grupos con más horas trabajadas */}
       <div className="bg-white rounded-2xl shadow-md p-6 mb-8 border border-gray-200">
         <div className="flex items-center gap-2 mb-4">
-          <h3 className="text-lg font-semibold text-gray-800">Top grupos con más horas trabajadas (en geocerca y fuera)</h3>
+          <h3 className="text-lg font-semibold text-gray-800">Top grupos con más horas trabajadas (en geocerca, fuera y descanso)</h3>
         </div>
         {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) ? (
           <div className="text-center text-gray-500 py-16 text-lg w-full">
@@ -1830,7 +1909,7 @@ export default function GrupoDashboard({
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={[...groupHoursData].sort((a, b) => (b.horas + b.horasFuera) - (a.horas + a.horasFuera)).slice(0, 8)} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+            <BarChart data={[...groupHoursData].sort((a, b) => (b.horas + b.horasFuera + b.horasDescanso) - (a.horas + a.horasFuera + a.horasDescanso)).slice(0, 8)} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="grupo" tick={{ fontSize: 11 }} axisLine={{ stroke: '#e0e0e0' }} tickFormatter={(value) => value.length > 15 ? `${value.substring(0, 15)}...` : value} />
               <YAxis 
@@ -1850,15 +1929,24 @@ export default function GrupoDashboard({
                         <div style={{ color: '#ef4444', fontWeight: 500 }}>
                           Horas fuera de geocerca: {formatHorasMinutos(payload[0].payload.horasFuera)}
                         </div>
+                        <div style={{ color: '#eab308', fontWeight: 500 }}>
+                          Horas de descanso: {formatHorasMinutos(payload[0].payload.horasDescanso)}
+                        </div>
                       </div>
                     );
                   }
                   return null;
                 }}
               />
-              <Legend formatter={(value) => value === 'horas' ? 'En geocerca' : 'Fuera de geocerca'} />
+              <Legend formatter={(value) => {
+                if (value === 'horas') return 'En geocerca';
+                if (value === 'horasFuera') return 'Fuera de geocerca';
+                if (value === 'horasDescanso') return 'Descanso';
+                return value;
+              }} />
               <Bar dataKey="horas" fill="#6366f1" radius={[4, 4, 0, 0]} name="horas" label={({ value }) => formatHorasMinutos(value)} />
               <Bar dataKey="horasFuera" fill="#ef4444" radius={[4, 4, 0, 0]} name="horasFuera" label={({ value }) => formatHorasMinutos(value)} />
+              <Bar dataKey="horasDescanso" fill="#eab308" radius={[4, 4, 0, 0]} name="horasDescanso" label={({ value }) => formatHorasMinutos(value)} />
             </BarChart>
           </ResponsiveContainer>
         )}

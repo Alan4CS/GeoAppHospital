@@ -204,6 +204,7 @@ export default function EmpleadoDashboard({
     const eventos = [];
     let estadoGeocerca = null;
     let horaIntervalo = null;
+    let inicioDescanso = null;
 
     const formatIntervalo = (inicio, fin) => {
       const diffMs = new Date(fin) - new Date(inicio);
@@ -231,7 +232,7 @@ export default function EmpleadoDashboard({
         continue;
       }
       
-      // Eventos de geocerca
+      // Eventos de geocerca y descanso
       if (typeof act.evento === 'number') {
         if (act.evento === 0) {
           // Salió de geocerca
@@ -272,6 +273,8 @@ export default function EmpleadoDashboard({
           estadoGeocerca = true;
           horaIntervalo = act.fecha_hora;
         } else if (act.evento === 2) {
+          // Inicio de descanso
+          inicioDescanso = act.fecha_hora;
           eventos.push({
             hora,
             descripcion: 'Inicio de descanso',
@@ -279,6 +282,17 @@ export default function EmpleadoDashboard({
             duracion: ''
           });
         } else if (act.evento === 3) {
+          // Fin de descanso - AGREGAR EL INTERVALO
+          if (inicioDescanso) {
+            const duracion = formatIntervalo(inicioDescanso, act.fecha_hora);
+            eventos.push({
+              hora: `${formatHora(inicioDescanso)} - ${hora}`,
+              descripcion: `Tiempo en descanso`,
+              tipo: 'tiempo_descanso',
+              duracion: `(${duracion})`
+            });
+            inicioDescanso = null;
+          }
           eventos.push({
             hora,
             descripcion: 'Fin de descanso',
@@ -329,6 +343,8 @@ export default function EmpleadoDashboard({
         case 'tiempo_dentro':
         case 'tiempo_fuera':
           return 'text-blue-700';
+        case 'tiempo_descanso':
+          return 'text-yellow-700';
         default:
           return 'text-gray-700';
       }
@@ -892,6 +908,18 @@ export default function EmpleadoDashboard({
                           <div className="w-4 h-4 bg-gray-200 border border-gray-300 rounded"></div>
                           <span className="text-gray-600">Fuera del período</span>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 bg-green-600 rounded border"></div>
+                          <span className="text-gray-600">Tiempo trabajado</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 bg-red-500 rounded border"></div>
+                          <span className="text-gray-600">Tiempo fuera</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 bg-yellow-500 rounded border"></div>
+                          <span className="text-gray-600">Tiempo descanso</span>
+                        </div>
                       </div>
 
                       {/* Calendario mensual - renderizado por filas */}
@@ -1010,6 +1038,17 @@ export default function EmpleadoDashboard({
                                                               : "bg-red-500 text-white"
                                                         }`}>
                                                           {formatHorasMinutos(dayStats.horasFuera)} fuera
+                                                        </div>
+                                                      )}
+                                                      {dayStats.horasDescanso > 0 && (
+                                                        <div className={`text-center px-1 py-0.5 rounded text-xs ${
+                                                          isSelected
+                                                            ? "bg-yellow-100 text-yellow-700"
+                                                            : isToday 
+                                                              ? "bg-white/20 text-white" 
+                                                              : "bg-yellow-500 text-white"
+                                                        }`}>
+                                                          {formatHorasMinutos(dayStats.horasDescanso)} descanso
                                                         </div>
                                                       )}
                                                     </>

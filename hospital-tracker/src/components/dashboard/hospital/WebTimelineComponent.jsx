@@ -72,6 +72,7 @@ function generarEventosYIntervalosDelResumen(actividades) {
   const intervalos = [];
   let estadoGeocerca = null;
   let horaIntervalo = null;
+  let inicioDescanso = null;
 
   const formatIntervalo = (inicio, fin) => {
     const diffMs = new Date(fin) - new Date(inicio);
@@ -86,6 +87,9 @@ function generarEventosYIntervalosDelResumen(actividades) {
         inicio: new Date(inicio),
         fin: new Date(fin),
         dentro: tipo === 'dentro',
+        fuera: tipo === 'fuera',
+        descanso: tipo === 'descanso',
+        tipo: tipo, // Agregar el tipo explícitamente
         duracionTexto: formatIntervalo(inicio, fin)
       });
     }
@@ -115,42 +119,58 @@ function generarEventosYIntervalosDelResumen(actividades) {
         // Salió de geocerca
         if (estadoGeocerca === true && horaIntervalo) {
           pushIntervalo(horaIntervalo, act.fecha_hora, 'dentro');
-          eventos.push({
-            time: new Date(act.fecha_hora),
-            tipo: 'geocerca',
-            descripcion: 'Salió geocerca',
-            hora: formatHora(act.fecha_hora)
-          });
-          estadoGeocerca = false;
-          horaIntervalo = act.fecha_hora;
         }
+        eventos.push({
+          time: new Date(act.fecha_hora),
+          tipo: 'geocerca',
+          descripcion: 'Salió geocerca',
+          hora: formatHora(act.fecha_hora)
+        });
+        estadoGeocerca = false;
+        horaIntervalo = act.fecha_hora;
       } else if (act.evento === 1) {
         // Entró a la geocerca
         if (estadoGeocerca === false && horaIntervalo) {
           pushIntervalo(horaIntervalo, act.fecha_hora, 'fuera');
-          eventos.push({
-            time: new Date(act.fecha_hora),
-            tipo: 'geocerca',
-            descripcion: 'Entró geocerca',
-            hora: formatHora(act.fecha_hora)
-          });
-          estadoGeocerca = true;
-          horaIntervalo = act.fecha_hora;
         }
+        eventos.push({
+          time: new Date(act.fecha_hora),
+          tipo: 'geocerca',
+          descripcion: 'Entró geocerca',
+          hora: formatHora(act.fecha_hora)
+        });
+        estadoGeocerca = true;
+        horaIntervalo = act.fecha_hora;
       } else if (act.evento === 2) {
+        // Inicio de descanso - PAUSAR tracking de geocerca
+        if (estadoGeocerca !== null && horaIntervalo) {
+          // Crear intervalo de geocerca hasta el inicio del descanso
+          pushIntervalo(horaIntervalo, act.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
+        }
+        inicioDescanso = act.fecha_hora;
         eventos.push({
           time: new Date(act.fecha_hora),
           tipo: 'descanso',
           descripcion: 'Inicio descanso',
           hora: formatHora(act.fecha_hora)
         });
+        // Pausar el tracking de geocerca durante el descanso
+        horaIntervalo = null;
       } else if (act.evento === 3) {
+        // Fin de descanso - REANUDAR tracking de geocerca
+        if (inicioDescanso) {
+          pushIntervalo(inicioDescanso, act.fecha_hora, 'descanso');
+          inicioDescanso = null;
+        }
         eventos.push({
           time: new Date(act.fecha_hora),
           tipo: 'descanso',
           descripcion: 'Fin descanso',
           hora: formatHora(act.fecha_hora)
         });
+        // Reanudar tracking de geocerca después del descanso
+        estadoGeocerca = act.dentro_geocerca;
+        horaIntervalo = act.fecha_hora;
       }
     }
     
@@ -243,6 +263,12 @@ const WebTimelineComponent = ({ actividades, titulo = "Cronología del Día" }) 
   const timeScale = generateTimeScale(displayStart, displayEnd);
   const { eventos: eventosClave, intervalos } = generarEventosYIntervalosDelResumen(ordenadas);
   
+  // Debug temporal - ver qué intervalos se generan
+  console.log('🔍 DEBUG - Intervalos generados:');
+  intervalos.forEach((intervalo, idx) => {
+    console.log(`${idx}: ${intervalo.tipo} | Descanso: ${intervalo.descanso} | ${formatTime(intervalo.inicio)} - ${formatTime(intervalo.fin)} (${intervalo.duracionTexto})`);
+  });
+  
   // Calcular posiciones mejoradas para evitar superposición
   const labelPositions = calculateLabelPositions(eventosClave, displayStart, displayEnd);
 
@@ -284,18 +310,23 @@ const WebTimelineComponent = ({ actividades, titulo = "Cronología del Día" }) 
               />
             )}
             
-            {/* Intervalos de tiempo dentro/fuera - MÁS SUTILES */}
+            {/* Intervalos de tiempo dentro/fuera/descanso - MÁS SUTILES */}
             {intervalos.map((intervalo, idx) => {
               const startPos = calculateAbsolutePosition(intervalo.inicio, displayStart, displayEnd);
               const endPos = calculateAbsolutePosition(intervalo.fin, displayStart, displayEnd);
               const width = endPos - startPos;
               
+              // Debug: verificar qué color se aplica
+              const esDescanso = intervalo.tipo === 'descanso' || intervalo.descanso;
+              const esDentro = intervalo.tipo === 'dentro' || intervalo.dentro;
+              const colorClass = esDescanso ? 'bg-yellow-500 shadow-sm' : esDentro ? 'bg-green-500 shadow-sm' : 'bg-red-500 shadow-sm';
+              
+              console.log(`🎨 Intervalo ${idx}: tipo="${intervalo.tipo}", descanso=${intervalo.descanso}, dentro=${intervalo.dentro} -> ${colorClass}`);
+              
               return (
                 <div
                   key={`interval-${idx}`}
-                  className={`absolute h-2 rounded-sm ${
-                    intervalo.dentro ? 'bg-green-500 shadow-sm' : 'bg-red-500 shadow-sm'
-                  }`}
+                  className={`absolute h-2 rounded-sm ${colorClass}`}
                   style={{
                     left: `${startPos}%`,
                     width: `${width}%`,
@@ -382,9 +413,13 @@ const WebTimelineComponent = ({ actividades, titulo = "Cronología del Día" }) 
               >
                 {/* Texto limpio sin fondo, como PDF */}
                 <div className={`font-medium ${
-                  intervalo.dentro ? 'text-green-700' : 'text-red-700'
+                  intervalo.tipo === 'descanso' || intervalo.descanso 
+                    ? 'text-yellow-700' 
+                    : intervalo.tipo === 'dentro' || intervalo.dentro 
+                      ? 'text-green-700' 
+                      : 'text-red-700'
                 }`}>
-                  {intervalo.dentro ? 'Dentro' : 'Fuera'}
+                  {intervalo.tipo === 'descanso' || intervalo.descanso ? 'Descanso' : intervalo.dentro ? 'Dentro' : 'Fuera'}
                 </div>
                 <div className="text-gray-600 mt-0.5 text-xs">
                   ({intervalo.duracionTexto})

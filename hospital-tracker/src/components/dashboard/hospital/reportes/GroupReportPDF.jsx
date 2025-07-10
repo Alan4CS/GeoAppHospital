@@ -311,18 +311,14 @@ const HoursMetricsCards = ({ cardData }) => (
         <Text style={[styles.statsLabel, { fontSize: 7, marginTop: 2 }]}>tiempo fuera del área</Text>
       </View>
       <View style={styles.statsItem}>
-        <Text style={styles.statsValue}>{formatHorasMinutos((cardData.totalDentro || 0) + (cardData.totalFuera || 0))}</Text>
-        <Text style={styles.statsLabel}>TOTAL HORAS</Text>
-        <Text style={[styles.statsLabel, { fontSize: 7, marginTop: 2 }]}>tiempo total registrado</Text>
+        <Text style={styles.statsValue}>{formatHorasMinutos(cardData.totalDescanso || 0)}</Text>
+        <Text style={styles.statsLabel}>HORAS DESCANSO</Text>
+        <Text style={[styles.statsLabel, { fontSize: 7, marginTop: 2 }]}>tiempo en descanso</Text>
       </View>
       <View style={styles.statsItemLast}>
-        <Text style={styles.statsValue}>
-          {cardData.totalDentro + cardData.totalFuera > 0 
-            ? Math.round((cardData.totalDentro / (cardData.totalDentro + cardData.totalFuera)) * 100)
-            : 0}%
-        </Text>
-        <Text style={styles.statsLabel}>% EN GEOCERCA</Text>
-        <Text style={[styles.statsLabel, { fontSize: 7, marginTop: 2 }]}>porcentaje del total</Text>
+        <Text style={styles.statsValue}>{formatHorasMinutos((cardData.totalDentro || 0) + (cardData.totalFuera || 0) + (cardData.totalDescanso || 0))}</Text>
+        <Text style={styles.statsLabel}>TOTAL HORAS</Text>
+        <Text style={[styles.statsLabel, { fontSize: 7, marginTop: 2 }]}>tiempo total registrado</Text>
       </View>
     </View>
   </View>
@@ -471,7 +467,7 @@ const GroupHoursTable = ({ groupHoursData }) => (
     <View style={{ marginBottom: 10 }}>
       <Text style={[styles.text, { fontSize: 10, textAlign: 'justify' }]}>
         La siguiente tabla presenta el tiempo efectivo de trabajo registrado por cada grupo, diferenciando 
-        entre el tiempo trabajado dentro y fuera de las áreas georreferenciadas establecidas.
+        entre el tiempo trabajado dentro y fuera de las áreas georreferenciadas establecidas, así como el tiempo de descanso.
       </Text>
     </View>
     <View style={styles.table}>
@@ -479,19 +475,21 @@ const GroupHoursTable = ({ groupHoursData }) => (
         <Text style={[styles.tableCell, { flex: 2 }]}>GRUPO DE TRABAJO</Text>
         <Text style={styles.tableCellCenter}>TIEMPO EN GEOCERCA</Text>
         <Text style={styles.tableCellCenter}>TIEMPO FUERA</Text>
+        <Text style={styles.tableCellCenter}>TIEMPO DESCANSO</Text>
         <Text style={styles.tableCellCenter}>TIEMPO TOTAL</Text>
         <Text style={styles.tableCellCenter}>% EFECTIVIDAD</Text>
       </View>
       {groupHoursData
-        .sort((a, b) => (b.horas + b.horasFuera) - (a.horas + a.horasFuera))
+        .sort((a, b) => (b.horas + b.horasFuera + (b.horasDescanso || 0)) - (a.horas + a.horasFuera + (a.horasDescanso || 0)))
         .map((grupo, index) => {
-          const totalHoras = grupo.horas + grupo.horasFuera;
+          const totalHoras = grupo.horas + grupo.horasFuera + (grupo.horasDescanso || 0);
           const porcentajeEfectividad = totalHoras > 0 ? ((grupo.horas / totalHoras) * 100).toFixed(1) : '0.0';
           return (
             <View key={grupo.grupo} style={index % 2 === 0 ? styles.tableRow : styles.tableRowAlt}>
               <Text style={[styles.tableCell, { flex: 2 }]}>{grupo.grupo}</Text>
               <Text style={styles.tableCellCenter}>{formatHorasMinutos(grupo.horas)}</Text>
               <Text style={styles.tableCellCenter}>{formatHorasMinutos(grupo.horasFuera)}</Text>
+              <Text style={styles.tableCellCenter}>{formatHorasMinutos(grupo.horasDescanso || 0)}</Text>
               <Text style={styles.tableCellCenter}>{formatHorasMinutos(totalHoras)}</Text>
               <Text style={styles.tableCellCenter}>{porcentajeEfectividad}%</Text>
             </View>
@@ -506,11 +504,14 @@ const GroupHoursTable = ({ groupHoursData }) => (
           {formatHorasMinutos(groupHoursData.reduce((sum, g) => sum + g.horasFuera, 0))}
         </Text>
         <Text style={[styles.tableCellCenter, { fontWeight: 'bold' }]}>
-          {formatHorasMinutos(groupHoursData.reduce((sum, g) => sum + g.horas + g.horasFuera, 0))}
+          {formatHorasMinutos(groupHoursData.reduce((sum, g) => sum + (g.horasDescanso || 0), 0))}
         </Text>
         <Text style={[styles.tableCellCenter, { fontWeight: 'bold' }]}>
-          {groupHoursData.reduce((sum, g) => sum + g.horas + g.horasFuera, 0) > 0 
-            ? ((groupHoursData.reduce((sum, g) => sum + g.horas, 0) / groupHoursData.reduce((sum, g) => sum + g.horas + g.horasFuera, 0)) * 100).toFixed(1)
+          {formatHorasMinutos(groupHoursData.reduce((sum, g) => sum + g.horas + g.horasFuera + (g.horasDescanso || 0), 0))}
+        </Text>
+        <Text style={[styles.tableCellCenter, { fontWeight: 'bold' }]}>
+          {groupHoursData.reduce((sum, g) => sum + g.horas + g.horasFuera + (g.horasDescanso || 0), 0) > 0 
+            ? ((groupHoursData.reduce((sum, g) => sum + g.horas, 0) / groupHoursData.reduce((sum, g) => sum + g.horas + g.horasFuera + (g.horasDescanso || 0), 0)) * 100).toFixed(1)
             : 0}%
         </Text>
       </View>
@@ -672,7 +673,7 @@ const Conclusions = ({ cardData, empleadosActivos, empleadosInactivos, stackedGr
   const grupoMasActivo = stackedGroupData.reduce((prev, current) => 
     (current.Activos > prev.Activos) ? current : prev, stackedGroupData[0] || {});
   const grupoMasHoras = groupHoursData.reduce((prev, current) => 
-    ((current.horas + current.horasFuera) > (prev.horas + prev.horasFuera)) ? current : prev, groupHoursData[0] || {});
+    ((current.horas + current.horasFuera + (current.horasDescanso || 0)) > (prev.horas + prev.horasFuera + (prev.horasDescanso || 0))) ? current : prev, groupHoursData[0] || {});
   
   return (
     <View style={styles.section}>

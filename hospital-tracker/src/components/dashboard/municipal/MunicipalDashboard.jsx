@@ -188,6 +188,10 @@ const MapTooltip = ({ x, y, hospital }) => {
             <span className="font-medium text-orange-600">{hospital.hoursOutside}h</span>
           </div>
           <div className="flex justify-between items-center">
+            <span className="text-gray-600">Horas Descanso:</span>
+            <span className="font-medium text-yellow-600">{hospital.hoursRest || 0}h</span>
+          </div>
+          <div className="flex justify-between items-center">
             <span className="text-gray-600">Eficiencia:</span>
             <span className="font-medium text-purple-600">{hospital.efficiency}%</span>
           </div>
@@ -461,16 +465,33 @@ export default function EnhancedMunicipalDashboard() {
       let totalHorasT = 0
       let totalSalidas = 0
       let totalHorasFuera = 0
+      let totalHorasDescanso = 0
       
       empleadosHospital.forEach(emp => {
         const stats = calcularEstadisticasEmpleadoPorDias(emp.registros)
         totalHorasT += stats.workedHours
         totalHorasFuera += stats.outsideHours
+        totalHorasDescanso += stats.restHours
         
         // Para salidas, usar la función original que sí las calcula
         const statsConSalidas = calcularEstadisticasEmpleado(emp.registros)
         totalSalidas += statsConSalidas.totalExits || 0
       })
+      
+      // Obtener todos los grupos únicos del hospital
+      const gruposUnicos = [...new Set(
+        empleadosHospital
+          .map(emp => emp.empleado.grupo)
+          .filter(grupo => grupo && grupo.trim() !== "")
+      )];
+      
+      const departmentText = gruposUnicos.length > 0 
+        ? gruposUnicos.length === 1 
+          ? gruposUnicos[0] 
+          : `${gruposUnicos.length} grupos (${gruposUnicos.join(', ')})`
+        : "Sin grupo";
+      
+      const totalHorasConDescanso = totalHorasT + totalHorasFuera + totalHorasDescanso
       
       return {
         id: hospital.id_hospital,
@@ -480,8 +501,10 @@ export default function EnhancedMunicipalDashboard() {
         geofenceExits: totalSalidas,
         hoursWorked: Math.round(totalHorasT),
         hoursOutside: Math.round(totalHorasFuera),
+        hoursRest: Math.round(totalHorasDescanso),
         efficiency: empleadosHospital.length > 0 ? Math.round((totalHorasT / (totalHorasT + totalHorasFuera)) * 100) || 0 : 0,
-        department: empleadosHospital.length > 0 ? empleadosHospital[0].empleado.grupo || "Sin grupo" : "Sin empleados",
+        department: departmentText,
+        grupos: gruposUnicos, // Lista completa de grupos
         direccion: hospital.direccion
       }
     })
@@ -510,6 +533,8 @@ export default function EnhancedMunicipalDashboard() {
       totalEmployees: totalEmployeesInMunicipality, // Total de empleados en el municipio
       totalGeofenceExits: hospitals.reduce((sum, h) => sum + h.geofenceExits, 0),
       totalHoursWorked: hospitals.reduce((sum, h) => sum + h.hoursWorked, 0),
+      totalHoursOutside: hospitals.reduce((sum, h) => sum + h.hoursOutside, 0),
+      totalHoursRest: hospitals.reduce((sum, h) => sum + h.hoursRest, 0),
       averageEfficiency:
         hospitals.length > 0 ? Math.round(hospitals.reduce((sum, h) => sum + h.efficiency, 0) / hospitals.length) : 0,
     }
@@ -849,7 +874,7 @@ export default function EnhancedMunicipalDashboard() {
           ) : (
             <>
               {/* KPI Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
             {/* Hospitales Card */}
             <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg p-4 text-white">
               <div className="flex items-center justify-between mb-2">
@@ -883,24 +908,34 @@ export default function EnhancedMunicipalDashboard() {
               <p className="text-2xl font-bold">{municipalStats.totalGeofenceExits}</p>
             </div>
 
-            {/* Horas Card */}
-            <div className="bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl shadow-lg p-4 text-white">
+            {/* Horas en Geocerca Card */}
+            <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg p-4 text-white">
               <div className="flex items-center justify-between mb-2">
-                <Clock className="h-6 w-6 text-purple-100" />
-                <TrendingUp className="h-4 w-4 text-purple-200" />
+                <Clock className="h-6 w-6 text-green-100" />
+                <TrendingUp className="h-4 w-4 text-green-200" />
               </div>
-              <h3 className="text-sm font-medium text-purple-100 mb-1">Horas</h3>
+              <h3 className="text-sm font-medium text-green-100 mb-1">Horas Geocerca</h3>
               <p className="text-2xl font-bold">{municipalStats.totalHoursWorked.toLocaleString()}</p>
             </div>
 
-            {/* Eficiencia Card */}
-            <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl shadow-lg p-4 text-white">
+            {/* Horas Fuera Card */}
+            <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl shadow-lg p-4 text-white">
               <div className="flex items-center justify-between mb-2">
-                <ArrowUpRight className="h-6 w-6 text-amber-100" />
-                <TrendingUp className="h-4 w-4 text-amber-200" />
+                <Clock className="h-6 w-6 text-orange-100" />
+                <TrendingUp className="h-4 w-4 text-orange-200" />
               </div>
-              <h3 className="text-sm font-medium text-amber-100 mb-1">Eficiencia</h3>
-              <p className="text-2xl font-bold">{municipalStats.averageEfficiency}%</p>
+              <h3 className="text-sm font-medium text-orange-100 mb-1">Horas Fuera</h3>
+              <p className="text-2xl font-bold">{(municipalStats.totalHoursOutside || 0).toLocaleString()}</p>
+            </div>
+
+            {/* Horas Descanso Card */}
+            <div className="bg-gradient-to-br from-yellow-500 to-amber-600 rounded-xl shadow-lg p-4 text-white">
+              <div className="flex items-center justify-between mb-2">
+                <Clock className="h-6 w-6 text-yellow-100" />
+                <TrendingUp className="h-4 w-4 text-yellow-200" />
+              </div>
+              <h3 className="text-sm font-medium text-yellow-100 mb-1">Horas Descanso</h3>
+              <p className="text-2xl font-bold">{(municipalStats.totalHoursRest || 0).toLocaleString()}</p>
             </div>
           </div>
 
@@ -1022,9 +1057,9 @@ export default function EnhancedMunicipalDashboard() {
               </div>
             </div>
 
-            {/* Charts Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Gráfico de Barras Comparativo */}
+            {/* Charts Grid - Layout Mejorado */}
+            <div className="space-y-6">
+              {/* Primera fila: Gráfico principal de métricas */}
               <div className="bg-white rounded-xl shadow-md p-6">
                 <div className="flex items-center justify-between mb-6">
                   <div>
@@ -1032,109 +1067,295 @@ export default function EnhancedMunicipalDashboard() {
                     <p className="text-sm text-gray-500">Comparación de horas y personal en {filters.nombre_municipio}</p>
                   </div>
                 </div>
-              <div className="h-[350px]">
-                {isLoadingData ? (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-gray-500">Cargando datos...</div>
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={hospitals.map(hospital => ({
-                        name: hospital.name.length > 15 ? hospital.name.substring(0, 15) + "..." : hospital.name,
-                        "Horas Trabajadas": hospital.hoursWorked,
-                        "Horas Fuera": hospital.hoursOutside,
-                        "Empleados": hospital.employees,
-                      }))}
-                      margin={{
-                        top: 20,
-                        right: 30,
-                        left: 20,
-                        bottom: 60,
-                      }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                      <XAxis 
-                        dataKey="name" 
-                        tick={{ fill: "#4B5563", fontSize: 11 }}
-                        tickLine={false}
-                        interval={0}
-                        angle={-45}
-                        textAnchor="end"
-                        height={80}
-                      />
-                      <YAxis
-                        tick={{ fill: "#4B5563", fontSize: 12 }}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "white",
-                          borderRadius: "8px",
-                          border: "1px solid #e5e7eb",
-                          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                <div className="h-[400px]">
+                  {isLoadingData ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-gray-500">Cargando datos...</div>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={hospitals.map(hospital => ({
+                          name: hospital.name.length > 15 ? hospital.name.substring(0, 15) + "..." : hospital.name,
+                          "Horas Geocerca": hospital.hoursWorked,
+                          "Horas Fuera": hospital.hoursOutside,
+                          "Horas Descanso": hospital.hoursRest || 0,
+                          "Total Horas": (hospital.hoursWorked + hospital.hoursOutside + (hospital.hoursRest || 0)),
+                        }))}
+                        margin={{
+                          top: 20,
+                          right: 30,
+                          left: 20,
+                          bottom: 80,
                         }}
-                      />
-                      <Legend />
-                      <Bar dataKey="Horas Trabajadas" fill="#0088FE" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="Horas Fuera" fill="#FF8042" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="Empleados" fill="#00C49F" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                        <XAxis 
+                          dataKey="name" 
+                          tick={{ fill: "#4B5563", fontSize: 11 }}
+                          tickLine={false}
+                          interval={0}
+                          angle={-45}
+                          textAnchor="end"
+                          height={80}
+                        />
+                        <YAxis
+                          tick={{ fill: "#4B5563", fontSize: 12 }}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "white",
+                            borderRadius: "8px",
+                            border: "1px solid #e5e7eb",
+                            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                          }}
+                        />
+                        <Legend />
+                        <Bar dataKey="Horas Geocerca" fill="#10b981" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="Horas Fuera" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="Horas Descanso" fill="#eab308" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="Total Horas" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
               </div>
 
-              {/* Tendencia de Horas por Hospital */}
+              {/* Segunda fila: Grid 2x2 para gráficos medianos */}
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                {/* Distribución de Empleados por Hospital */}
+                <div className="bg-white rounded-xl shadow-md p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-800">Distribución de Empleados</h3>
+                      <p className="text-sm text-gray-500">Personal por hospital</p>
+                    </div>
+                  </div>
+                  <div className="h-[350px]">
+                    {isLoadingData ? (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="text-gray-500">Cargando datos...</div>
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={hospitals.map((hospital, index) => ({
+                              name: hospital.name.length > 20 ? hospital.name.substring(0, 20) + "..." : hospital.name,
+                              value: hospital.employees,
+                              fill: COLORS[index % COLORS.length]
+                            }))}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                            outerRadius={90}
+                            dataKey="value"
+                          >
+                            {hospitals.map((_, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </div>
+
+                {/* Salidas de Geocerca por Hospital */}
+                <div className="bg-white rounded-xl shadow-md p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-800">Salidas de Geocerca</h3>
+                      <p className="text-sm text-gray-500">Número de salidas por hospital</p>
+                    </div>
+                  </div>
+                  <div className="h-[350px]">
+                    {isLoadingData ? (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="text-gray-500">Cargando datos...</div>
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={hospitals.map(hospital => ({
+                            name: hospital.name.length > 12 ? hospital.name.substring(0, 12) + "..." : hospital.name,
+                            salidas: hospital.geofenceExits,
+                            empleados: hospital.employees
+                          }))}
+                          margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                          <XAxis 
+                            dataKey="name" 
+                            tick={{ fill: "#4B5563", fontSize: 10 }}
+                            tickLine={false}
+                            interval={0}
+                            angle={-45}
+                            textAnchor="end"
+                            height={80}
+                          />
+                          <YAxis
+                            tick={{ fill: "#4B5563", fontSize: 12 }}
+                            tickLine={false}
+                            axisLine={false}
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "white",
+                              borderRadius: "8px",
+                              border: "1px solid #e5e7eb",
+                              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                            }}
+                          />
+                          <Bar dataKey="salidas" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Tercera fila: Resumen Estadístico - Ancho completo */}
+              <div className="bg-white rounded-xl shadow-md p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800">Resumen Estadístico Municipal</h3>
+                    <p className="text-sm text-gray-500">Estadísticas clave y hospitales destacados</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Métricas promedio */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-4">Métricas Promedio</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-blue-50 rounded-lg p-3">
+                        <div className="text-xs text-blue-600 font-medium">Eficiencia Promedio</div>
+                        <div className="text-xl font-bold text-blue-700">
+                          {hospitals.length > 0 ? 
+                            Math.round(hospitals.reduce((sum, h) => sum + h.efficiency, 0) / hospitals.length) 
+                            : 0}%
+                        </div>
+                      </div>
+                      <div className="bg-green-50 rounded-lg p-3">
+                        <div className="text-xs text-green-600 font-medium">Horas Promedio/Hospital</div>
+                        <div className="text-xl font-bold text-green-700">
+                          {hospitals.length > 0 ? 
+                            Math.round(hospitals.reduce((sum, h) => sum + h.hoursWorked, 0) / hospitals.length) 
+                            : 0}h
+                        </div>
+                      </div>
+                      <div className="bg-orange-50 rounded-lg p-3">
+                        <div className="text-xs text-orange-600 font-medium">Empleados Promedio</div>
+                        <div className="text-xl font-bold text-orange-700">
+                          {hospitals.length > 0 ? 
+                            Math.round(hospitals.reduce((sum, h) => sum + h.employees, 0) / hospitals.length) 
+                            : 0}
+                        </div>
+                      </div>
+                      <div className="bg-red-50 rounded-lg p-3">
+                        <div className="text-xs text-red-600 font-medium">Salidas Promedio</div>
+                        <div className="text-xl font-bold text-red-700">
+                          {hospitals.length > 0 ? 
+                            Math.round(hospitals.reduce((sum, h) => sum + h.geofenceExits, 0) / hospitals.length) 
+                            : 0}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Top hospitales */}
+                  <div className="lg:col-span-2">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-4">Hospitales Más Eficientes</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {hospitals
+                        .sort((a, b) => b.efficiency - a.efficiency)
+                        .slice(0, 6)
+                        .map((hospital, index) => (
+                          <div key={hospital.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                            <div className="flex items-center">
+                              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white mr-3 ${
+                                index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-orange-500' : 'bg-blue-500'
+                              }`}>
+                                {index + 1}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-gray-900 truncate">
+                                  {hospital.name.length > 22 ? hospital.name.substring(0, 22) + "..." : hospital.name}
+                                </div>
+                                <div className="text-xs text-gray-500 truncate">
+                                  {hospital.grupos && hospital.grupos.length > 0 
+                                    ? hospital.grupos.length === 1 
+                                      ? hospital.grupos[0]
+                                      : `${hospital.grupos.length} grupos`
+                                    : "Sin grupos"
+                                  }
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right ml-2">
+                              <div className="text-sm font-bold text-green-600">{hospital.efficiency}%</div>
+                              <div className="text-xs text-gray-500">{hospital.employees} emp.</div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cuarta fila: Tendencia de Horas - Ancho completo */}
               <div className="bg-white rounded-xl shadow-md p-6">
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h3 className="text-lg font-bold text-gray-800">Tendencia de Horas por Hospital</h3>
-                    <p className="text-sm text-gray-500">Evolución mensual de horas trabajadas</p>
+                    <p className="text-sm text-gray-500">Evolución temporal de horas trabajadas</p>
                   </div>
                 </div>
-              <div className="h-[350px]">
-                {isLoadingData ? (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-gray-500">Cargando datos...</div>
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={hospitalTrends}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                      <XAxis dataKey="period" tick={{ fill: "#4B5563", fontSize: 12 }} tickLine={false} />
-                      <YAxis
-                        tick={{ fill: "#4B5563", fontSize: 12 }}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "white",
-                          borderRadius: "8px",
-                          border: "1px solid #e5e7eb",
-                          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                        }}
-                      />
-                      <Legend />
-                      {hospitals.map((hospital, index) => {
-                        const hospitalKey = hospital.name.split(' ')[0] + (hospital.name.split(' ')[1] ? ' ' + hospital.name.split(' ')[1] : '')
-                        return (
-                          <Line
-                            key={hospital.id}
-                            type="monotone"
-                            dataKey={hospitalKey}
-                            stroke={COLORS[index % COLORS.length]}
-                            strokeWidth={2}
-                            dot={{ fill: COLORS[index % COLORS.length], r: 4 }}
-                          />
-                        )
-                      })}
-                    </LineChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
+                <div className="h-[400px]">
+                  {isLoadingData ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-gray-500">Cargando datos...</div>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={hospitalTrends}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                        <XAxis dataKey="period" tick={{ fill: "#4B5563", fontSize: 12 }} tickLine={false} />
+                        <YAxis
+                          tick={{ fill: "#4B5563", fontSize: 12 }}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "white",
+                            borderRadius: "8px",
+                            border: "1px solid #e5e7eb",
+                            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                          }}
+                        />
+                        <Legend />
+                        {hospitals.map((hospital, index) => {
+                          const hospitalKey = hospital.name.split(' ')[0] + (hospital.name.split(' ')[1] ? ' ' + hospital.name.split(' ')[1] : '')
+                          return (
+                            <Line
+                              key={hospital.id}
+                              type="monotone"
+                              dataKey={hospitalKey}
+                              stroke={COLORS[index % COLORS.length]}
+                              strokeWidth={2}
+                              dot={{ fill: COLORS[index % COLORS.length], r: 4 }}
+                            />
+                          )
+                        })}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1161,8 +1382,9 @@ export default function EnhancedMunicipalDashboard() {
                         <th className="px-6 py-4 text-left font-semibold text-gray-700">Grupo/Departamento</th>
                         <th className="px-6 py-4 text-center font-semibold text-gray-700">Empleados</th>
                         <th className="px-6 py-4 text-center font-semibold text-gray-700">Salidas</th>
-                        <th className="px-6 py-4 text-center font-semibold text-gray-700">Horas Trabajadas</th>
+                        <th className="px-6 py-4 text-center font-semibold text-gray-700">Horas Geocerca</th>
                         <th className="px-6 py-4 text-center font-semibold text-gray-700">Horas Fuera</th>
+                        <th className="px-6 py-4 text-center font-semibold text-gray-700">Horas Descanso</th>
                         <th className="px-6 py-4 text-center font-semibold text-gray-700">Eficiencia</th>
                         <th className="px-6 py-4 text-center font-semibold text-gray-700">Ubicación</th>
                       </tr>
@@ -1197,6 +1419,9 @@ export default function EnhancedMunicipalDashboard() {
                             <span className="font-medium text-orange-600">{hospital.hoursOutside}h</span>
                           </td>
                           <td className="px-6 py-4 text-center">
+                            <span className="font-medium text-yellow-600">{hospital.hoursRest || 0}h</span>
+                          </td>
+                          <td className="px-6 py-4 text-center">
                             <div className="flex items-center justify-center">
                               <span
                                 className={`font-medium ${
@@ -1220,7 +1445,7 @@ export default function EnhancedMunicipalDashboard() {
                       ))}
                       {hospitals.length === 0 && !isLoadingData && (
                         <tr>
-                          <td colSpan={8} className="px-6 py-12 text-center">
+                          <td colSpan={9} className="px-6 py-12 text-center">
                             <div className="text-gray-400">
                               <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
                               <p className="text-lg font-medium">No hay hospitales registrados</p>

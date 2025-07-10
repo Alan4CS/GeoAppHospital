@@ -3,6 +3,7 @@ import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer';
 import { format, eachDayOfInterval, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import TimelineComponent from './TimelineComponent';
+import { calcularEstadisticasEmpleadoPorDias } from '../employeeStatsHelper';
 
 const styles = StyleSheet.create({
   page: {
@@ -277,11 +278,14 @@ const PeriodSummary = ({ resumen, totalDiasPeriodo }) => (
 
 // Componente mejorado para información del empleado
 const EmployeeInfo = ({ empleado, actividades }) => {
-  // Calcular tiempo total dentro y fuera de geocerca
+  // Calcular tiempo total dentro, fuera de geocerca y descanso
   let totalDentro = 0;
   let totalFuera = 0;
+  let totalDescanso = 0;
   let estadoGeocerca = null;
   let horaIntervalo = null;
+  let inicioDescanso = null;
+  
   const ordenadas = (actividades || []).slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
   for (let i = 0; i < ordenadas.length; i++) {
     const act = ordenadas[i];
@@ -291,6 +295,16 @@ const EmployeeInfo = ({ empleado, actividades }) => {
       continue;
     }
     if (typeof act.evento === 'number') {
+      // Manejo de descansos
+      if (act.evento === 2) {
+        // Inicio de descanso
+        inicioDescanso = act.fecha_hora;
+      } else if (act.evento === 3 && inicioDescanso) {
+        // Fin de descanso
+        totalDescanso += (new Date(act.fecha_hora) - new Date(inicioDescanso));
+        inicioDescanso = null;
+      }
+      
       if (act.evento === 0 && estadoGeocerca === true && horaIntervalo) {
         totalDentro += (new Date(act.fecha_hora) - new Date(horaIntervalo));
         estadoGeocerca = false;
@@ -341,10 +355,12 @@ const EmployeeInfo = ({ empleado, actividades }) => {
       <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
         <Text style={{ fontWeight: 'bold', color: '#198754', fontSize: 10, minWidth: 70 }}>Horas al día:</Text>
         <Text style={{ fontSize: 10, color: '#198754' }}>{getHorario(empleado)}</Text>
-        {/* Totales dentro/fuera */}
-        {(totalDentro > 0 || totalFuera > 0) && (
+        {/* Totales dentro/fuera/descanso */}
+        {(totalDentro > 0 || totalFuera > 0 || totalDescanso > 0) && (
           <Text style={{ fontSize: 10, color: '#198754', marginLeft: 18 }}>
-            <Text style={{ fontWeight: 'bold', color: '#198754' }}>Total dentro:</Text> {msToHM(totalDentro)}   <Text style={{ fontWeight: 'bold', color: '#dc3545', marginLeft: 8 }}>Fuera:</Text> {msToHM(totalFuera)}
+            <Text style={{ fontWeight: 'bold', color: '#198754' }}>Total dentro:</Text> {msToHM(totalDentro)}   
+            <Text style={{ fontWeight: 'bold', color: '#dc3545', marginLeft: 8 }}>Fuera:</Text> {msToHM(totalFuera)}   
+            <Text style={{ fontWeight: 'bold', color: '#f59e0b', marginLeft: 8 }}>Descanso:</Text> {msToHM(totalDescanso)}
           </Text>
         )}
       </View>
@@ -576,6 +592,8 @@ const ReportDocument = ({ empleado, startDate, endDate, eventsByDay }) => {
       <Page size="LETTER" style={styles.page}>
         <Header empleado={empleado} startDate={startDate} endDate={endDate} />
         <PeriodSummary resumen={resumen} totalDiasPeriodo={totalDiasPeriodo} />
+        {/* Nuevo componente para métricas de horas */}
+        <HoursMetrics eventsByDay={eventsByDay} />
         {dias.length === 0 ? (
           <Text style={styles.noData}>No hay actividades registradas en el rango seleccionado.</Text>
         ) : (

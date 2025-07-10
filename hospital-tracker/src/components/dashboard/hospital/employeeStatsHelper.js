@@ -5,23 +5,39 @@ function msToHours(ms) {
   return +(ms / 3600000).toFixed(2);
 }
 
-// Calcula las horas dentro, fuera, justificadas y total de salidas de un arreglo de registros
+// Calcula las horas dentro, fuera, descanso y total de salidas de un arreglo de registros
 export function calcularEstadisticasEmpleado(registros = []) {
   let totalDentro = 0;
   let totalFuera = 0;
-  let totalJustificadas = 0; // Puedes ajustar si tienes lógica para horas justificadas
+  let totalDescanso = 0;
   let totalSalidas = 0;
   let estadoGeocerca = null;
   let horaIntervalo = null;
+  let inicioDescanso = null;
+  
   const ordenadas = registros.slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
+  
   for (let i = 0; i < ordenadas.length; i++) {
     const act = ordenadas[i];
+    
     if (i === 0) {
       estadoGeocerca = act.dentro_geocerca;
       horaIntervalo = act.fecha_hora;
       continue;
     }
+    
     if (typeof act.evento === 'number') {
+      // Manejo de descansos
+      if (act.evento === 2) {
+        // Inicio de descanso
+        inicioDescanso = act.fecha_hora;
+      } else if (act.evento === 3 && inicioDescanso) {
+        // Fin de descanso
+        totalDescanso += (new Date(act.fecha_hora) - new Date(inicioDescanso));
+        inicioDescanso = null;
+      }
+      
+      // Manejo de geocerca
       if (act.evento === 0 && estadoGeocerca === true && horaIntervalo) {
         totalDentro += (new Date(act.fecha_hora) - new Date(horaIntervalo));
         estadoGeocerca = false;
@@ -33,6 +49,7 @@ export function calcularEstadisticasEmpleado(registros = []) {
         horaIntervalo = act.fecha_hora;
       }
     }
+    
     if (i === ordenadas.length - 1 && horaIntervalo && estadoGeocerca !== null) {
       if (estadoGeocerca) {
         totalDentro += (new Date(act.fecha_hora) - new Date(horaIntervalo));
@@ -41,10 +58,11 @@ export function calcularEstadisticasEmpleado(registros = []) {
       }
     }
   }
+  
   return {
     workedHours: msToHours(totalDentro),
     outsideHours: msToHours(totalFuera),
-    justifiedHours: msToHours(totalJustificadas), // Si tienes lógica para justificadas, cámbiala aquí
+    restHours: msToHours(totalDescanso),
     totalExits: totalSalidas,
   };
 }
@@ -58,15 +76,21 @@ export function calcularEstadisticasEmpleadoPorDias(registros = []) {
     if (!actividadesPorDia[fecha]) actividadesPorDia[fecha] = [];
     actividadesPorDia[fecha].push(registro);
   });
+  
   let totalTrabajadas = 0;
   let totalFuera = 0;
+  let totalDescanso = 0;
+  
   Object.values(actividadesPorDia).forEach(acts => {
     const stats = calcularEstadisticasEmpleado(acts);
     totalTrabajadas += stats.workedHours || 0;
     totalFuera += stats.outsideHours || 0;
+    totalDescanso += stats.restHours || 0;
   });
+  
   return {
     workedHours: totalTrabajadas,
     outsideHours: totalFuera,
+    restHours: totalDescanso,
   };
 }
