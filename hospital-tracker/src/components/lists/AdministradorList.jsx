@@ -207,7 +207,7 @@ const AdministradorList = ({
     setAdminEliminar(admin)
     setModalEliminarAbierto(true)
     setBotonEliminarHabilitado(false)
-    setTiempoRestante(0)
+    setTiempoRestante(5)
 
     const intervalo = setInterval(() => {
       setTiempoRestante((prevTiempo) => {
