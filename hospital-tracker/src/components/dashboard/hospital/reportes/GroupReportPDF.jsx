@@ -50,16 +50,16 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   section: {
-    marginBottom: 20,
+    marginBottom: 8,
     border: '1px solid #DEE2E6',
     borderRadius: 3,
     backgroundColor: '#f8f9fa',
-    padding: 10,
+    padding: 8,
   },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 6,
     color: '#2563eb',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     color: '#6c757d',
   },
   groupSection: {
-    marginBottom: 15,
+    marginBottom: 5,
     border: '1px solid #e0e0e0',
     borderRadius: 4,
     backgroundColor: '#fff',
@@ -148,25 +148,25 @@ const styles = StyleSheet.create({
   groupHeader: {
     backgroundColor: '#3b82f6',
     color: 'white',
-    padding: 8,
-    fontSize: 11,
+    padding: 4,
+    fontSize: 8.5,
     fontWeight: 'bold',
   },
   groupContent: {
-    padding: 10,
+    padding: 5,
   },
   employeeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    paddingHorizontal: 4,
     borderBottom: '1px solid #f0f0f0',
   },
   employeeStatus: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
   },
   activeStatus: {
     backgroundColor: '#10b981',
@@ -176,12 +176,12 @@ const styles = StyleSheet.create({
   },
   employeeName: {
     flex: 3,
-    fontSize: 9,
+    fontSize: 8,
     color: '#374151',
   },
   employeeStats: {
     flex: 2,
-    fontSize: 8,
+    fontSize: 7,
     color: '#6b7280',
     textAlign: 'right',
   },
@@ -327,8 +327,8 @@ const HoursMetricsCards = ({ cardData }) => (
 const ActivityLevelBreakdown = ({ cardData }) => (
   <View style={styles.section}>
     <Text style={styles.sectionTitle}>ANÁLISIS POR NIVEL DE ACTIVIDAD</Text>
-    <View style={{ marginBottom: 10 }}>
-      <Text style={[styles.text, { fontSize: 10, textAlign: 'justify' }]}>
+    <View style={{ marginBottom: 6 }}>
+      <Text style={[styles.text, { fontSize: 9, textAlign: 'justify' }]}>
         La siguiente tabla presenta la distribución de empleados activos según su nivel de participación 
         durante el período analizado, categorizando su asistencia en cuatro niveles principales.
       </Text>
@@ -377,8 +377,8 @@ const ActivityLevelBreakdown = ({ cardData }) => (
 const GroupDistributionTable = ({ groupDistributionData }) => (
   <View style={styles.section}>
     <Text style={styles.sectionTitle}>DISTRIBUCIÓN DE EMPLEADOS POR GRUPO DE TRABAJO</Text>
-    <View style={{ marginBottom: 10 }}>
-      <Text style={[styles.text, { fontSize: 10, textAlign: 'justify' }]}>
+    <View style={{ marginBottom: 6 }}>
+      <Text style={[styles.text, { fontSize: 9, textAlign: 'justify' }]}>
         La siguiente tabla muestra la distribución total de empleados registrados en cada grupo de trabajo, 
         incluyendo tanto empleados activos como inactivos durante el período analizado.
       </Text>
@@ -414,8 +414,8 @@ const GroupDistributionTable = ({ groupDistributionData }) => (
 const ActiveInactiveTable = ({ stackedGroupData }) => (
   <View style={styles.section}>
     <Text style={styles.sectionTitle}>ANÁLISIS COMPARATIVO: EMPLEADOS ACTIVOS VS INACTIVOS</Text>
-    <View style={{ marginBottom: 10 }}>
-      <Text style={[styles.text, { fontSize: 10, textAlign: 'justify' }]}>
+    <View style={{ marginBottom: 6 }}>
+      <Text style={[styles.text, { fontSize: 9, textAlign: 'justify' }]}>
         Este análisis compara la participación laboral por grupo, mostrando la efectividad de cada equipo 
         de trabajo en términos de empleados activos durante el período evaluado.
       </Text>
@@ -464,8 +464,8 @@ const ActiveInactiveTable = ({ stackedGroupData }) => (
 const GroupHoursTable = ({ groupHoursData }) => (
   <View style={styles.section}>
     <Text style={styles.sectionTitle}>ANÁLISIS DE TIEMPO EFECTIVO POR GRUPO</Text>
-    <View style={{ marginBottom: 10 }}>
-      <Text style={[styles.text, { fontSize: 10, textAlign: 'justify' }]}>
+    <View style={{ marginBottom: 6 }}>
+      <Text style={[styles.text, { fontSize: 9, textAlign: 'justify' }]}>
         La siguiente tabla presenta el tiempo efectivo de trabajo registrado por cada grupo, diferenciando 
         entre el tiempo trabajado dentro y fuera de las áreas georreferenciadas establecidas, así como el tiempo de descanso.
       </Text>
@@ -544,11 +544,11 @@ const EmployeeDetailsByGroup = ({ empleadosActivos, empleadosInactivos, groupDis
       <Text style={styles.sectionTitle}>
         {selectedGroup ? `DETALLE NOMINAL DEL GRUPO: ${selectedGroup.toUpperCase()}` : 'DETALLE NOMINAL DE EMPLEADOS POR GRUPO'}
       </Text>
-      <View style={{ marginBottom: 10 }}>
-        <Text style={[styles.text, { fontSize: 10, textAlign: 'justify' }]}>
+      <View style={{ marginBottom: 5 }}>
+        <Text style={[styles.text, { fontSize: 8, textAlign: 'justify' }]}>
           {selectedGroup 
-            ? `La siguiente sección presenta el listado completo de empleados del grupo "${selectedGroup}", diferenciando entre aquellos que registraron actividad durante el período y los que no.`
-            : 'La siguiente sección presenta el listado completo de empleados organizados por grupo de trabajo, diferenciando entre aquellos que registraron actividad durante el período y los que no.'
+            ? `Listado completo de empleados del grupo "${selectedGroup}", diferenciando entre aquellos que registraron actividad durante el período y los que no.`
+            : 'Listado completo de empleados organizados por grupo de trabajo, diferenciando entre aquellos que registraron actividad durante el período y los que no.'
           }
         </Text>
       </View>
@@ -568,8 +568,8 @@ const EmployeeDetailsByGroup = ({ empleadosActivos, empleadosInactivos, groupDis
             <View style={styles.groupContent}>
               {/* Empleados activos */}
               {grupo.activos.length > 0 && (
-                <View style={{ marginBottom: 8 }}>
-                  <Text style={[styles.employeeName, { fontWeight: 'bold', color: '#059669', marginBottom: 4, fontSize: 10 }]}>
+                <View style={{ marginBottom: 4 }}>
+                  <Text style={{ fontWeight: 'bold', color: '#059669', marginBottom: 3, fontSize: 8, paddingVertical: 2 }}>
                     EMPLEADOS ACTIVOS ({grupo.activos.length}):
                   </Text>
                   {grupo.activos.map((empleado) => (
@@ -586,8 +586,8 @@ const EmployeeDetailsByGroup = ({ empleadosActivos, empleadosInactivos, groupDis
               
               {/* Empleados inactivos */}
               {grupo.inactivos.length > 0 && (
-                <View>
-                  <Text style={[styles.employeeName, { fontWeight: 'bold', color: '#dc2626', marginBottom: 4, fontSize: 10 }]}>
+                <View style={{ marginTop: 2 }}>
+                  <Text style={{ fontWeight: 'bold', color: '#dc2626', marginBottom: 3, fontSize: 8, paddingVertical: 2 }}>
                     EMPLEADOS INACTIVOS ({grupo.inactivos.length}):
                   </Text>
                   {grupo.inactivos.map((empleado) => (

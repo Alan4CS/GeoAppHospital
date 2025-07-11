@@ -23,7 +23,6 @@ const GrupoForm = ({
     nombre: "",
     descripcion: "",
     hospital_id: "",
-    activo: true,
     estado: "",
     municipio: "",
     hospital: "",
@@ -167,7 +166,6 @@ const GrupoForm = ({
         ...prev,
         nombre: "",
         descripcion: "",
-        activo: true,
       }));
 
       if (onGuardar) {
@@ -300,25 +298,6 @@ const GrupoForm = ({
             {errors.descripcion && touched.descripcion && (
               <p className="mt-1 text-sm text-red-600">{errors.descripcion}</p>
             )}
-          </div>
-
-          {/* Estado activo */}
-          <div className="md:col-span-2">
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                name="activo"
-                checked={form.activo}
-                onChange={handleChange}
-                className="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
-              />
-              <label className="ml-2 text-sm font-medium text-gray-700">
-                Grupo activo
-              </label>
-            </div>
-            <p className="mt-1 text-xs text-gray-500">
-              Los grupos inactivos no aparecerán disponibles para asignación
-            </p>
           </div>
         </div>
 

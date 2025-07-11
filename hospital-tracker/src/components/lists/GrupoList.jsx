@@ -513,10 +513,6 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
                                               {grupo.nombre_grupo}
                                             </h3>
                                             <div className="flex items-center gap-2 mt-1">
-                                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700 border border-purple-200">
-                                                <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-                                                Activo
-                                              </span>
                                               <span className="text-xs text-gray-400 font-mono">#{grupo.id_group}</span>
                                             </div>
                                           </div>
