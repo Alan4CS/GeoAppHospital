@@ -35,6 +35,7 @@ import "react-calendar/dist/Calendar.css"
 import { generarReporteEmpleadoPDF } from "./reportes/EmployeeReportPDF"
 import GrupoDashboard from './GrupoDashboard'
 import EmpleadoDashboard from './EmpleadoDashboard'
+import { useAuth } from "../../../context/AuthContext"
 
 const customScrollbarStyles = `
   .custom-scrollbar::-webkit-scrollbar {
@@ -698,6 +699,18 @@ const EmployeeCalendarView = ({ employee, startDate, endDate, filters }) => {
 
 // Resto del componente HospitalDashboard permanece igual...
 const HospitalDashboard = () => {
+  // --- HOOKS DE AUTENTICACIÓN ---
+  const { userRole, userId } = useAuth()
+  
+  // --- ESTADOS PARA CONTROL DE SELECCIÓN AUTOMÁTICA ---
+  const [userStateCode, setUserStateCode] = useState("") // Estado del administrador
+  const [userMunicipalityCode, setUserMunicipalityCode] = useState("") // Municipio del administrador
+  const [userHospitalCode, setUserHospitalCode] = useState("") // Hospital del administrador
+  const [isStateDisabled, setIsStateDisabled] = useState(false) // Controla si el selector de estado está deshabilitado
+  const [isMunicipalityDisabled, setIsMunicipalityDisabled] = useState(false) // Controla si el selector de municipio está deshabilitado
+  const [isHospitalDisabled, setIsHospitalDisabled] = useState(false) // Controla si el selector de hospital está deshabilitado
+  const [isLoadingUserLocation, setIsLoadingUserLocation] = useState(false) // Indica si está cargando la ubicación del usuario
+
   // Estados para los filtros avanzados de fecha
   const [dateRange, setDateRange] = useState({
     startDate: format(subDays(new Date(), 30), "yyyy-MM-dd"),
@@ -831,6 +844,175 @@ const HospitalDashboard = () => {
     fetchEstados()
   }, [])
 
+  // --- FUNCIONES PARA OBTENER DATOS DEL USUARIO SEGÚN ROL ---
+  
+  // Función para obtener el hospital del administrador hospitalario
+  const fetchUserHospital = async () => {
+    console.log('[Debug] fetchUserHospital called - userRole:', userRole, 'userId:', userId);
+    
+    if (userRole !== "hospitaladmin" || !userId) {
+      console.log('[Debug] No es hospitaladmin o no hay userId, saltando...');
+      return;
+    }
+    
+    setIsLoadingUserLocation(true);
+    
+    try {
+      console.log('[Debug] Fetching hospital for hospitaladmin with userId:', userId);
+      const response = await fetch(`https://geoapphospital.onrender.com/api/hospitaladmin/hospital-by-user/${userId}`);
+      console.log('[Debug] Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Debug] Response error:', errorText);
+        throw new Error(`Error al obtener el hospital del usuario: ${response.status} ${errorText}`);
+      }
+      
+      const data = await response.json();
+      console.log('[Debug] Response data:', data);
+      
+      // Manejar tanto respuestas de array como objetos individuales
+      const hospitalData = Array.isArray(data) ? data[0] : data;
+      
+      if (hospitalData && hospitalData.nombre_hospital && hospitalData.nombre_municipio && hospitalData.nombre_estado) {
+        const hospitalFromAPI = hospitalData.nombre_hospital.toLowerCase().trim();
+        const municipioFromAPI = hospitalData.nombre_municipio.toLowerCase().trim();
+        const estadoFromAPI = hospitalData.nombre_estado.toLowerCase().trim();
+        console.log('[Debug] Hospital encontrado:', hospitalFromAPI, 'Municipio:', municipioFromAPI, 'Estado:', estadoFromAPI);
+        
+        // Buscar el estado correspondiente en la lista de estados
+        const estadoEncontrado = estados.find(estado => 
+          estado.nombre_estado.toLowerCase().trim() === estadoFromAPI
+        );
+        
+        if (estadoEncontrado) {
+          setUserStateCode(estadoEncontrado.id_estado);
+          setFilters(prev => ({
+            ...prev,
+            id_estado: estadoEncontrado.id_estado,
+            nombre_estado: estadoEncontrado.nombre_estado
+          }));
+          setIsStateDisabled(true);
+          
+          // Después de configurar el estado, cargar municipios y seleccionar el del usuario
+          setTimeout(async () => {
+            try {
+              const municipiosResponse = await fetch(`https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${estadoEncontrado.id_estado}`);
+              if (municipiosResponse.ok) {
+                const municipiosData = await municipiosResponse.json();
+                setMunicipios(municipiosData);
+                
+                // Buscar el municipio específico
+                const municipioEncontrado = municipiosData.find(municipio => 
+                  municipio.nombre_municipio.toLowerCase().trim() === municipioFromAPI
+                );
+                
+                if (municipioEncontrado) {
+                  setUserMunicipalityCode(municipioEncontrado.id_municipio);
+                  setFilters(prev => ({
+                    ...prev,
+                    id_municipio: municipioEncontrado.id_municipio,
+                    nombre_municipio: municipioEncontrado.nombre_municipio
+                  }));
+                  setIsMunicipalityDisabled(true);
+                  
+                  // Después de configurar el municipio, cargar hospitales y seleccionar el del usuario
+                  setTimeout(async () => {
+                    try {
+                      const hospitalesResponse = await fetch(`https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoEncontrado.id_estado}&id_municipio=${municipioEncontrado.id_municipio}`);
+                      if (hospitalesResponse.ok) {
+                        const hospitalesData = await hospitalesResponse.json();
+                        setHospitales(hospitalesData);
+                        
+                        // Buscar el hospital específico
+                        const hospitalEncontrado = hospitalesData.find(hospital => 
+                          hospital.nombre_hospital.toLowerCase().trim() === hospitalFromAPI
+                        );
+                        
+                        if (hospitalEncontrado) {
+                          setUserHospitalCode(hospitalEncontrado.id_hospital);
+                          setFilters(prev => ({
+                            ...prev,
+                            id_hospital: hospitalEncontrado.id_hospital,
+                            nombre_hospital: hospitalEncontrado.nombre_hospital
+                          }));
+                          setIsHospitalDisabled(true);
+                          console.log(`[HospitalDashboard] ✅ Hospital del administrador hospitalario configurado: ${hospitalEncontrado.nombre_hospital} (${hospitalEncontrado.id_hospital})`);
+                        } else {
+                          console.error('[Debug] ❌ No se encontró hospital en la lista:', hospitalFromAPI);
+                        }
+                      }
+                    } catch (error) {
+                      console.error('[Debug] ❌ Error al cargar hospitales para hospitaladmin:', error);
+                    }
+                  }, 500);
+                  
+                } else {
+                  console.error('[Debug] ❌ No se encontró municipio en la lista:', municipioFromAPI);
+                }
+              }
+            } catch (error) {
+              console.error('[Debug] ❌ Error al cargar municipios para hospitaladmin:', error);
+            }
+          }, 500);
+          
+        } else {
+          console.error('[Debug] ❌ No se encontró estado en la lista:', estadoFromAPI);
+        }
+      } else {
+        console.log('[Debug] ❌ No se encontraron datos válidos en la respuesta');
+      }
+    } catch (error) {
+      console.error('[Debug] ❌ Error al obtener el hospital del usuario:', error);
+    } finally {
+      setIsLoadingUserLocation(false);
+    }
+  };
+
+  // Efecto para cargar la ubicación del usuario al inicializar el componente
+  useEffect(() => {
+    console.log('[Debug] useEffect triggered - userRole:', userRole, 'userId:', userId, 'estados length:', estados.length);
+    
+    // Solo ejecutar si tenemos tanto userRole como userId y la lista de estados cargada
+    if (userRole && userId && estados.length > 0) {
+      console.log('[Debug] Calling fetch functions...');
+      
+      // Configurar automáticamente la ubicación según el rol
+      if (userRole === "hospitaladmin") {
+        fetchUserHospital();
+      }
+      // Aquí se pueden agregar otros casos para municipaladmin, estadoadmin, etc.
+    } else {
+      console.log('[Debug] Esperando userRole, userId y estados...');
+    }
+  }, [userRole, userId, estados]);
+
+  // Efecto para configurar los selectores según el rol del usuario
+  useEffect(() => {
+    console.log('[Debug] Role effect - userRole:', userRole);
+    
+    if (userRole === "municipaladmin") {
+      setIsStateDisabled(true);
+      setIsMunicipalityDisabled(true);
+      setIsHospitalDisabled(false); // Permitir seleccionar hospital en municipaladmin
+      console.log('[Debug] Estado y municipio deshabilitados para municipaladmin');
+    } else if (userRole === "hospitaladmin") {
+      // Para hospitaladmin, inicialmente permitir cambios hasta que se configure automáticamente
+      setIsStateDisabled(false);
+      setIsMunicipalityDisabled(false);
+      setIsHospitalDisabled(false);
+      console.log('[Debug] Selectores habilitados temporalmente para hospitaladmin');
+    } else {
+      setIsStateDisabled(false);
+      setIsMunicipalityDisabled(false);
+      setIsHospitalDisabled(false);
+      setUserStateCode("");
+      setUserMunicipalityCode("");
+      setUserHospitalCode("");
+      console.log('[Debug] Selectores habilitados para otros roles');
+    }
+  }, [userRole]);
+
   // Cargar municipios al seleccionar estado
   useEffect(() => {
     if (!filters.id_estado) {
@@ -919,6 +1101,12 @@ const HospitalDashboard = () => {
 
   // Manejadores de cambios para los filtros
   const handleEstadoChange = (e) => {
+    // No permitir cambios si está deshabilitado para municipaladmin o hospitaladmin
+    if (isStateDisabled && (userRole === "municipaladmin" || userRole === "hospitaladmin")) {
+      console.log('[Debug] Estado deshabilitado para', userRole, ', cambio ignorado');
+      return;
+    }
+    
     const estado = estados.find((estado) => estado.id_estado === Number(e.target.value))
     setFilters({
       ...filters,
@@ -932,6 +1120,12 @@ const HospitalDashboard = () => {
   }
 
   const handleMunicipioChange = (e) => {
+    // No permitir cambios si está deshabilitado para municipaladmin o hospitaladmin
+    if (isMunicipalityDisabled && (userRole === "municipaladmin" || userRole === "hospitaladmin")) {
+      console.log('[Debug] Municipio deshabilitado para', userRole, ', cambio ignorado');
+      return;
+    }
+    
     const municipio = municipios.find((mun) => mun.id_municipio === Number(e.target.value))
     setFilters({
       ...filters,
@@ -943,6 +1137,12 @@ const HospitalDashboard = () => {
   }
 
   const handleHospitalChange = (e) => {
+    // No permitir cambios si está deshabilitado para hospitaladmin
+    if (isHospitalDisabled && userRole === "hospitaladmin") {
+      console.log('[Debug] Hospital deshabilitado para hospitaladmin, cambio ignorado');
+      return;
+    }
+    
     const hospital = hospitales.find((hosp) => hosp.id_hospital === Number(e.target.value))
     setFilters({
       ...filters,
@@ -987,6 +1187,12 @@ const HospitalDashboard = () => {
   }
 
   const limpiarFiltros = () => {
+    // No permitir limpiar filtros si es hospitaladmin con selectores deshabilitados
+    if (userRole === "hospitaladmin" && (isStateDisabled || isMunicipalityDisabled || isHospitalDisabled)) {
+      console.log('[Debug] Limpiar filtros bloqueado para hospitaladmin con selectores deshabilitados');
+      return;
+    }
+    
     setSelectedGrupo("");
     setSelectedEmpleado("");
     setSelectedPreset(""); // Limpiar periodo rápido
@@ -1052,6 +1258,43 @@ const HospitalDashboard = () => {
       </style>
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-slate-100 to-blue-50">
         <div className="max-w-7xl mx-auto pt-10 px-6 pb-10">
+          {/* Header principal */}
+          <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/30 mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mr-4">
+                  <Building2 className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">
+                    {userRole === "hospitaladmin" ? "Panel de Administración Hospitalaria" : "Dashboard de Gestión Hospitalaria"}
+                  </h2>
+                  <p className="text-sm text-gray-600">
+                    {userRole === "municipaladmin" 
+                      ? `Dashboard específico para ${filters.nombre_municipio || 'su municipio asignado'}`
+                      : "Gestión de grupos y empleados hospitalarios"
+                    }
+                  </p>
+                  {/* Debug info - solo en desarrollo */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      Debug: Role={userRole}, UserId={userId}, StateDisabled={isStateDisabled ? 'Si' : 'No'}, MunicipalityDisabled={isMunicipalityDisabled ? 'Si' : 'No'}, HospitalDisabled={isHospitalDisabled ? 'Si' : 'No'}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {filters.nombre_municipio && userRole === "municipaladmin" && (
+                <div className="text-right">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800">
+                    <Building2 className="w-4 h-4 mr-1" />
+                    Municipio asignado
+                  </span>
+                  <p className="text-xs text-gray-500 mt-1">{filters.nombre_municipio}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* View Selector */}
           <div className="flex space-x-4 mb-6">
             <button
@@ -1090,6 +1333,13 @@ const HospitalDashboard = () => {
               cardData={cardData}
               groupDistributionData={groupDistributionData}
               hoursData={hoursData}
+              // Props de autenticación
+              userRole={userRole}
+              userId={userId}
+              isStateDisabled={isStateDisabled}
+              isMunicipalityDisabled={isMunicipalityDisabled}
+              isHospitalDisabled={isHospitalDisabled}
+              isLoadingUserLocation={isLoadingUserLocation}
             />
           ) : (
             <EmpleadoDashboard
@@ -1121,6 +1371,13 @@ const HospitalDashboard = () => {
               handleFechaInicioChange={handleFechaInicioChange}
               handleFechaFinChange={handleFechaFinChange}
               filtrarEmpleados={filtrarEmpleados}
+              // Props de autenticación
+              userRole={userRole}
+              userId={userId}
+              isStateDisabled={isStateDisabled}
+              isMunicipalityDisabled={isMunicipalityDisabled}
+              isHospitalDisabled={isHospitalDisabled}
+              isLoadingUserLocation={isLoadingUserLocation}
             />
           )}
         </div>

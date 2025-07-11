@@ -27,7 +27,8 @@ export default function EmpleadoDashboard({
   isValidRange,
   daysDifference,
   grupos,
-
+  empleados,
+  empleadosFiltrados,
   selectedGrupo,
   selectedEmpleado,
   fechaInicio,
@@ -37,11 +38,15 @@ export default function EmpleadoDashboard({
   handleFechaInicioChange,
   handleFechaFinChange,
   filtrarEmpleados,
+  // Props de autenticación
+  userRole,
+  userId,
+  isStateDisabled,
+  isMunicipalityDisabled,
+  isHospitalDisabled,
+  isLoadingUserLocation
 }) {
   // --- Fetch empleados y calcular estadísticas ---
-  const [empleadosFiltrados, setEmpleadosFiltrados] = useState([]);
-  const [empleados, setEmpleados] = useState([]);
-
   const selectedEmployeeData = selectedEmpleado ? empleados.find(emp => emp.id === Number(selectedEmpleado)) : null
 
   // --- Calendar and PDF state/logic ---
@@ -49,42 +54,6 @@ export default function EmpleadoDashboard({
   const [calendarData, setCalendarData] = useState([])
   const [selectedDay, setSelectedDay] = useState(null)
   const [hourlyData, setHourlyData] = useState([])
-
-  useEffect(() => {
-    async function fetchEmpleados() {
-      if (filters.id_hospital && tempDateRange.startDate && tempDateRange.endDate) {
-        const body = {
-          id_hospital: filters.id_hospital,
-          fechaInicio: `${tempDateRange.startDate} 00:00:00`,
-          fechaFin: `${tempDateRange.endDate} 23:59:59`,
-        };
-        const res = await fetch("https://geoapphospital.onrender.com/api/dashboards/grupo", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        const data = await res.json();
-        if (Array.isArray(data.empleados)) {
-          const empleadosConStats = data.empleados.map(({ empleado, registros }) => {
-            const stats = calcularEstadisticasEmpleado(registros);
-            return {
-              id: empleado.id_user,
-              name: `${empleado.nombre} ${empleado.ap_paterno} ${empleado.ap_materno}`.replace(/ +/g, ' ').trim(),
-              grupo: empleado.grupo,
-              registros: registros, // 👈 Guardar los registros completos para el calendario
-              ...stats,
-            };
-          });
-          setEmpleados(empleadosConStats);
-          setEmpleadosFiltrados(empleadosConStats);
-        }
-      } else {
-        setEmpleados([]);
-        setEmpleadosFiltrados([]);
-      }
-    }
-    fetchEmpleados();
-  }, [filters.id_hospital, tempDateRange.startDate, tempDateRange.endDate])
 
   // Solo llamar a limpiarFiltros del padre
   const handleLimpiarFiltros = () => {
@@ -528,18 +497,6 @@ export default function EmpleadoDashboard({
     }
   }, [selectedGrupo, empleados]);
 
-  // --- Actualiza empleadosFiltrados según grupo/empleado seleccionados ---
-  useEffect(() => {
-    let filtrados = empleados;
-    if (selectedGrupo) {
-      filtrados = filtrados.filter(emp => emp.grupo === selectedGrupo);
-    }
-    if (selectedEmpleado) {
-      filtrados = filtrados.filter(emp => emp.id === Number(selectedEmpleado));
-    }
-    setEmpleadosFiltrados(filtrados);
-  }, [empleados, selectedGrupo, selectedEmpleado]);
-
   const employeeHoursData = empleadosFiltrados.map(emp => {
     // Usar la nueva función para sumar correctamente por días
     const stats = calcularEstadisticasEmpleadoPorDias(emp.registros || []);
@@ -617,7 +574,10 @@ export default function EmpleadoDashboard({
               <select
                 value={filters.id_estado}
                 onChange={handleEstadoChange}
-                className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                disabled={isStateDisabled}
+                className={`w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                  isStateDisabled ? 'bg-gray-100 cursor-not-allowed text-gray-500' : ''
+                }`}
               >
                 <option value="">Seleccionar Estado</option>
                 {estados.map((e) => (
@@ -630,8 +590,10 @@ export default function EmpleadoDashboard({
               <select
                 value={filters.id_municipio}
                 onChange={handleMunicipioChange}
-                disabled={!filters.id_estado}
-                className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                disabled={!filters.id_estado || isMunicipalityDisabled}
+                className={`w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                  (!filters.id_estado || isMunicipalityDisabled) ? 'bg-gray-100 cursor-not-allowed text-gray-500' : ''
+                }`}
               >
                 <option value="">Seleccionar Municipio</option>
                 {municipios.map((m) => (
@@ -644,8 +606,10 @@ export default function EmpleadoDashboard({
               <select
                 value={filters.id_hospital}
                 onChange={handleHospitalChange}
-                disabled={!filters.id_municipio}
-                className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={!filters.id_municipio || isHospitalDisabled}
+                className={`w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  (!filters.id_municipio || isHospitalDisabled) ? 'bg-gray-100 cursor-not-allowed text-gray-500' : ''
+                }`}
               >
                 <option value="">Seleccionar Hospital</option>
                 {hospitales.map((h) => (

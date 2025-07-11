@@ -316,7 +316,14 @@ export default function GrupoDashboard({
   handleHospitalChange,
   limpiarFiltros,
   applyChanges,
-  isValidRange
+  isValidRange,
+  // Props de autenticación
+  userRole,
+  userId,
+  isStateDisabled,
+  isMunicipalityDisabled,
+  isHospitalDisabled,
+  isLoadingUserLocation
 }) {
   // Estado local para KPIs y gráficos
   const [cardData, setCardData] = useState({
@@ -962,7 +969,10 @@ export default function GrupoDashboard({
               <select
                 value={filters.id_estado}
                 onChange={handleEstadoChange}
-                className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                disabled={isStateDisabled}
+                className={`w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                  isStateDisabled ? 'bg-gray-100 cursor-not-allowed text-gray-500' : ''
+                }`}
               >
                 <option value="">Seleccionar Estado</option>
                 {estados.map((e) => (
@@ -978,8 +988,10 @@ export default function GrupoDashboard({
               <select
                 value={filters.id_municipio}
                 onChange={handleMunicipioChange}
-                className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                disabled={!filters.id_estado}
+                disabled={!filters.id_estado || isMunicipalityDisabled}
+                className={`w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                  (!filters.id_estado || isMunicipalityDisabled) ? 'bg-gray-100 cursor-not-allowed text-gray-500' : ''
+                }`}
               >
                 <option value="">Seleccionar Municipio</option>
                 {municipios.map((m) => (
@@ -994,8 +1006,10 @@ export default function GrupoDashboard({
               <select
                 value={filters.id_hospital}
                 onChange={handleHospitalChange}
-                className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                disabled={!filters.id_municipio}
+                disabled={!filters.id_municipio || isHospitalDisabled}
+                className={`w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                  (!filters.id_municipio || isHospitalDisabled) ? 'bg-gray-100 cursor-not-allowed text-gray-500' : ''
+                }`}
               >
                 <option value="">Seleccionar Hospital</option>
                 {hospitales.map((h) => (

@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useRef } from "react"
-import { createPortal } from "react-dom"
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps"
 import { scaleQuantile } from "d3-scale"
 import { format, subDays, subMonths, subYears, isAfter } from "date-fns"
@@ -8,6 +7,7 @@ import { AreaChart, Area, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, R
 import { feature } from "topojson-client"
 import { geoCentroid } from "d3-geo"
 import React from "react"
+import { useAuth } from "../../../context/AuthContext"
 
 // URL del mapa GeoJSON de México (estados)
 const MEXICO_GEOJSON = "/lib/mx.json"
@@ -84,37 +84,42 @@ const stateCodeMapping = {
   "32": "MXZAC", // Zacatecas
 }
 
-// Componente Tooltip mejorado con portal y ajuste automático
+// Componente Tooltip mejorado con posicionamiento relativo al contenedor
 const MapTooltip = ({ x, y, municipality, containerRef, loadingTooltip }) => {
-  const [pos, setPos] = useState({ left: x, top: y })
-  const tooltipRef = useRef(null)
-
-  useEffect(() => {
-    if (!tooltipRef.current || !containerRef?.current) return
-    const tooltipRect = tooltipRef.current.getBoundingClientRect()
-    const containerRect = containerRef.current.getBoundingClientRect()
-    // Posición absoluta respecto al viewport
-    let left = containerRect.left + x + 4
-    let top = containerRect.top + y - 4 - tooltipRect.height
-    // Ajuste horizontal para no salir de la pantalla
-    if (left + tooltipRect.width > window.innerWidth) {
-      left = window.innerWidth - tooltipRect.width - 4
-    }
-    if (left < 0) left = 4
-    // Ajuste vertical para no salir de la pantalla
-    if (top < 0) top = containerRect.top + y + 4
-    setPos({ left, top })
-  }, [x, y, municipality, containerRef])
-
   if (!municipality) return null
 
-  const tooltip = (
+  // Calcular posición relativa al contenedor del mapa
+  let adjustedX = x + 15 // offset para evitar que el cursor tape el tooltip
+  let adjustedY = y - 10
+
+  // Ajustar posición para evitar que se salga del contenedor
+  const tooltipWidth = 250
+  const tooltipHeight = 120
+  const containerWidth = containerRef?.current?.clientWidth || 800
+  const containerHeight = containerRef?.current?.clientHeight || 450
+
+  // Ajuste horizontal
+  if (adjustedX + tooltipWidth > containerWidth) {
+    adjustedX = x - tooltipWidth - 15
+  }
+  if (adjustedX < 0) {
+    adjustedX = 10
+  }
+
+  // Ajuste vertical
+  if (adjustedY + tooltipHeight > containerHeight) {
+    adjustedY = y - tooltipHeight - 15
+  }
+  if (adjustedY < 0) {
+    adjustedY = 10
+  }
+
+  return (
     <div
-      ref={tooltipRef}
       style={{
         position: "absolute",
-        left: pos.left,
-        top: pos.top,
+        left: `${adjustedX}px`,
+        top: `${adjustedY}px`,
         backgroundColor: "rgba(255, 255, 255, 0.95)",
         padding: "8px 12px",
         borderRadius: "6px",
@@ -125,10 +130,11 @@ const MapTooltip = ({ x, y, municipality, containerRef, loadingTooltip }) => {
         fontSize: "12px",
         pointerEvents: "none",
         maxWidth: "250px",
+        backdropFilter: "blur(4px)",
       }}
     >
       <h4 className="font-bold text-gray-800 mb-2 border-b pb-1 text-sm">
-        {municipality.municipio || municipality.municipality}
+        {municipality.municipio || municipality.municipality || 'Municipio'}
       </h4>
       <div className="space-y-1 text-xs">
         {loadingTooltip ? (
@@ -165,8 +171,6 @@ const MapTooltip = ({ x, y, municipality, containerRef, loadingTooltip }) => {
       </div>
     </div>
   )
-  // Usar portal para renderizar el tooltip fuera del flujo normal del DOM
-  return createPortal(tooltip, document.body)
 }
 
 // Añadir estos estilos globales al inicio del archivo, justo después de "use client"
@@ -189,7 +193,11 @@ const customScrollbarStyles = `
 
 export default function EstatalDashboard() {
   // --- HOOKS DE ESTADO Y EFECTOS ---
+  const { userRole, userId } = useAuth()
   const [selectedState, setSelectedState] = useState("")
+  const [userStateCode, setUserStateCode] = useState("") // Estado del administrador estatal
+  const [isStateDisabled, setIsStateDisabled] = useState(false) // Controla si el selector está deshabilitado
+  const [isLoadingUserState, setIsLoadingUserState] = useState(false) // Indica si está cargando el estado del usuario
   const [dateRange, setDateRange] = useState({
     startDate: format(new Date(new Date().setDate(new Date().getDate() - 30)), "yyyy-MM-dd"),
     endDate: format(new Date(), "yyyy-MM-dd"),
@@ -560,6 +568,114 @@ export default function EstatalDashboard() {
     MXTAM: '28', MXTLA: '29', MXVER: '30', MXYUC: '31', MXZAC: '32'
   };
 
+  // Función para obtener el estado del administrador estatal
+  const fetchUserState = async () => {
+    console.log('[Debug] fetchUserState called - userRole:', userRole, 'userId:', userId);
+    
+    if (userRole !== "estadoadmin" || !userId) {
+      console.log('[Debug] No es estadoadmin o no hay userId, saltando...');
+      return;
+    }
+    
+    setIsLoadingUserState(true);
+    
+    try {
+      console.log('[Debug] Fetching state for estadoadmin with userId:', userId);
+      const response = await fetch(`https://geoapphospital.onrender.com/api/estadoadmin/hospitals-by-user/${userId}`);
+      console.log('[Debug] Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Debug] Response error:', errorText);
+        throw new Error(`Error al obtener el estado del usuario: ${response.status} ${errorText}`);
+      }
+      
+      const data = await response.json();
+      console.log('[Debug] Response data:', data);
+      
+      if (data && data.length > 0 && data[0].nombre_estado) {
+        console.log('[Debug] Estado encontrado:', data[0].nombre_estado);
+        
+        // Buscar el código del estado correspondiente (búsqueda flexible)
+        const estadoFromAPI = data[0].nombre_estado.toLowerCase().trim();
+        console.log('[Debug] Estado normalizado del API:', estadoFromAPI);
+        
+        let stateCode = Object.keys(stateCodeToName).find(code => {
+          const estadoEnMapeo = stateCodeToName[code].toLowerCase().trim();
+          console.log('[Debug] Comparando:', estadoFromAPI, 'con', estadoEnMapeo);
+          return estadoEnMapeo === estadoFromAPI;
+        });
+        
+        // Si no encontramos coincidencia exacta, intentar búsqueda por palabras clave
+        if (!stateCode) {
+          console.log('[Debug] No se encontró coincidencia exacta, intentando búsqueda por palabras clave...');
+          
+          // Mapeo de variaciones comunes
+          const variaciones = {
+            'quintana roo': 'MXROO',
+            'ciudad de mexico': 'MXCMX',
+            'estado de mexico': 'MXMEX',
+            'nuevo leon': 'MXNLE',
+            'san luis potosi': 'MXSLP',
+            'baja california': 'MXBCN',
+            'baja california sur': 'MXBCS'
+          };
+          
+          stateCode = variaciones[estadoFromAPI];
+          
+          if (stateCode) {
+            console.log('[Debug] Encontrado por variación:', stateCode);
+          }
+        }
+        
+        console.log('[Debug] Código de estado final:', stateCode);
+        
+        if (stateCode) {
+          setUserStateCode(stateCode);
+          setSelectedState(stateCode);
+          setIsStateDisabled(true); // Deshabilitar el selector para estadoadmin
+          console.log(`[EstatalDashboard] ✅ Estado del administrador estatal configurado: ${data[0].nombre_estado} (${stateCode})`);
+        } else {
+          console.error('[Debug] ❌ No se encontró código para el estado:', data[0].nombre_estado);
+          console.log('[Debug] Estados disponibles en mapeo:', Object.values(stateCodeToName));
+        }
+      } else {
+        console.log('[Debug] ❌ No se encontraron datos válidos o estado en la respuesta');
+      }
+    } catch (error) {
+      console.error('[Debug] ❌ Error al obtener el estado del usuario:', error);
+    } finally {
+      setIsLoadingUserState(false);
+    }
+  };
+
+  // Efecto para cargar el estado del usuario al inicializar el componente
+  useEffect(() => {
+    console.log('[Debug] useEffect triggered - userRole:', userRole, 'userId:', userId);
+    
+    // Solo ejecutar si tenemos tanto userRole como userId
+    if (userRole && userId) {
+      console.log('[Debug] Calling fetchUserState...');
+      fetchUserState();
+    } else {
+      console.log('[Debug] Esperando userRole y userId...');
+    }
+  }, [userRole, userId]);
+
+  // Efecto para configurar el estado según el rol del usuario
+  useEffect(() => {
+    console.log('[Debug] Role effect - userRole:', userRole);
+    
+    if (userRole === "estadoadmin") {
+      setIsStateDisabled(true);
+      console.log('[Debug] Estado deshabilitado para estadoadmin');
+    } else {
+      setIsStateDisabled(false);
+      setUserStateCode("");
+      console.log('[Debug] Estado habilitado para otros roles');
+    }
+  }, [userRole]);
+
   // Efecto para cargar las gráficas y métricas
   useEffect(() => {
     async function fetchGraficas() {
@@ -680,8 +796,21 @@ export default function EstatalDashboard() {
                   <MapPin className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-800">Filtros de Análisis</h2>
-                  <p className="text-sm text-gray-600">Configura los parámetros de visualización</p>
+                  <h2 className="text-2xl font-bold text-gray-800">
+                    {userRole === "estadoadmin" ? "Panel de Análisis Estatal" : "Filtros de Análisis"}
+                  </h2>
+                  <p className="text-sm text-gray-600">
+                    {userRole === "estadoadmin" 
+                      ? `Dashboard específico para ${selectedState ? stateCodeToName[selectedState] : 'su estado asignado'}`
+                      : "Configura los parámetros de visualización"
+                    }
+                  </p>
+                  {/* Debug info - solo en desarrollo */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      Debug: Role={userRole}, UserId={userId}, StateCode={userStateCode}, Loading={isLoadingUserState ? 'Si' : 'No'}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -716,7 +845,10 @@ export default function EstatalDashboard() {
                   <select
                     value={selectedState}
                     onChange={(e) => setSelectedState(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white shadow-sm text-base"
+                    disabled={isStateDisabled}
+                    className={`w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white shadow-sm text-base ${
+                      isStateDisabled ? 'bg-gray-100 cursor-not-allowed text-gray-500' : ''
+                    }`}
                   >
                     <option value="">Seleccionar Estado</option>
                     {Object.entries(stateCodeToName).map(([code, name]) => (
@@ -729,6 +861,35 @@ export default function EstatalDashboard() {
                     <div className="mt-4 p-3 bg-emerald-50 rounded-lg border border-emerald-100">
                       <p className="text-sm text-emerald-700">
                         Estado actual: <span className="font-semibold">{stateCodeToName[selectedState]}</span>
+                      </p>
+                      {isStateDisabled && userRole === "estadoadmin" && (
+                        <p className="text-xs text-emerald-600 mt-1">
+                          ⚡ Asignado automáticamente por su rol de Administrador Estatal
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {isStateDisabled && !selectedState && userRole === "estadoadmin" && (
+                    <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-100">
+                      <div className="flex items-center space-x-2">
+                        {isLoadingUserState && (
+                          <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                        )}
+                        <p className="text-sm text-amber-700">
+                          {isLoadingUserState ? "🔄 Obteniendo estado asignado..." : "⚠️ No se pudo cargar el estado asignado"}
+                        </p>
+                      </div>
+                      {!isLoadingUserState && (
+                        <p className="text-xs text-amber-600 mt-1">
+                          Verifique la consola del navegador para más detalles del error
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {userRole === "estadoadmin" && !isStateDisabled && (
+                    <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                      <p className="text-sm text-blue-700">
+                        ℹ️ Esperando autenticación del administrador estatal...
                       </p>
                     </div>
                   )}
@@ -863,7 +1024,14 @@ export default function EstatalDashboard() {
             <div className="bg-white rounded-xl shadow-md p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
-                  <h3 className="text-xl font-bold text-gray-800">Mapa de {stateCodeToName[selectedState]}</h3>
+                  <h3 className="text-xl font-bold text-gray-800">
+                    {selectedState ? `Mapa de ${stateCodeToName[selectedState]}` : "Seleccionar un estado"}
+                    {userRole === "estadoadmin" && selectedState && (
+                      <span className="ml-2 px-2 py-1 text-xs bg-emerald-100 text-emerald-700 rounded-full">
+                        Estado asignado
+                      </span>
+                    )}
+                  </h3>
                 </div>
                 <div className="flex items-center space-x-3">
                   <button

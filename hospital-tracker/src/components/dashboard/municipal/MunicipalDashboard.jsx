@@ -23,6 +23,7 @@ import { MapContainer, TileLayer, CircleMarker, Popup, GeoJSON, useMap } from "r
 import "leaflet/dist/leaflet.css"
 import { feature } from "topojson-client"
 import { calcularEstadisticasEmpleado, calcularEstadisticasEmpleadoPorDias } from "../hospital/employeeStatsHelper"
+import { useAuth } from "../../../context/AuthContext"
 
 // URLs de los archivos GeoJSON
 const MUNICIPIOS_TOPOJSON = "/lib/mx_tj.json"
@@ -205,6 +206,17 @@ const MapTooltip = ({ x, y, hospital }) => {
 }
 
 export default function EnhancedMunicipalDashboard() {
+  // --- HOOKS DE AUTENTICACIÓN ---
+  const { userRole, userId } = useAuth()
+  
+  // --- ESTADOS PARA CONTROL DE SELECCIÓN AUTOMÁTICA ---
+  const [userStateCode, setUserStateCode] = useState("") // Estado del administrador
+  const [userMunicipalityCode, setUserMunicipalityCode] = useState("") // Municipio del administrador
+  const [isStateDisabled, setIsStateDisabled] = useState(false) // Controla si el selector de estado está deshabilitado
+  const [isMunicipalityDisabled, setIsMunicipalityDisabled] = useState(false) // Controla si el selector de municipio está deshabilitado
+  const [isLoadingUserLocation, setIsLoadingUserLocation] = useState(false) // Indica si está cargando la ubicación del usuario
+  
+  // --- ESTADOS ORIGINALES ---
   const [estadosGeo, setEstadosGeo] = useState(null)
   const [municipiosTopo, setMunicipiosTopo] = useState(null)
   const [municipiosGeo, setMunicipiosGeo] = useState(null)
@@ -257,6 +269,190 @@ export default function EnhancedMunicipalDashboard() {
     }
     fetchEstados()
   }, [])
+
+  // --- FUNCIONES PARA OBTENER DATOS DEL USUARIO SEGÚN ROL ---
+  
+  // Función para obtener el estado del administrador estatal
+  const fetchUserState = async () => {
+    console.log('[Debug] fetchUserState called - userRole:', userRole, 'userId:', userId);
+    
+    if (userRole !== "estadoadmin" || !userId) {
+      console.log('[Debug] No es estadoadmin o no hay userId, saltando...');
+      return;
+    }
+    
+    setIsLoadingUserLocation(true);
+    
+    try {
+      console.log('[Debug] Fetching state for estadoadmin with userId:', userId);
+      const response = await fetch(`https://geoapphospital.onrender.com/api/estadoadmin/hospitals-by-user/${userId}`);
+      console.log('[Debug] Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Debug] Response error:', errorText);
+        throw new Error(`Error al obtener el estado del usuario: ${response.status} ${errorText}`);
+      }
+      
+      const data = await response.json();
+      console.log('[Debug] Response data:', data);
+      
+      if (data && data.length > 0 && data[0].nombre_estado) {
+        const estadoFromAPI = data[0].nombre_estado.toLowerCase().trim();
+        console.log('[Debug] Estado encontrado:', estadoFromAPI);
+        
+        // Buscar el estado correspondiente en la lista de estados
+        const estadoEncontrado = estados.find(estado => 
+          estado.nombre_estado.toLowerCase().trim() === estadoFromAPI
+        );
+        
+        if (estadoEncontrado) {
+          setUserStateCode(estadoEncontrado.id_estado);
+          setFilters(prev => ({
+            ...prev,
+            id_estado: estadoEncontrado.id_estado,
+            nombre_estado: estadoEncontrado.nombre_estado
+          }));
+          setIsStateDisabled(true);
+          console.log(`[MunicipalDashboard] ✅ Estado del administrador estatal configurado: ${estadoEncontrado.nombre_estado} (${estadoEncontrado.id_estado})`);
+        } else {
+          console.error('[Debug] ❌ No se encontró estado en la lista:', estadoFromAPI);
+        }
+      } else {
+        console.log('[Debug] ❌ No se encontraron datos válidos o estado en la respuesta');
+      }
+    } catch (error) {
+      console.error('[Debug] ❌ Error al obtener el estado del usuario:', error);
+    } finally {
+      setIsLoadingUserLocation(false);
+    }
+  };
+
+  // Función para obtener el municipio del administrador municipal
+  const fetchUserMunicipality = async () => {
+    console.log('[Debug] fetchUserMunicipality called - userRole:', userRole, 'userId:', userId);
+    
+    if (userRole !== "municipioadmin" || !userId) {
+      console.log('[Debug] No es municipioadmin o no hay userId, saltando...');
+      return;
+    }
+    
+    setIsLoadingUserLocation(true);
+    
+    try {
+      console.log('[Debug] Fetching municipality for municipioadmin with userId:', userId);
+      const response = await fetch(`https://geoapphospital.onrender.com/api/municipioadmin/hospitals-by-user/${userId}`);
+      console.log('[Debug] Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Debug] Response error:', errorText);
+        throw new Error(`Error al obtener el municipio del usuario: ${response.status} ${errorText}`);
+      }
+      
+      const data = await response.json();
+      console.log('[Debug] Response data:', data);
+      
+      if (data && data.length > 0 && data[0].nombre_municipio && data[0].nombre_estado) {
+        const municipioFromAPI = data[0].nombre_municipio.toLowerCase().trim();
+        const estadoFromAPI = data[0].nombre_estado.toLowerCase().trim();
+        console.log('[Debug] Municipio encontrado:', municipioFromAPI, 'Estado:', estadoFromAPI);
+        
+        // Buscar el estado correspondiente en la lista de estados
+        const estadoEncontrado = estados.find(estado => 
+          estado.nombre_estado.toLowerCase().trim() === estadoFromAPI
+        );
+        
+        if (estadoEncontrado) {
+          setUserStateCode(estadoEncontrado.id_estado);
+          setFilters(prev => ({
+            ...prev,
+            id_estado: estadoEncontrado.id_estado,
+            nombre_estado: estadoEncontrado.nombre_estado
+          }));
+          setIsStateDisabled(true);
+          
+          // Después de configurar el estado, cargar municipios y seleccionar el del usuario
+          setTimeout(async () => {
+            try {
+              const municipiosResponse = await fetch(`https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${estadoEncontrado.id_estado}`);
+              if (municipiosResponse.ok) {
+                const municipiosData = await municipiosResponse.json();
+                setMunicipios(municipiosData);
+                
+                // Buscar el municipio específico
+                const municipioEncontrado = municipiosData.find(municipio => 
+                  municipio.nombre_municipio.toLowerCase().trim() === municipioFromAPI
+                );
+                
+                if (municipioEncontrado) {
+                  setUserMunicipalityCode(municipioEncontrado.id_municipio);
+                  setFilters(prev => ({
+                    ...prev,
+                    id_municipio: municipioEncontrado.id_municipio,
+                    nombre_municipio: municipioEncontrado.nombre_municipio
+                  }));
+                  setIsMunicipalityDisabled(true);
+                  console.log(`[MunicipalDashboard] ✅ Municipio del administrador municipal configurado: ${municipioEncontrado.nombre_municipio} (${municipioEncontrado.id_municipio})`);
+                } else {
+                  console.error('[Debug] ❌ No se encontró municipio en la lista:', municipioFromAPI);
+                }
+              }
+            } catch (error) {
+              console.error('[Debug] ❌ Error al cargar municipios para municipioadmin:', error);
+            }
+          }, 500);
+          
+        } else {
+          console.error('[Debug] ❌ No se encontró estado en la lista:', estadoFromAPI);
+        }
+      } else {
+        console.log('[Debug] ❌ No se encontraron datos válidos en la respuesta');
+      }
+    } catch (error) {
+      console.error('[Debug] ❌ Error al obtener el municipio del usuario:', error);
+    } finally {
+      setIsLoadingUserLocation(false);
+    }
+  };
+
+  // Efecto para cargar la ubicación del usuario al inicializar el componente
+  useEffect(() => {
+    console.log('[Debug] useEffect triggered - userRole:', userRole, 'userId:', userId, 'estados length:', estados.length);
+    
+    // Solo ejecutar si tenemos tanto userRole como userId y la lista de estados cargada
+    if (userRole && userId && estados.length > 0) {
+      console.log('[Debug] Calling fetch functions...');
+      if (userRole === "estadoadmin") {
+        fetchUserState();
+      } else if (userRole === "municipioadmin") {
+        fetchUserMunicipality();
+      }
+    } else {
+      console.log('[Debug] Esperando userRole, userId y estados...');
+    }
+  }, [userRole, userId, estados]);
+
+  // Efecto para configurar los selectores según el rol del usuario
+  useEffect(() => {
+    console.log('[Debug] Role effect - userRole:', userRole);
+    
+    if (userRole === "estadoadmin") {
+      setIsStateDisabled(true);
+      setIsMunicipalityDisabled(false); // Pueden seleccionar municipio
+      console.log('[Debug] Estado deshabilitado para estadoadmin');
+    } else if (userRole === "municipioadmin") {
+      setIsStateDisabled(true);
+      setIsMunicipalityDisabled(true);
+      console.log('[Debug] Estado y municipio deshabilitados para municipioadmin');
+    } else {
+      setIsStateDisabled(false);
+      setIsMunicipalityDisabled(false);
+      setUserStateCode("");
+      setUserMunicipalityCode("");
+      console.log('[Debug] Selectores habilitados para otros roles');
+    }
+  }, [userRole]);
 
   // Cargar municipios cuando cambia el estado seleccionado
   useEffect(() => {
@@ -732,7 +928,40 @@ export default function EnhancedMunicipalDashboard() {
       </style>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         {/* Header con Filtros */}
-        <div className="max-w-7xl mx-auto pt-8 px-6">        {/* Filtros de Análisis */}
+        <div className="max-w-7xl mx-auto pt-8 px-6">
+          {/* Panel principal de título */}
+          <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/30 mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center mr-4">
+                  <MapPin className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">
+                    {userRole === "estadoadmin" ? "Panel de Análisis Municipal" : 
+                     userRole === "municipioadmin" ? "Panel de Análisis Municipal" : 
+                     "Dashboard de Análisis Municipal"}
+                  </h2>
+                  <p className="text-sm text-gray-600">
+                    {userRole === "estadoadmin" 
+                      ? `Dashboard municipal para ${filters.nombre_estado || 'su estado asignado'}`
+                      : userRole === "municipioadmin" 
+                      ? `Dashboard específico para ${filters.nombre_municipio || 'su municipio asignado'}`
+                      : "Configura los parámetros de visualización municipal"
+                    }
+                  </p>
+                  {/* Debug info - solo en desarrollo */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      Debug: Role={userRole}, UserId={userId}, StateDisabled={isStateDisabled ? 'Si' : 'No'}, MunicipalityDisabled={isMunicipalityDisabled ? 'Si' : 'No'}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Filtros de Análisis */}
         <div className="bg-white rounded-2xl shadow-md p-8 border border-gray-200 mb-8">
           <div className="flex flex-col gap-6">
             {/* Período y fechas */}
@@ -783,10 +1012,17 @@ export default function EnhancedMunicipalDashboard() {
             {/* Estado-Municipio-Aplicar cambios */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-end mt-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
-                  <MapPin className="w-4 h-4 text-indigo-500" /> 
-                  Estado
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
+                    <MapPin className="w-4 h-4 text-indigo-500" /> 
+                    Estado
+                  </label>
+                  {isStateDisabled && (userRole === "estadoadmin" || userRole === "municipioadmin") && (
+                    <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">
+                      Asignado automáticamente
+                    </span>
+                  )}
+                </div>
                 <select
                   value={filters.id_estado}
                   onChange={(e) => {
@@ -799,7 +1035,10 @@ export default function EnhancedMunicipalDashboard() {
                       nombre_municipio: "",
                     })
                   }}
-                  className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  disabled={isStateDisabled}
+                  className={`w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                    isStateDisabled ? 'bg-gray-100 cursor-not-allowed text-gray-500' : ''
+                  }`}
                 >
                   <option value="">Seleccionar Estado</option>
                   {estados.map((estado) => (
@@ -808,12 +1047,48 @@ export default function EnhancedMunicipalDashboard() {
                     </option>
                   ))}
                 </select>
+                {filters.id_estado && filters.nombre_estado && (
+                  <div className="mt-2 p-2 bg-indigo-50 rounded-lg border border-indigo-100">
+                    <p className="text-sm text-indigo-700">
+                      Estado actual: <span className="font-semibold">{filters.nombre_estado}</span>
+                    </p>
+                    {isStateDisabled && (userRole === "estadoadmin" || userRole === "municipioadmin") && (
+                      <p className="text-xs text-indigo-600 mt-1">
+                        ⚡ Asignado por su rol de {userRole === "estadoadmin" ? "Administrador Estatal" : "Administrador Municipal"}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {isStateDisabled && !filters.id_estado && (userRole === "estadoadmin" || userRole === "municipioadmin") && (
+                  <div className="mt-2 p-2 bg-amber-50 rounded-lg border border-amber-100">
+                    <div className="flex items-center space-x-2">
+                      {isLoadingUserLocation && (
+                        <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                      )}
+                      <p className="text-sm text-amber-700">
+                        {isLoadingUserLocation ? "🔄 Obteniendo ubicación asignada..." : "⚠️ No se pudo cargar la ubicación asignada"}
+                      </p>
+                    </div>
+                    {!isLoadingUserLocation && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        Verifique la consola del navegador para más detalles del error
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
-                  <MapPin className="w-4 h-4 text-purple-500" /> 
-                  Municipio
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
+                    <MapPin className="w-4 h-4 text-purple-500" /> 
+                    Municipio
+                  </label>
+                  {isMunicipalityDisabled && userRole === "municipioadmin" && (
+                    <span className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded-full">
+                      Asignado automáticamente
+                    </span>
+                  )}
+                </div>
                 <select
                   value={filters.id_municipio}
                   onChange={(e) => {
@@ -824,8 +1099,10 @@ export default function EnhancedMunicipalDashboard() {
                       nombre_municipio: selectedMunicipio ? selectedMunicipio.nombre_municipio : "",
                     })
                   }}
-                  disabled={!filters.id_estado}
-                  className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  disabled={!filters.id_estado || isMunicipalityDisabled}
+                  className={`w-full h-10 px-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                    (!filters.id_estado || isMunicipalityDisabled) ? 'bg-gray-100 cursor-not-allowed text-gray-500' : ''
+                  }`}
                 >
                   <option value="">Seleccionar Municipio</option>
                   {municipios.map((municipio) => (
@@ -834,6 +1111,35 @@ export default function EnhancedMunicipalDashboard() {
                     </option>
                   ))}
                 </select>
+                {filters.id_municipio && filters.nombre_municipio && (
+                  <div className="mt-2 p-2 bg-purple-50 rounded-lg border border-purple-100">
+                    <p className="text-sm text-purple-700">
+                      Municipio actual: <span className="font-semibold">{filters.nombre_municipio}</span>
+                    </p>
+                    {isMunicipalityDisabled && userRole === "municipioadmin" && (
+                      <p className="text-xs text-purple-600 mt-1">
+                        ⚡ Asignado por su rol de Administrador Municipal
+                      </p>
+                    )}
+                  </div>
+                )}
+                {isMunicipalityDisabled && !filters.id_municipio && userRole === "municipioadmin" && (
+                  <div className="mt-2 p-2 bg-amber-50 rounded-lg border border-amber-100">
+                    <div className="flex items-center space-x-2">
+                      {isLoadingUserLocation && (
+                        <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                      )}
+                      <p className="text-sm text-amber-700">
+                        {isLoadingUserLocation ? "🔄 Obteniendo municipio asignado..." : "⚠️ No se pudo cargar el municipio asignado"}
+                      </p>
+                    </div>
+                    {!isLoadingUserLocation && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        Verifique la consola del navegador para más detalles del error
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 {hasChanges && (
@@ -969,7 +1275,14 @@ export default function EnhancedMunicipalDashboard() {
             <div className="bg-white rounded-xl shadow-md p-6">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-xl font-bold text-gray-800">Mapa de {filters.nombre_municipio || "Municipio"}</h3>
+                  <h3 className="text-xl font-bold text-gray-800">
+                    Mapa de {filters.nombre_municipio || "Municipio"}
+                    {((userRole === "estadoadmin" && isStateDisabled) || (userRole === "municipioadmin" && isMunicipalityDisabled)) && filters.nombre_municipio && (
+                      <span className="ml-2 px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-full">
+                        {userRole === "municipioadmin" ? "Municipio asignado" : "Estado asignado"}
+                      </span>
+                    )}
+                  </h3>
                   <p className="text-sm text-gray-500 mt-1">Ubicación de hospitales y distribución geográfica</p>
                 </div>
                 <div className="text-sm text-gray-600">{hospitals.length} hospitales registrados</div>
