@@ -609,120 +609,6 @@ const EmployeeDetailsByGroup = ({ empleadosActivos, empleadosInactivos, groupDis
   );
 };
 
-const Conclusions = ({ cardData, empleadosActivos, empleadosInactivos, stackedGroupData, groupHoursData, selectedGroup = null }) => {
-  const totalEmpleados = cardData.totalEmployees || 0;
-  const tasaActividad = totalEmpleados > 0 ? ((empleadosActivos.length / totalEmpleados) * 100).toFixed(1) : 0;
-  
-  // Si es un reporte específico de grupo, no usar datos de comparación
-  if (selectedGroup) {
-    return (
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>CONCLUSIONES Y RECOMENDACIONES</Text>
-        
-        <View style={{ marginBottom: 12 }}>
-          <Text style={[styles.text, { fontSize: 11, fontWeight: 'bold', marginBottom: 6 }]}>
-            Principales hallazgos del grupo "{selectedGroup}":
-          </Text>
-          <Text style={[styles.text, { fontSize: 10, lineHeight: 1.4, textAlign: 'justify', marginBottom: 4 }]}>
-            • La tasa de actividad del grupo es del {tasaActividad}%, lo que indica 
-            {parseFloat(tasaActividad) >= 70 ? ' un nivel satisfactorio' : parseFloat(tasaActividad) >= 50 ? ' un nivel moderado' : ' oportunidades de mejora'} 
-            en la participación laboral del equipo.
-          </Text>
-          <Text style={[styles.text, { fontSize: 10, lineHeight: 1.4, textAlign: 'justify', marginBottom: 4 }]}>
-            • El grupo cuenta con {empleadosActivos.length} empleados activos de un total de {totalEmpleados} empleados registrados.
-          </Text>
-          <Text style={[styles.text, { fontSize: 10, lineHeight: 1.4, textAlign: 'justify', marginBottom: 4 }]}>
-            • El promedio de días trabajados por empleado activo es de {cardData.averageWorkingDays || 0} días 
-            durante el período analizado de {cardData.totalWorkingDays || 0} días.
-          </Text>
-          <Text style={[styles.text, { fontSize: 10, lineHeight: 1.4, textAlign: 'justify', marginBottom: 4 }]}>
-            • Se registraron {formatHorasMinutos(cardData.totalDentro || 0)} de trabajo efectivo en zona georreferenciada 
-            y {formatHorasMinutos(cardData.totalFuera || 0)} fuera de la misma.
-          </Text>
-        </View>
-
-        <View style={{ marginBottom: 12 }}>
-          <Text style={[styles.text, { fontSize: 11, fontWeight: 'bold', marginBottom: 6 }]}>
-            Recomendaciones específicas:
-          </Text>
-          <Text style={[styles.text, { fontSize: 10, lineHeight: 1.4, textAlign: 'justify', marginBottom: 4 }]}>
-            • Mantener un seguimiento continuo de la actividad del grupo para preservar los niveles de participación.
-          </Text>
-          <Text style={[styles.text, { fontSize: 10, lineHeight: 1.4, textAlign: 'justify', marginBottom: 4 }]}>
-            • Implementar estrategias de motivación específicas para los empleados con menor nivel de actividad.
-          </Text>
-          <Text style={[styles.text, { fontSize: 10, lineHeight: 1.4, textAlign: 'justify', marginBottom: 4 }]}>
-            • Establecer metas específicas de productividad y tiempo efectivo para el grupo.
-          </Text>
-          <Text style={[styles.text, { fontSize: 10, lineHeight: 1.4, textAlign: 'justify', marginBottom: 4 }]}>
-            • Realizar evaluaciones periódicas para identificar oportunidades de mejora en el desempeño grupal.
-          </Text>
-        </View>
-
-        <View style={{ borderTop: '1px solid #dee2e6', paddingTop: 8, marginTop: 8 }}>
-          <Text style={[styles.text, { fontSize: 9, textAlign: 'center', color: '#6c757d', fontStyle: 'italic' }]}>
-            Este reporte fue generado automáticamente por el Sistema de Gestión Hospitalaria.
-            Para consultas o aclaraciones, contacte al área de Recursos Humanos.
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
-  // Código original para reportes generales
-  const grupoMasActivo = stackedGroupData.reduce((prev, current) => 
-    (current.Activos > prev.Activos) ? current : prev, stackedGroupData[0] || {});
-  const grupoMasHoras = groupHoursData.reduce((prev, current) => 
-    ((current.horas + current.horasFuera + (current.horasDescanso || 0)) > (prev.horas + prev.horasFuera + (prev.horasDescanso || 0))) ? current : prev, groupHoursData[0] || {});
-  
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>CONCLUSIONES Y RECOMENDACIONES</Text>
-      
-      <View style={{ marginBottom: 12 }}>
-        <Text style={[styles.text, { fontSize: 11, fontWeight: 'bold', marginBottom: 6 }]}>
-          Principales hallazgos:
-        </Text>
-        <Text style={[styles.text, { fontSize: 10, lineHeight: 1.4, textAlign: 'justify', marginBottom: 4 }]}>
-          • La tasa general de actividad del personal es del {tasaActividad}%, lo que indica 
-          {parseFloat(tasaActividad) >= 70 ? ' un nivel satisfactorio' : parseFloat(tasaActividad) >= 50 ? ' un nivel moderado' : ' oportunidades de mejora'} 
-          en la participación laboral.
-        </Text>
-        <Text style={[styles.text, { fontSize: 10, lineHeight: 1.4, textAlign: 'justify', marginBottom: 4 }]}>
-          • El grupo "{grupoMasActivo.grupo || 'N/A'}" destaca con {grupoMasActivo.Activos || 0} empleados activos, 
-          representando el mayor nivel de participación entre los grupos evaluados.
-        </Text>
-        <Text style={[styles.text, { fontSize: 10, lineHeight: 1.4, textAlign: 'justify', marginBottom: 4 }]}>
-          • En términos de tiempo efectivo, el grupo "{grupoMasHoras.grupo || 'N/A'}" registró el mayor volumen 
-          de horas trabajadas con {formatHorasMinutos((grupoMasHoras.horas || 0) + (grupoMasHoras.horasFuera || 0))}.
-        </Text>
-      </View>
-
-      <View style={{ marginBottom: 12 }}>
-        <Text style={[styles.text, { fontSize: 11, fontWeight: 'bold', marginBottom: 6 }]}>
-          Recomendaciones:
-        </Text>
-        <Text style={[styles.text, { fontSize: 10, lineHeight: 1.4, textAlign: 'justify', marginBottom: 4 }]}>
-          • Implementar estrategias de motivación y seguimiento para los grupos con menor tasa de actividad.
-        </Text>
-        <Text style={[styles.text, { fontSize: 10, lineHeight: 1.4, textAlign: 'justify', marginBottom: 4 }]}>
-          • Analizar las mejores prácticas del grupo más activo para replicarlas en otros equipos.
-        </Text>
-        <Text style={[styles.text, { fontSize: 10, lineHeight: 1.4, textAlign: 'justify', marginBottom: 4 }]}>
-          • Establecer un programa de seguimiento periódico para mantener y mejorar los niveles de participación.
-        </Text>
-      </View>
-
-      <View style={{ borderTop: '1px solid #dee2e6', paddingTop: 8, marginTop: 8 }}>
-        <Text style={[styles.text, { fontSize: 9, textAlign: 'center', color: '#6c757d', fontStyle: 'italic' }]}>
-          Este reporte fue generado automáticamente por el Sistema de Gestión Hospitalaria.
-          Para consultas o aclaraciones, contacte al área de Recursos Humanos.
-        </Text>
-      </View>
-    </View>
-  );
-};
-
 const ReportDocument = ({ 
   hospital, 
   estado, 
@@ -788,15 +674,6 @@ const ReportDocument = ({
           empleadosActivos={empleadosActivos}
           empleadosInactivos={empleadosInactivos}
           groupDistributionData={groupDistributionData}
-          selectedGroup={selectedGroup}
-        />
-        
-        <Conclusions 
-          cardData={cardData}
-          empleadosActivos={empleadosActivos}
-          empleadosInactivos={empleadosInactivos}
-          stackedGroupData={stackedGroupData}
-          groupHoursData={groupHoursData}
           selectedGroup={selectedGroup}
         />
       </Page>
@@ -872,40 +749,28 @@ const ExecutiveSummary = ({ cardData, empleadosActivos, empleadosInactivos, sele
   
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>RESUMEN EJECUTIVO</Text>
+      <Text style={styles.sectionTitle}>RESUMEN</Text>
       <View style={{ marginBottom: 12 }}>
         <Text style={[styles.text, { fontSize: 11, lineHeight: 1.4, textAlign: 'justify' }]}>
           {selectedGroup ? (
-            `Durante el período analizado de ${diasPeriodo} días, se registró la actividad específica del grupo "${selectedGroup}". 
-            Este grupo cuenta con ${totalEmpleados} empleados, de los cuales ${empleadosActivos.length} empleados 
-            (${tasaActividad}%) mostraron actividad laboral, con un promedio de ${promedioAsistencia} días trabajados por empleado activo.`
+            `Durante el período analizado de ${diasPeriodo} días, se registró la actividad específica del grupo "${selectedGroup}". Este grupo cuenta con ${totalEmpleados} empleados, de los cuales ${empleadosActivos.length} empleados (${tasaActividad}%) mostraron actividad laboral, con un promedio de ${promedioAsistencia} días trabajados por empleado activo.`
           ) : (
-            `Durante el período analizado de ${diasPeriodo} días, se registró la actividad de ${totalEmpleados} empleados 
-            distribuidos en ${cardData.totalGroups || 0} grupos de trabajo. De estos, ${empleadosActivos.length} empleados 
-            (${tasaActividad}%) mostraron actividad laboral, con un promedio de ${promedioAsistencia} días trabajados por empleado activo.`
+            `Durante el período analizado de ${diasPeriodo} días, se registró la actividad de ${totalEmpleados} empleados distribuidos en ${cardData.totalGroups || 0} grupos de trabajo. De estos, ${empleadosActivos.length} empleados (${tasaActividad}%) mostraron actividad laboral, con un promedio de ${promedioAsistencia} días trabajados por empleado activo.`
           )}
         </Text>
       </View>
       <View style={{ marginBottom: 12 }}>
         <Text style={[styles.text, { fontSize: 11, lineHeight: 1.4, textAlign: 'justify' }]}>
           {selectedGroup ? (
-            `El análisis específico del grupo "${selectedGroup}" muestra una distribución de actividad donde se identificaron empleados 
-            con diferentes niveles de participación laboral durante el período evaluado. Este enfoque particular permite un análisis 
-            más detallado y específico del rendimiento grupal.`
+            `El análisis específico del grupo "${selectedGroup}" muestra una distribución de actividad donde se identificaron empleados con diferentes niveles de participación laboral durante el período evaluado. Este enfoque particular permite un análisis más detallado y específico del rendimiento grupal.`
           ) : (
-            `El análisis de distribución por nivel de actividad revela que ${cardData.muyActivos || 0} empleados mantuvieron 
-            una asistencia muy alta (mayor o igual al 80% de días), mientras que ${cardData.activos || 0} empleados presentaron una asistencia 
-            regular (50-79% de días). Se identificaron ${cardData.pocoActivos || 0} empleados con baja actividad y ${cardData.esporadicos || 0} 
-            con participación esporádica.`
+            `El análisis de distribución por nivel de actividad revela que ${cardData.muyActivos || 0} empleados mantuvieron una asistencia muy alta (mayor o igual al 80% de días), mientras que ${cardData.activos || 0} empleados presentaron una asistencia regular (50-79% de días). Se identificaron ${cardData.pocoActivos || 0} empleados con baja actividad y ${cardData.esporadicos || 0} con participación esporádica.`
           )}
         </Text>
       </View>
       <View style={{ marginBottom: 8 }}>
         <Text style={[styles.text, { fontSize: 11, lineHeight: 1.4, textAlign: 'justify' }]}>
-          En términos de tiempo efectivo, se registraron {formatHorasMinutos(cardData.totalDentro || 0)} de trabajo 
-          dentro de las áreas georreferenciadas y {formatHorasMinutos(cardData.totalFuera || 0)} fuera de las mismas, 
-          lo que representa un {cardData.totalDentro + cardData.totalFuera > 0 ? Math.round((cardData.totalDentro / (cardData.totalDentro + cardData.totalFuera)) * 100) : 0}% 
-          de tiempo efectivo en zona de trabajo.
+          En términos de tiempo efectivo, se registraron {formatHorasMinutos(cardData.totalDentro || 0)} de trabajo dentro de las áreas georreferenciadas y {formatHorasMinutos(cardData.totalFuera || 0)} fuera de las mismas, lo que representa un {cardData.totalDentro + cardData.totalFuera > 0 ? Math.round((cardData.totalDentro / (cardData.totalDentro + cardData.totalFuera)) * 100) : 0}% de tiempo efectivo en zona de trabajo.
         </Text>
       </View>
     </View>

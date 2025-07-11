@@ -759,6 +759,8 @@ export default function SuperadminGeoApp() {
                     setBusquedaAdmin={setBusquedaAdmin}
                     estadoAdminFiltro={estadoAdminFiltro}
                     setEstadoAdminFiltro={setEstadoAdminFiltro}
+                    onEditar={fetchAdministradores}
+                    onEliminar={fetchAdministradores}
                   />
                 )}
 

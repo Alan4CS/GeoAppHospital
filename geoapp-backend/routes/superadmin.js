@@ -170,6 +170,7 @@ router.get("/totaladmins", async (req, res) => {
       LEFT JOIN estados e ON u.id_estado = e.id_estado
       LEFT JOIN municipios m ON u.id_municipio = m.id_municipio
       LEFT JOIN hospitals h ON u.id_hospital = h.id_hospital
+      WHERE r.role_name IN ('superadmin', 'estadoadmin', 'municipioadmin', 'hospitaladmin')
       ORDER BY u.id_user
     `);
 
