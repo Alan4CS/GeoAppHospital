@@ -93,6 +93,48 @@ export default function NacionalDashboard() {
 
   const mapContainerRef = useRef(null);
 
+  // Función para calcular la mejor posición del tooltip
+  const calculateTooltipPosition = (mouseX, mouseY, containerRect, tooltipWidth = 220) => {
+    const padding = 20; // Padding desde los bordes
+    const containerWidth = containerRect.width;
+    const containerHeight = containerRect.height;
+
+    let x, y;
+
+    // Calcular posición X (izquierda o derecha)
+    const spaceRight = containerWidth - mouseX;
+    const spaceLeft = mouseX;
+
+    if (spaceRight >= tooltipWidth + padding) {
+      // Hay espacio a la derecha
+      x = mouseX + 12;
+    } else if (spaceLeft >= tooltipWidth + padding) {
+      // No hay espacio a la derecha, pero sí a la izquierda
+      x = mouseX - tooltipWidth - 12;
+    } else {
+      // No hay espacio suficiente en ningún lado, centrar
+      x = Math.max(padding, Math.min(containerWidth - tooltipWidth - padding, mouseX - tooltipWidth / 2));
+    }
+
+    // Calcular posición Y
+    const tooltipHeight = 80; // Altura estimada del tooltip
+    const spaceBelow = containerHeight - mouseY;
+    const spaceAbove = mouseY;
+
+    if (spaceBelow >= tooltipHeight + padding) {
+      // Hay espacio abajo
+      y = mouseY + 12;
+    } else if (spaceAbove >= tooltipHeight + padding) {
+      // No hay espacio abajo, pero sí arriba
+      y = mouseY - tooltipHeight - 12;
+    } else {
+      // Centrar verticalmente
+      y = Math.max(padding, Math.min(containerHeight - tooltipHeight - padding, mouseY - tooltipHeight / 2));
+    }
+
+    return { x, y };
+  };
+
   const datePresets = [
     { label: "Últimos 7 días", value: "7d", days: 7 },
     { label: "Últimos 15 días", value: "15d", days: 15 },
@@ -523,14 +565,18 @@ export default function NacionalDashboard() {
                                 const stateName =
                                   stateCodeToName[stateCode] ||
                                   geo.properties.name;
+                                
+                                const tooltipPosition = calculateTooltipPosition(
+                                  offsetX, 
+                                  offsetY, 
+                                  containerRect
+                                );
+
                                 setGeocercaTooltip({
                                   content: stateInfo
                                     ? `${stateName}\nSalidas: ${stateInfo.geofenceExits}\nHospitales: ${stateInfo.hospitals}`
                                     : stateName || "Estado",
-                                  position: {
-                                    x: offsetX + 12,
-                                    y: offsetY + 12,
-                                  },
+                                  position: tooltipPosition,
                                   show: true,
                                 });
                               }}
@@ -577,7 +623,6 @@ export default function NacionalDashboard() {
                         zIndex: 1000,
                         whiteSpace: "pre-line",
                         pointerEvents: "none",
-                        transform: "translateY(-100%)",
                         minWidth: "200px",
                         backdropFilter: "blur(8px)",
                         boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
@@ -733,14 +778,18 @@ export default function NacionalDashboard() {
                                 const stateName =
                                   stateCodeToName[stateCode] ||
                                   geo.properties.name;
+                                
+                                const tooltipPosition = calculateTooltipPosition(
+                                  offsetX, 
+                                  offsetY, 
+                                  containerRect
+                                );
+
                                 setHorasTooltip({
                                   content: stateInfo
                                     ? `${stateName}\nHoras: ${stateInfo.hoursWorked}\nHospitales: ${stateInfo.hospitals}`
                                     : stateName || "Estado",
-                                  position: {
-                                    x: offsetX + 12,
-                                    y: offsetY + 12,
-                                  },
+                                  position: tooltipPosition,
                                   show: true,
                                 });
                               }}
@@ -787,7 +836,6 @@ export default function NacionalDashboard() {
                         zIndex: 1000,
                         whiteSpace: "pre-line",
                         pointerEvents: "none",
-                        transform: "translateY(-100%)",
                         minWidth: "200px",
                         backdropFilter: "blur(8px)",
                         boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",

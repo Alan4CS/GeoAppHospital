@@ -821,11 +821,24 @@ const MonitoreoMap = ({
     return colors[index];
   }, []);
 
+  // Estado para controlar si está refrescando
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   // Función para refrescar datos manualmente (optimizada)
-  const handleRefresh = useCallback(() => {
-    fetchMonitoringData();
-    fetchHospitalsData();
-  }, [fetchMonitoringData, fetchHospitalsData]);
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        fetchMonitoringData(),
+        fetchHospitalsData(),
+        fetchTotalEmployees()
+      ]);
+    } catch (error) {
+      console.error('Error al refrescar datos:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [fetchMonitoringData, fetchHospitalsData, fetchTotalEmployees]);
 
   // Modificar el comportamiento al cerrar detalles
   const handleCloseHospitalDetails = () => {
@@ -1553,6 +1566,24 @@ const MonitoreoMap = ({
         </div>
       </div>
 
+      {/* Indicador de última actualización */}
+      {lastUpdate && (
+        <div className="px-2 sm:px-4 pb-2">
+          <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
+            <FaClock className="text-xs" />
+            <span>
+              Última actualización: {format(lastUpdate, "d 'de' MMMM, HH:mm:ss", { locale: es })}
+            </span>
+            {isRefreshing && (
+              <span className="flex items-center gap-1 text-blue-600">
+                <FaSync className="animate-spin text-xs" />
+                Actualizando...
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Error messages */}
       {error && (
         <div className="mx-4 mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -1813,6 +1844,19 @@ const MonitoreoMap = ({
                     >
                       Limpiar
                     </button>
+                    <button
+                      onClick={handleRefresh}
+                      disabled={isRefreshing}
+                      className={`text-white px-2 py-1 rounded-md transition-colors text-xs flex items-center gap-1 ${
+                        isRefreshing 
+                          ? 'bg-gray-400 cursor-not-allowed' 
+                          : 'bg-blue-600 hover:bg-blue-700'
+                      }`}
+                      title="Refrescar datos de monitoreo"
+                    >
+                      <FaSync className={`text-xs ${isRefreshing ? 'animate-spin' : ''}`} />
+                      {isRefreshing ? 'Refrescando...' : 'Refrescar'}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -2021,6 +2065,19 @@ const MonitoreoMap = ({
                     disabled={modoEstadoAdmin || modoMunicipioAdmin || modoHospitalAdmin}
                   >
                     Limpiar
+                  </button>
+                  <button
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    className={`text-white px-3 py-1.5 rounded-md transition-colors text-sm flex items-center gap-1.5 ${
+                      isRefreshing 
+                        ? 'bg-gray-400 cursor-not-allowed' 
+                        : 'bg-blue-600 hover:bg-blue-700'
+                    }`}
+                    title="Refrescar datos de monitoreo y hospitales"
+                  >
+                    <FaSync className={`text-xs ${isRefreshing ? 'animate-spin' : ''}`} />
+                    <span>{isRefreshing ? 'Refrescando...' : 'Refrescar'}</span>
                   </button>
                 </div>
               </div>
