@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useRef } from "react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import { scaleQuantile } from "d3-scale";
@@ -14,7 +12,7 @@ import {
 } from "lucide-react";
 
 // Configuración de la API
-const API_BASE_URL = "http://localhost:4000";
+const API_BASE_URL = "https://geoapphospital.onrender.com";
 
 // Mapeo de códigos de estado a nombres
 const stateCodeToName = {
