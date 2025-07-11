@@ -47,7 +47,7 @@ export default function EmpleadoDashboard({
   isLoadingUserLocation
 }) {
   // --- Fetch empleados y calcular estadísticas ---
-  const selectedEmployeeData = selectedEmpleado ? empleados.find(emp => emp.id === Number(selectedEmpleado)) : null
+  const selectedEmployeeData = selectedEmpleado ? empleadosFiltrados.find(emp => emp.id === Number(selectedEmpleado)) : null
 
   // --- Calendar and PDF state/logic ---
   const [loadingPDF, setLoadingPDF] = useState(false)
@@ -90,9 +90,9 @@ export default function EmpleadoDashboard({
 
   // Fetch calendar data when employee or date range changes
   useEffect(() => {
-    if (employee && empleados.length > 0) {
+    if (employee && empleadosFiltrados.length > 0) {
       // Usar los registros del empleado seleccionado que ya tenemos
-      const empleadoCompleto = empleados.find(emp => emp.id === employee.id)
+      const empleadoCompleto = empleadosFiltrados.find(emp => emp.id === employee.id)
       
       if (empleadoCompleto && empleadoCompleto.registros) {
         // Agrupar registros por día usando fecha local
@@ -135,7 +135,7 @@ export default function EmpleadoDashboard({
     // Limpiar selección cuando cambie el empleado
     setSelectedDay(null)
     setHourlyData([])
-  }, [employee, empleados])
+  }, [employee, empleadosFiltrados])
 
   // Función helper para describir actividades basándose en el tipo
   const getActivityDescription = (registro) => {

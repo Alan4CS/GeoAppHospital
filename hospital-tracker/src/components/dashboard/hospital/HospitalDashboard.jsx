@@ -34,7 +34,7 @@ import { es } from "date-fns/locale"
 import "react-calendar/dist/Calendar.css"
 import { generarReporteEmpleadoPDF } from "./reportes/EmployeeReportPDF"
 import GrupoDashboard from './GrupoDashboard'
-import EmpleadoDashboard from './EmpleadoDashboard'
+import EmpleadoDashboard from './Empleadodashboard'
 import { useAuth } from "../../../context/AuthContext"
 
 const customScrollbarStyles = `
@@ -54,7 +54,7 @@ const customScrollbarStyles = `
   }
 `
 
-// Genera datos mejorados para el calendario
+// Genera datos mejorados para el calendario basado en registros reales
 const generateEmployeeCalendarData = (employeeData, startDate, endDate) => {
   const days = eachDayOfInterval({
     start: new Date(startDate),
@@ -71,9 +71,80 @@ const generateEmployeeCalendarData = (employeeData, startDate, endDate) => {
     }))
   }
 
+  // Importar la función de cálculo de estadísticas
+  const calcularEstadisticasEmpleado = (registros = []) => {
+    let totalDentro = 0;
+    let totalFuera = 0;
+    let totalDescanso = 0;
+    let totalSalidas = 0;
+    let estadoGeocerca = null;
+    let horaIntervalo = null;
+    let inicioDescanso = null;
+    
+    const ordenadas = registros.slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
+    
+    for (let i = 0; i < ordenadas.length; i++) {
+      const act = ordenadas[i];
+      
+      if (i === 0) {
+        estadoGeocerca = act.dentro_geocerca;
+        horaIntervalo = act.fecha_hora;
+        continue;
+      }
+      
+      if (typeof act.evento === 'number') {
+        // Manejo de descansos
+        if (act.evento === 2) {
+          inicioDescanso = act.fecha_hora;
+        } else if (act.evento === 3 && inicioDescanso) {
+          totalDescanso += (new Date(act.fecha_hora) - new Date(inicioDescanso));
+          inicioDescanso = null;
+        }
+        
+        // Manejo de geocerca
+        if (act.evento === 0 && estadoGeocerca === true && horaIntervalo) {
+          totalDentro += (new Date(act.fecha_hora) - new Date(horaIntervalo));
+          estadoGeocerca = false;
+          horaIntervalo = act.fecha_hora;
+          totalSalidas++;
+        } else if (act.evento === 1 && estadoGeocerca === false && horaIntervalo) {
+          totalFuera += (new Date(act.fecha_hora) - new Date(horaIntervalo));
+          estadoGeocerca = true;
+          horaIntervalo = act.fecha_hora;
+        }
+      }
+      
+      if (i === ordenadas.length - 1 && horaIntervalo && estadoGeocerca !== null) {
+        if (estadoGeocerca) {
+          totalDentro += (new Date(act.fecha_hora) - new Date(horaIntervalo));
+        } else {
+          totalFuera += (new Date(act.fecha_hora) - new Date(horaIntervalo));
+        }
+      }
+    }
+    
+    return {
+      workedHours: +(totalDentro / 3600000).toFixed(2),
+      outsideHours: +(totalFuera / 3600000).toFixed(2),
+      restHours: +(totalDescanso / 3600000).toFixed(2),
+      totalExits: totalSalidas,
+    };
+  };
+
+  // Agrupar registros por día si el empleado tiene registros
+  const registrosPorDia = {};
+  if (employee.registros && Array.isArray(employee.registros)) {
+    employee.registros.forEach((registro) => {
+      const fecha = registro.fecha_hora.slice(0, 10); // yyyy-MM-dd
+      if (!registrosPorDia[fecha]) registrosPorDia[fecha] = [];
+      registrosPorDia[fecha].push(registro);
+    });
+  }
+
   return days.map((day) => {
     const dayOfWeek = day.getDay()
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+    const fechaStr = format(day, 'yyyy-MM-dd');
 
     if (isWeekend) {
       return {
@@ -84,17 +155,34 @@ const generateEmployeeCalendarData = (employeeData, startDate, endDate) => {
       }
     }
 
-    // Horario realista: 7:00-16:00 con 30min fuera
-    const totalHours = 8.5 // 9 horas menos 30 min fuera
-    const outsideHours = 0.5 // 30 minutos fuera
+    // Verificar si hay registros para este día
+    const registrosDia = registrosPorDia[fechaStr] || [];
+    
+    if (registrosDia.length === 0) {
+      return {
+        date: day,
+        totalHours: 0,
+        status: "absence",
+        notes: "Sin actividades",
+        workedHours: 0,
+        outsideHours: 0,
+        restHours: 0,
+      }
+    }
+
+    // Calcular estadísticas reales para este día
+    const stats = calcularEstadisticasEmpleado(registrosDia);
+    const totalHours = stats.workedHours + stats.outsideHours;
 
     return {
       date: day,
       totalHours: totalHours,
-      status: "completed",
-      notes: "Jornada completa",
-      workedHours: totalHours,
-      outsideHours: outsideHours,
+      status: totalHours > 0 ? "completed" : "absence",
+      notes: totalHours > 0 ? "Con actividades" : "Sin actividades",
+      workedHours: stats.workedHours,
+      outsideHours: stats.outsideHours,
+      restHours: stats.restHours,
+      totalExits: stats.totalExits,
     }
   })
 }
@@ -137,7 +225,7 @@ const generateRealisticGeofenceEvents = (date, employee) => {
   ]
 }
 
-// Genera datos mejorados por hora para un día específico
+// Genera datos mejorados por hora para un día específico usando datos reales
 const generateEnhancedHourlyData = (dayData, employee) => {
   if (!dayData || dayData.status !== "completed") {
     return {
@@ -147,76 +235,156 @@ const generateEnhancedHourlyData = (dayData, employee) => {
     }
   }
 
-  const events = generateRealisticGeofenceEvents(dayData.date, employee)
-  const hours = []
+  // Usar los datos reales calculados del día
+  const metrics = {
+    workedHours: dayData.workedHours || 0,
+    outsideHours: dayData.outsideHours || 0,
+    totalHours: (dayData.workedHours || 0) + (dayData.outsideHours || 0),
+  };
 
-  // Horario de 7:00 a 16:00
-  const startHour = 7
-  const endHour = 16
+  // Si no hay datos reales, usar datos de ejemplo
+  if (metrics.totalHours === 0) {
+    const events = generateRealisticGeofenceEvents(dayData.date, employee)
+    const hours = []
 
-  let workedHours = 0
-  let outsideHours = 0
+    // Horario de 7:00 a 16:00
+    const startHour = 7
+    const endHour = 16
+
+    for (let i = 0; i < endHour - startHour; i++) {
+      const hour = startHour + i
+      const hourLabel = `${hour.toString().padStart(2, "0")}:00`
+
+      // Lógica de ejemplo cuando no hay datos reales
+      let isInside = false
+      let hasEntry = false
+      let hasExit = false
+
+      if (hour >= 7 && hour < 11) {
+        isInside = true
+      } else if (hour >= 11 && hour < 12) {
+        isInside = false
+      } else if (hour >= 12 && hour < 16) {
+        isInside = true
+      }
+
+      // Verificar eventos en esta hora
+      for (const event of events) {
+        const eventHour = Number.parseInt(event.time.split(":")[0])
+        if (eventHour === hour) {
+          if (event.type === "entry") hasEntry = true
+          if (event.type === "exit") hasExit = true
+        }
+      }
+
+      hours.push({
+        hour: hourLabel,
+        status: isInside ? "inside" : "outside",
+        hasEntry,
+        hasExit,
+        events: events.filter((e) => {
+          const eventHour = Number.parseInt(e.time.split(":")[0])
+          return eventHour === hour
+        }),
+      })
+    }
+
+    return {
+      hours,
+      events,
+      metrics: { workedHours: 8.5, outsideHours: 0.5, totalHours: 9 },
+    }
+  }
+
+  // Obtener registros reales para este día específico
+  const fechaStr = format(dayData.date, 'yyyy-MM-dd');
+  const registrosDia = [];
+  
+  if (employee.registros && Array.isArray(employee.registros)) {
+    employee.registros.forEach((registro) => {
+      const fechaRegistro = registro.fecha_hora.slice(0, 10);
+      if (fechaRegistro === fechaStr) {
+        registrosDia.push(registro);
+      }
+    });
+  }
+
+  // Generar eventos basados en los registros reales
+  const events = [];
+  registrosDia.forEach((registro) => {
+    const fecha = new Date(registro.fecha_hora);
+    const time = format(fecha, 'HH:mm');
+    
+    if (typeof registro.evento === 'number') {
+      if (registro.evento === 0) { // Salida de geocerca
+        events.push({
+          time,
+          type: "exit",
+          location: "outside",
+          description: "Salida de geocerca",
+        });
+      } else if (registro.evento === 1) { // Entrada a geocerca
+        events.push({
+          time,
+          type: "entry", 
+          location: "inside",
+          description: "Entrada a geocerca",
+        });
+      } else if (registro.evento === 2) { // Inicio descanso
+        events.push({
+          time,
+          type: "break_start",
+          location: "rest",
+          description: "Inicio de descanso",
+        });
+      } else if (registro.evento === 3) { // Fin descanso
+        events.push({
+          time,
+          type: "break_end",
+          location: "rest", 
+          description: "Fin de descanso",
+        });
+      }
+    }
+  });
+
+  // Generar vista por horas basada en actividad real
+  const hours = [];
+  const startHour = 6; // Ampliar rango para captar más actividad
+  const endHour = 18;
 
   for (let i = 0; i < endHour - startHour; i++) {
-    const hour = startHour + i
-    const hourLabel = `${hour.toString().padStart(2, "0")}:00`
-    const nextHourLabel = `${(hour + 1).toString().padStart(2, "0")}:00`
-
-    // Determinar el estado durante esta hora
-    let isInside = false
-    let hasEntry = false
-    let hasExit = false
-
-    // Lógica mejorada basada en el horario realista
-    if (hour >= 7 && hour < 11) {
-      isInside = true // Trabajando
-    } else if (hour >= 11 && hour < 12) {
-      isInside = false // Fuera de 11:00-11:30, dentro de 11:30-12:00
-      if (hour === 11) {
-        // En la hora 11:00-12:00, está fuera solo los primeros 30 min
-        isInside = false // Simplificado para la visualización
-      }
-    } else if (hour >= 12 && hour < 16) {
-      isInside = true // Trabajando
-    } else {
-      isInside = false // Fuera del horario
-    }
-
+    const hour = startHour + i;
+    const hourLabel = `${hour.toString().padStart(2, "0")}:00`;
+    
     // Verificar eventos en esta hora
-    for (const event of events) {
-      const eventHour = Number.parseInt(event.time.split(":")[0])
-      if (eventHour === hour) {
-        if (event.type === "entry") hasEntry = true
-        if (event.type === "exit") hasExit = true
-      }
-    }
+    const eventsInHour = events.filter((e) => {
+      const eventHour = Number.parseInt(e.time.split(":")[0]);
+      return eventHour === hour;
+    });
 
-    if (isInside) {
-      workedHours += 1
-    } else if (hour >= 7 && hour < 16) {
-      outsideHours += 1
+    const hasEntry = eventsInHour.some(e => e.type === "entry");
+    const hasExit = eventsInHour.some(e => e.type === "exit");
+
+    // Determinar estado basado en actividad (simplificado)
+    let status = "outside"; // Por defecto fuera
+    if (hour >= 7 && hour < 17) { // Horario laboral probable
+      status = "inside"; // Asumir dentro durante horario laboral
     }
 
     hours.push({
       hour: hourLabel,
-      status: isInside ? "inside" : "outside",
+      status,
       hasEntry,
       hasExit,
-      events: events.filter((e) => {
-        const eventHour = Number.parseInt(e.time.split(":")[0])
-        return eventHour === hour
-      }),
-    })
+      events: eventsInHour,
+    });
   }
 
   return {
     hours,
     events,
-    metrics: {
-      workedHours: 8.5, // 8.5 horas trabajadas (9 horas menos 30 min fuera)
-      outsideHours: 0.5, // 30 minutos fuera
-      totalHours: 9, // Total de 9 horas de jornada
-    },
+    metrics,
   }
 }
 
@@ -496,9 +664,11 @@ const EmployeeCalendarView = ({ employee, startDate, endDate, filters }) => {
 
                       {dayData && dayData.status === "completed" && (
                         <div className="text-center">
-                          <div className="text-lg font-bold text-emerald-600">{dayData.totalHours}h</div>
+                          <div className="text-lg font-bold text-emerald-600">{dayData.totalHours.toFixed(1)}h</div>
                           <div className="text-xs text-emerald-700">Click para detalles</div>
-                          <div className="text-xs text-orange-600 mt-1">30min fuera</div>
+                          <div className="text-xs text-orange-600 mt-1">
+                            {dayData.outsideHours > 0 ? `${dayData.outsideHours.toFixed(1)}h fuera` : 'Sin salidas'}
+                          </div>
                         </div>
                       )}
 
@@ -563,19 +733,19 @@ const EmployeeCalendarView = ({ employee, startDate, endDate, filters }) => {
                     {/* Estadísticas del día mejoradas */}
                     <div className="grid grid-cols-3 gap-3 mb-6">
                       <div className="bg-emerald-100 rounded-lg p-3 text-center border border-emerald-200">
-                        <div className="text-xl font-bold text-emerald-600">{hourlyData.metrics.workedHours}h</div>
+                        <div className="text-xl font-bold text-emerald-600">{hourlyData.metrics.workedHours.toFixed(1)}h</div>
                         <div className="text-xs text-emerald-700">Trabajadas</div>
-                        <div className="text-xs text-emerald-600 mt-1">7:00-11:00 + 11:30-16:00</div>
+                        <div className="text-xs text-emerald-600 mt-1">Tiempo en geocerca</div>
                       </div>
                       <div className="bg-red-100 rounded-lg p-3 text-center border border-red-200">
-                        <div className="text-xl font-bold text-red-600">{hourlyData.metrics.outsideHours}h</div>
+                        <div className="text-xl font-bold text-red-600">{hourlyData.metrics.outsideHours.toFixed(1)}h</div>
                         <div className="text-xs text-red-700">Fuera</div>
-                        <div className="text-xs text-red-600 mt-1">11:00-11:30</div>
+                        <div className="text-xs text-red-600 mt-1">Tiempo fuera de geocerca</div>
                       </div>
                       <div className="bg-blue-100 rounded-lg p-3 text-center border border-blue-200">
-                        <div className="text-xl font-bold text-blue-600">{hourlyData.metrics.totalHours}h</div>
+                        <div className="text-xl font-bold text-blue-600">{hourlyData.metrics.totalHours.toFixed(1)}h</div>
                         <div className="text-xs text-blue-700">Total</div>
-                        <div className="text-xs text-blue-600 mt-1">Jornada completa</div>
+                        <div className="text-xs text-blue-600 mt-1">Tiempo total registrado</div>
                       </div>
                     </div>
 
@@ -731,6 +901,7 @@ const HospitalDashboard = () => {
   const [fechaInicio, setFechaInicio] = useState(format(subDays(new Date(), 30), "yyyy-MM-dd"))
   const [fechaFin, setFechaFin] = useState(format(new Date(), "yyyy-MM-dd"))
   const [empleadosFiltrados, setEmpleadosFiltrados] = useState([])
+  const [empleadosBaseCargados, setEmpleadosBaseCargados] = useState(false)
 
   const datePresets = [
     { label: "Últimos 7 días", value: "7d", days: 7 },
@@ -1063,6 +1234,7 @@ const HospitalDashboard = () => {
       setEmpleados([])
       setEmpleadosFiltrados([])
       setGrupos([]) // Limpiar grupos si no hay hospital
+      setEmpleadosBaseCargados(false)
       return
     }
 
@@ -1085,6 +1257,7 @@ const HospitalDashboard = () => {
         }))
         setEmpleados(empleadosBackend)
         setEmpleadosFiltrados(empleadosBackend)
+        setEmpleadosBaseCargados(true) // Marcar como cargados
         // Extraer grupos únicos de los empleados
         const gruposUnicos = Array.from(new Set(empleadosBackend.map(emp => emp.grupo).filter(Boolean))).map((nombre, idx) => ({ id: idx + 1, nombre }))
         setGrupos(gruposUnicos)
@@ -1093,11 +1266,79 @@ const HospitalDashboard = () => {
         setEmpleados([])
         setEmpleadosFiltrados([])
         setGrupos([])
+        setEmpleadosBaseCargados(false)
       }
     }
 
     fetchEmpleados()
   }, [filters.id_hospital])
+
+  // Obtener actividades de empleados cuando se tengan hospital y fechas
+  useEffect(() => {
+    const obtenerActividadesEmpleados = async () => {
+      // Solo proceder si tenemos hospital, fechas válidas y empleados base cargados
+      if (!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate || !isValidRange || !empleadosBaseCargados) {
+        return;
+      }
+
+      try {
+        console.log('[Debug] Obteniendo actividades para empleados...', {
+          hospital: filters.id_hospital,
+          fechas: tempDateRange,
+          empleados: empleados.length
+        });
+
+        // Obtener actividades para cada empleado
+        const empleadosConActividades = await Promise.all(
+          empleados.map(async (empleado) => {
+            try {
+              const fechaInicio = `${tempDateRange.startDate} 00:00:00`;
+              const fechaFin = `${tempDateRange.endDate} 23:59:59`;
+              
+              const res = await fetch("https://geoapphospital.onrender.com/api/reportes/empleado", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  empleadoId: empleado.id,
+                  fechaInicio,
+                  fechaFin,
+                }),
+              });
+
+              if (!res.ok) {
+                console.warn(`Error al obtener actividades para empleado ${empleado.id}:`, res.status);
+                return { ...empleado, registros: [] };
+              }
+
+              const data = await res.json();
+              const actividades = Array.isArray(data.actividades) ? data.actividades : [];
+              
+              console.log(`[Debug] Empleado ${empleado.name}: ${actividades.length} actividades`);
+              
+              return {
+                ...empleado,
+                registros: actividades
+              };
+            } catch (error) {
+              console.error(`Error al obtener actividades para empleado ${empleado.id}:`, error);
+              return { ...empleado, registros: [] };
+            }
+          })
+        );
+
+        console.log('[Debug] Empleados con actividades obtenidos:', empleadosConActividades.length);
+        
+        // Actualizar tanto empleados como empleadosFiltrados
+        setEmpleados(empleadosConActividades);
+        setEmpleadosFiltrados(empleadosConActividades);
+
+      } catch (error) {
+        console.error("Error al obtener actividades de empleados:", error);
+      }
+    };
+
+    obtenerActividadesEmpleados();
+  }, [filters.id_hospital, tempDateRange.startDate, tempDateRange.endDate, isValidRange, empleadosBaseCargados]);
 
   // Manejadores de cambios para los filtros
   const handleEstadoChange = (e) => {
@@ -1173,6 +1414,7 @@ const HospitalDashboard = () => {
   }
 
   const filtrarEmpleados = (grupo, empleado, inicio, fin) => {
+    // Usar siempre empleados como fuente (que ya tiene registros después del useEffect)
     let filtrados = [...empleados]
 
     if (grupo) {
@@ -1210,6 +1452,7 @@ const HospitalDashboard = () => {
       nombre_municipio: "",
       nombre_hospital: "",
     });
+    // Restaurar todos los empleados con sus registros
     setEmpleadosFiltrados(empleados); // Mostrar todos de nuevo
   }
 
