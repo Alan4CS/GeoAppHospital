@@ -52,6 +52,7 @@ export default function SuperadminGeoApp() {
   const [hospitalEditando, setHospitalEditando] = useState(null);
   const [hospitalIndexEditando, setHospitalIndexEditando] = useState(null);
   const [geocerca, setGeocerca] = useState(null);
+  const [estados, setEstados] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [busquedaAdmin, setBusquedaAdmin] = useState("");
   const [estadoAdminFiltro, setEstadoAdminFiltro] = useState("");
@@ -80,6 +81,7 @@ export default function SuperadminGeoApp() {
         const hospitalesFormateados = data.map((h) => ({
           nombre: (h.nombre_hospital || "").replace(/\s+/g, " ").trim(),
           estado: (h.estado || "").trim(),
+          municipio: (h.municipio || h.nombre_municipio || "").trim(),
           tipoUnidad: (h.tipo_hospital || "").replace(/\s+/g, " ").trim(),
           region: (h.direccion_hospital || "").replace(/\s+/g, " ").trim(),
           geocerca: {
@@ -95,7 +97,20 @@ export default function SuperadminGeoApp() {
       }
     };
 
+    const fetchEstados = async () => {
+      try {
+        const response = await fetch(
+          "https://geoapphospital.onrender.com/api/superadmin/estados"
+        );
+        const data = await response.json();
+        setEstados(data);
+      } catch (error) {
+        console.error("Error al obtener estados:", error);
+      }
+    };
+
     fetchHospitales();
+    fetchEstados();
   }, []);
 
   const fetchAdministradores = async () => {
@@ -203,33 +218,29 @@ export default function SuperadminGeoApp() {
 
   // Función para editar un hospital
   const handleEditarHospital = (hospital, index) => {
-    resetearFormularios();
+    // Solo cerrar otros formularios, no resetear el estado de edición de hospital
+    setMostrarFormAdmin(false);
+    setMostrarFormGrupo(false);
+    setMostrarFormEmpleado(false);
+    setMostrarSubidaMasivaEmpleados(false);
+    
+    // Buscar el ID del estado basándose en el nombre
+    const estadoEncontrado = estados.find(estado => 
+      estado.nombre_estado.toLowerCase().trim() === hospital.estado.toLowerCase().trim()
+    );
+    
+    // Crear el objeto hospital con el ID del estado correcto
+    const hospitalConIdEstado = {
+      ...hospital,
+      estado: estadoEncontrado ? estadoEncontrado.id_estado : hospital.estado,
+      municipio: hospital.municipio || ""
+    };
+    
+    // Configurar el estado para editar hospital
     setEditandoHospital(true);
-    setHospitalEditando(hospital);
+    setHospitalEditando(hospitalConIdEstado);
     setHospitalIndexEditando(index);
     setMostrarFormulario(true);
-
-    // Function to normalize state names (convert to title case)
-    const normalizeStateName = (stateName) => {
-      if (!stateName) return "";
-      // Convert state name to title case (first letter uppercase, rest lowercase)
-      return stateName
-        .toLowerCase()
-        .split(" ")
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(" ");
-    };
-
-    // Normalize the state name to match the format in the dropdown
-    const estadoNormalizado = normalizeStateName(hospital.estado);
-
-    // Verificar que todos los campos tengan valores válidos
-    const hospitalProcesado = {
-      estado: estadoNormalizado,
-      nombre: hospital.nombre || "",
-      tipoUnidad: hospital.tipoUnidad || "",
-      region: hospital.region || "",
-    };
 
     // Establecer la geocerca
     const geocercaValida =
@@ -252,7 +263,8 @@ export default function SuperadminGeoApp() {
     if (geocercaValida && hospital.geocerca.lat && hospital.geocerca.lng) {
       setMapCenter([hospital.geocerca.lat, hospital.geocerca.lng]);
     } else if (hospital.estado) {
-      buscarCoordenadasEstado(estadoNormalizado);
+      // Usar el nombre original del estado para buscar coordenadas
+      buscarCoordenadasEstado(hospital.estado);
     }
   };
 

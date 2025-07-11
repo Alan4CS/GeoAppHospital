@@ -13,6 +13,7 @@ export default function HospitalForm({
 }) {
   const [form, setForm] = useState({
     estado: "",
+    municipio: "",
     nombre: "",
     tipoUnidad: "",
     region: "",
@@ -30,12 +31,18 @@ export default function HospitalForm({
 
       setForm({
         estado: hospitalEditando.estado || "",
+        municipio: hospitalEditando.municipio || "",
         nombre: hospitalEditando.nombre || "",
         tipoUnidad: hospitalEditando.tipoUnidad || "",
         region: hospitalEditando.region || "",
         lat: hospitalEditando.geocerca?.lat?.toString() || "",
         lng: hospitalEditando.geocerca?.lng?.toString() || "",
       });
+
+      // Cargar municipios si hay un estado seleccionado
+      if (hospitalEditando.estado) {
+        fetchMunicipios(hospitalEditando.estado);
+      }
 
       if (hospitalEditando.geocerca?.radio) {
         try {
@@ -177,7 +184,7 @@ export default function HospitalForm({
               value={form.municipio}
               onChange={handleChange}
               className="w-full border px-4 py-2 rounded-lg"
-              required
+              required={!editandoHospital}
             >
               <option value="">Selecciona un municipio</option>
               {municipios.map((municipio) => (
