@@ -692,8 +692,46 @@ export default function EmpleadoDashboard({
 
           {/* Mensaje informativo y vista de datos */}
           <div className="flex flex-col gap-6">
-            {/* Vista tabla o calendario */}
-            <div className={selectedEmployeeData ? "space-y-6 mt-2" : "flex flex-col gap-6 mt-6"}>
+            {/* Verificar si los filtros están configurados */}
+            {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) ? (
+              /* Mensaje cuando no hay filtros configurados */
+              <div className="bg-white rounded-2xl shadow-md p-10 mb-8 border border-gray-200">
+                <div className="text-center">
+                  <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Users className="h-10 w-10 text-blue-500" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-800 mb-3">
+                    Configura los filtros para ver el análisis de empleados
+                  </h3>
+                  <p className="text-gray-600 mb-4 max-w-md mx-auto">
+                    Selecciona un hospital y un período de fechas para acceder a las estadísticas detalladas de empleados, calendario de actividades y gráficos comparativos.
+                  </p>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-lg mx-auto">
+                    <h4 className="text-sm font-semibold text-blue-800 mb-2">Funcionalidades disponibles:</h4>
+                    <div className="grid grid-cols-2 gap-2 text-sm text-blue-700">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span>Tabla resumen de empleados</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span>Gráficos comparativos</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                        <span>Calendario de actividades</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                        <span>Reportes individuales en PDF</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Vista tabla o calendario cuando hay filtros */
+              <div className={selectedEmployeeData ? "space-y-6 mt-2" : "flex flex-col gap-6 mt-6"}>
               {!selectedEmployeeData ? (
                 <>
                   <div className="bg-white rounded-lg shadow-sm w-full max-h-[500px] overflow-y-auto mb-6">
@@ -1137,7 +1175,8 @@ export default function EmpleadoDashboard({
                   {/* --- Fin EmployeeCalendarView --- */}
                 </>
               )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
