@@ -1,14 +1,7 @@
 import { useState, useEffect } from "react";
-import {
-  ClipboardCheck,
-  Key,
-  Save,
-  User,
-  X,
-  Building2,
-  MapPin,
-  Hospital,
+import { ClipboardCheck, Key, Save, User, X, Building2, MapPin, Hospital,
 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 
 export default function AdminForm({
   hospitales,
@@ -35,6 +28,7 @@ export default function AdminForm({
   const [hospitalesFiltrados, setHospitalesFiltrados] = useState([]);
   const [grupos, setGrupos] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { userId } = useAuth();
 
   // 🔽 justo aquí puedes agregar los nuevos useEffect
   useEffect(() => {
@@ -422,10 +416,7 @@ export default function AdminForm({
     try {
       // Si es superadmin, incluir el id_user_creador
       if (adminForm.tipoAdmin === "superadmin") {
-        adminData.id_user_creador = parseInt(
-          localStorage.getItem("userId"),
-          10
-        );
+        adminData.id_user_creador = typeof userId === 'string' ? parseInt(userId, 10) : userId;
       } else {
         // Añadir los IDs según el tipo de administrador
         if (
@@ -478,6 +469,8 @@ export default function AdminForm({
 
   const getTipoAdminLabel = () => {
     switch (adminForm.tipoAdmin) {
+      case "superadmin":
+        return "Super Administrador";
       case "estadoadmin":
         return "Administrador Estatal";
       case "municipioadmin":
@@ -598,7 +591,7 @@ export default function AdminForm({
               required
             >
               <option value="">Selecciona un tipo</option>
-              {localStorage.getItem("userId") === "1" && (
+              {(userId === 1) && (
                 <option value="superadmin">Super Administrador</option>
               )}
               <option value="estadoadmin">Administrador de Estado</option>
