@@ -592,8 +592,6 @@ const ReportDocument = ({ empleado, startDate, endDate, eventsByDay }) => {
       <Page size="LETTER" style={styles.page}>
         <Header empleado={empleado} startDate={startDate} endDate={endDate} />
         <PeriodSummary resumen={resumen} totalDiasPeriodo={totalDiasPeriodo} />
-        {/* Nuevo componente para métricas de horas */}
-        <HoursMetrics eventsByDay={eventsByDay} />
         {dias.length === 0 ? (
           <Text style={styles.noData}>No hay actividades registradas en el rango seleccionado.</Text>
         ) : (

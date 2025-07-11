@@ -565,10 +565,6 @@ export default function GrupoDashboard({
             activeEmployees: totalEmpleados, // Empleados activos en el período
             consistentEmployees: muyActivos + activos, // Empleados que trabajaron 50% o más
             occasionalEmployees: pocoActivos + esporadicos, // Empleados esporádicos
-            muyActivos,
-            activos,
-            pocoActivos,
-            esporadicos,
             totalExits,
             totalHours: Math.round(totalHours * 100) / 100,
             totalDentro: Math.round(totalDentro * 100) / 100,
@@ -1044,29 +1040,31 @@ export default function GrupoDashboard({
         selectedGroup={selectedGroupList}
       />
 
-      {/* Texto informativo para empleados */}
-      <div className={`flex items-center gap-2 mb-4 rounded-lg p-3 border ${selectedGroupList 
-        ? 'bg-purple-50 border-purple-200' 
-        : 'bg-blue-50 border-blue-100'
-      }`}>
-        <Users className={`h-4 w-4 ${selectedGroupList ? 'text-purple-500' : 'text-blue-500'}`} />
-        <span className={`text-sm ${selectedGroupList ? 'text-purple-800' : 'text-blue-800'}`}>
-          {selectedGroupList ? (
-            <>
-              Mostrando {filteredActivos.length} empleados activos de {filteredActivos.length + filteredInactivos.length} totales del grupo <strong>"{selectedGroupList}"</strong>.
-              <br />
-              <strong>Período:</strong> {cardData.totalWorkingDays} días | <strong>Vista:</strong> Grupo específico
-            </> 
-          ) : (
-            <>
-              Mostrando {cardData.activeEmployees} empleados activos de {cardData.totalEmployees} totales, 
-              distribuidos en {cardData.activeGroups} grupos activos de {cardData.totalGroups} grupos totales del hospital.
-              <br />
-              <strong>Período:</strong> {cardData.totalWorkingDays} días | <strong>Promedio:</strong> {selectedGroupList ? groupSpecificMetrics.averageWorkingDays : cardData.averageWorkingDays} días trabajados por empleado activo
-            </>
-          )}
-        </span>
-      </div>
+      {/* Texto informativo para empleados - Solo cuando hay filtros */}
+      {filters.id_hospital && tempDateRange.startDate && tempDateRange.endDate && (
+        <div className={`flex items-center gap-2 mb-4 rounded-lg p-3 border ${selectedGroupList 
+          ? 'bg-purple-50 border-purple-200' 
+          : 'bg-blue-50 border-blue-100'
+        }`}>
+          <Users className={`h-4 w-4 ${selectedGroupList ? 'text-purple-500' : 'text-blue-500'}`} />
+          <span className={`text-sm ${selectedGroupList ? 'text-purple-800' : 'text-blue-800'}`}>
+            {selectedGroupList ? (
+              <>
+                Mostrando {filteredActivos.length} empleados activos de {filteredActivos.length + filteredInactivos.length} totales del grupo <strong>"{selectedGroupList}"</strong>.
+                <br />
+                <strong>Período:</strong> {cardData.totalWorkingDays} días | <strong>Vista:</strong> Grupo específico
+              </> 
+            ) : (
+              <>
+                Mostrando {cardData.activeEmployees} empleados activos de {cardData.totalEmployees} totales, 
+                distribuidos en {cardData.activeGroups} grupos activos de {cardData.totalGroups} grupos totales del hospital.
+                <br />
+                <strong>Período:</strong> {cardData.totalWorkingDays} días | <strong>Promedio:</strong> {selectedGroupList ? groupSpecificMetrics.averageWorkingDays : cardData.averageWorkingDays} días trabajados por empleado activo
+              </>
+            )}
+          </span>
+        </div>
+      )}
 
       {/* Resumen simplificado de empleados */}
       <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200 mb-8">
@@ -1134,8 +1132,41 @@ export default function GrupoDashboard({
           </div>
         </div>
 
-        {/* Cards de resumen con información de actividad */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Mensaje cuando no hay filtros configurados para las métricas */}
+        {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) ? (
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-8 text-center">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Users className="h-8 w-8 text-blue-500" />
+            </div>
+            <h4 className="text-lg font-semibold text-gray-800 mb-2">
+              Selecciona un hospital y período para ver las métricas
+            </h4>
+            <p className="text-gray-600 mb-4">
+              Las estadísticas de empleados, actividad y horas trabajadas se mostrarán aquí una vez que configures los filtros necesarios.
+            </p>
+            <div className="grid grid-cols-2 gap-3 text-sm text-blue-700 max-w-md mx-auto">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span>Empleados activos/inactivos</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span>Estadísticas del período</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                <span>Horas en geocerca</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                <span>Tiempo de descanso</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Cards de resumen con información de actividad */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Empleados activos */}
           <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-6">
             <div className="flex items-center justify-between mb-4">
@@ -1166,19 +1197,23 @@ export default function GrupoDashboard({
               <div className="grid grid-cols-2 gap-1 text-xs text-green-700">
                 <div className="flex items-center gap-1">
                   <span>🟢</span>
-                  <span>Muy activo (80%+)</span>
+                  <span className="text-green-600 font-medium">Muy activo</span>
+                  <span className="text-gray-500">(80%+ del período)</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span>🟡</span>
-                  <span>Activo (50-79%)</span>
+                  <span className="text-yellow-600 font-medium">Activo</span>
+                  <span className="text-gray-500">(50-79% del período)</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span>🟠</span>
-                  <span>Poco activo (20-49%)</span>
+                  <span className="text-orange-600 font-medium">Poco activo</span>
+                  <span className="text-gray-500">(20-49% del período)</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span>🔴</span>
-                  <span>Esporádico (&lt;20%)</span>
+                  <span className="text-red-600 font-medium">Esporádico</span>
+                  <span className="text-gray-500">(&lt;20% del período)</span>
                 </div>
               </div>
             </div>
@@ -1540,57 +1575,94 @@ export default function GrupoDashboard({
             </div>
           </div>
         )}
-      </div>
-
-      {/* Gráfica comparativa activos/inactivos por grupo */}
-      <div className="bg-white rounded-2xl shadow-md p-6 mb-8 border border-gray-200">
-        <div className="flex items-center gap-2 mb-4">
-          <h3 className="text-lg font-semibold text-gray-800">Comparación Activos vs Inactivos por Grupo</h3>
-          <div className="relative group">
-            <div className="w-4 h-4 bg-gray-400 rounded-full flex items-center justify-center cursor-help">
-              <span className="text-white text-xs font-bold">?</span>
-            </div>
-            <div className="absolute left-6 top-0 bg-gray-800 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 w-64 pointer-events-none">
-              {chartTooltips.comparacion}
-            </div>
-          </div>
-        </div>
-        {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) ? (
-          <div className="text-center text-gray-500 py-16 text-lg">
-            Configura los filtros de hospital y período para visualizar el análisis de grupos.
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={stackedGroupData} margin={{ top: 20, right: 30, left: 0, bottom: 0}}> 
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis 
-                dataKey="grupo" 
-                tick={{ fontSize: 11 }}
-                axisLine={{ stroke: '#e0e0e0' }}
-                tickFormatter={(value) => value.length > 15 ? `${value.substring(0, 15)}...` : value}
-              />
-              <YAxis 
-                tick={{ fontSize: 12 }}
-                axisLine={{ stroke: '#e0e0e0' }}
-              />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#fefefe', 
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-                }}
-              />
-              <Legend />
-              <Bar dataKey="Activos" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="Inactivos" stackId="a" fill="#f87171" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          </>
         )}
       </div>
 
-      {/* Gráficas de análisis de grupos */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
+      {/* Mensaje general de configuración de filtros para gráficos */}
+      {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) && (
+        <div className="bg-white rounded-2xl shadow-md p-10 mb-8 border border-gray-200">
+          <div className="text-center">
+            <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Users className="h-10 w-10 text-blue-500" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-800 mb-3">
+              Configura los filtros para visualizar los análisis
+            </h3>
+            <p className="text-gray-600 mb-4 max-w-md mx-auto">
+              Selecciona un hospital y un período de fechas para acceder a todos los gráficos y estadísticas de análisis de grupos.
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-lg mx-auto">
+              <h4 className="text-sm font-semibold text-blue-800 mb-2">Análisis disponibles:</h4>
+              <div className="grid grid-cols-2 gap-2 text-sm text-blue-700">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <span>Comparación activos/inactivos</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>Distribución por grupos</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                  <span>Promedio de actividad</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                  <span>Ranking y horas trabajadas</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Gráficos - Solo se muestran cuando los filtros están configurados */}
+      {filters.id_hospital && tempDateRange.startDate && tempDateRange.endDate && (
+        <>
+          {/* Gráfica comparativa activos/inactivos por grupo */}
+          <div className="bg-white rounded-2xl shadow-md p-6 mb-8 border border-gray-200">
+            <div className="flex items-center gap-2 mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">Comparación Activos vs Inactivos por Grupo</h3>
+              <div className="relative group">
+                <div className="w-4 h-4 bg-gray-400 rounded-full flex items-center justify-center cursor-help">
+                  <span className="text-white text-xs font-bold">?</span>
+                </div>
+                <div className="absolute left-6 top-0 bg-gray-800 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 w-64 pointer-events-none">
+                  {chartTooltips.comparacion}
+                </div>
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={stackedGroupData} margin={{ top: 20, right: 30, left: 0, bottom: 0}}> 
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis 
+                  dataKey="grupo" 
+                  tick={{ fontSize: 11 }}
+                  axisLine={{ stroke: '#e0e0e0' }}
+                  tickFormatter={(value) => value.length > 15 ? `${value.substring(0, 15)}...` : value}
+                />
+                <YAxis 
+                  tick={{ fontSize: 12 }}
+                  axisLine={{ stroke: '#e0e0e0' }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#fefefe', 
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                  }}
+                />
+                <Legend />
+                <Bar dataKey="Activos" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="Inactivos" stackId="a" fill="#f87171" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Gráficas de análisis de grupos */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
         {/* 1. Distribución de empleados por grupo (Pie) */}
         <div className="bg-white rounded-2xl shadow-md p-6 flex flex-col items-center min-h-[420px]">
           <div className="flex items-center gap-2 mb-4">
@@ -1604,12 +1676,7 @@ export default function GrupoDashboard({
               </div>
             </div>
           </div>
-          {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) ? (
-            <div className="text-center text-gray-500 py-16 text-lg w-full">
-              Configura los filtros de hospital y período para visualizar la distribución por grupos.
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={280} minWidth={200} minHeight={200}>
+          <ResponsiveContainer width="100%" height={280} minWidth={200} minHeight={200}>
               <PieChart>
                 <Pie
                   data={groupDistributionData}
@@ -1649,7 +1716,6 @@ export default function GrupoDashboard({
                 />
               </PieChart>
             </ResponsiveContainer>
-          )}
           {/* Tooltip explicativo */}
           <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100">
             <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -1672,12 +1738,7 @@ export default function GrupoDashboard({
               </div>
             </div>
           </div>
-          {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) ? (
-            <div className="text-center text-gray-500 py-16 text-lg w-full">
-              Configura los filtros de hospital y período para visualizar el promedio de actividad.
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={250}>
               <LineChart
                 data={stackedGroupData.map((g, index) => {
                   // Buscar el grupo en groupHoursData para obtener horas dentro y fuera
@@ -1724,7 +1785,6 @@ export default function GrupoDashboard({
                 />
               </LineChart>
             </ResponsiveContainer>
-          )}
           {/* Leyenda de grupos mejorada */}
           <div className="mt-4 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl border border-gray-200">
             <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
@@ -1758,12 +1818,7 @@ export default function GrupoDashboard({
               </div>
             </div>
           </div>
-          {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) ? (
-            <div className="text-center text-gray-500 py-16 text-lg w-full">
-              Configura los filtros de hospital y período para visualizar el porcentaje de empleados activos.
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={250}>
               <AreaChart
                 data={stackedGroupData.map((g, index) => ({ 
                   ...g, 
@@ -1815,7 +1870,6 @@ export default function GrupoDashboard({
                 />
               </AreaChart>
             </ResponsiveContainer>
-          )}
           {/* Leyenda de grupos mejorada */}
           <div className="mt-4 p-4 bg-gradient-to-r from-gray-50 to-green-50 rounded-xl border border-gray-200">
             <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
@@ -1847,12 +1901,7 @@ export default function GrupoDashboard({
               </div>
             </div>
           </div>
-          {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) ? (
-            <div className="text-center text-gray-500 py-16 text-lg w-full">
-              Configura los filtros de hospital y período para visualizar el ranking de grupos más activos.
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={280}>
+          <ResponsiveContainer width="100%" height={280}>
               <BarChart
                 data={[...stackedGroupData].sort((a, b) => b.Activos - a.Activos).slice(0, 8)}
                 margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
@@ -1895,20 +1944,14 @@ export default function GrupoDashboard({
                 </defs>
               </BarChart>
             </ResponsiveContainer>
-          )}
         </div>
       </div>
-      {/* Nueva gráfica: Grupos con más horas trabajadas */}
-      <div className="bg-white rounded-2xl shadow-md p-6 mb-8 border border-gray-200">
+          {/* Nueva gráfica: Grupos con más horas trabajadas */}
+          <div className="bg-white rounded-2xl shadow-md p-6 mb-8 border border-gray-200">
         <div className="flex items-center gap-2 mb-4">
           <h3 className="text-lg font-semibold text-gray-800">Top grupos con más horas trabajadas (en geocerca, fuera y descanso)</h3>
         </div>
-        {(!filters.id_hospital || !tempDateRange.startDate || !tempDateRange.endDate) ? (
-          <div className="text-center text-gray-500 py-16 text-lg w-full">
-            Configura los filtros de hospital y período para visualizar las horas trabajadas por grupo.
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height={300}>
+        <ResponsiveContainer width="100%" height={300}>
             <BarChart data={[...groupHoursData].sort((a, b) => (b.horas + b.horasFuera + b.horasDescanso) - (a.horas + a.horasFuera + a.horasDescanso)).slice(0, 8)} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="grupo" tick={{ fontSize: 11 }} axisLine={{ stroke: '#e0e0e0' }} tickFormatter={(value) => value.length > 15 ? `${value.substring(0, 15)}...` : value} />
@@ -1949,8 +1992,9 @@ export default function GrupoDashboard({
               <Bar dataKey="horasDescanso" fill="#eab308" radius={[4, 4, 0, 0]} name="horasDescanso" label={({ value }) => formatHorasMinutos(value)} />
             </BarChart>
           </ResponsiveContainer>
-        )}
       </div>
+        </>
+      )}
     </div>
   );
 }

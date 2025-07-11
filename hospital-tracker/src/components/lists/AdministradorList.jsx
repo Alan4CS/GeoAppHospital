@@ -129,12 +129,24 @@ const AdministradorList = ({
       }
 
       setModalAbierto(false)
+      
+      // Mostrar notificación de éxito
+      mostrarNotificacion(
+        "exito",
+        "¡Administrador actualizado!",
+        `${formData.nombre} ${formData.ap_paterno} ha sido actualizado correctamente.`
+      )
+      
       if (onEditar) {
         onEditar(adminEditando)
       }
     } catch (error) {
       console.error("Error al actualizar:", error)
-      alert("Error al actualizar el administrador")
+      mostrarNotificacion(
+        "error",
+        "Error al actualizar administrador",
+        `No se pudo actualizar el administrador: ${error.message}`
+      )
     }
   }
 
@@ -195,7 +207,7 @@ const AdministradorList = ({
     setAdminEliminar(admin)
     setModalEliminarAbierto(true)
     setBotonEliminarHabilitado(false)
-    setTiempoRestante(5)
+    setTiempoRestante(0)
 
     const intervalo = setInterval(() => {
       setTiempoRestante((prevTiempo) => {
@@ -754,8 +766,8 @@ const AdministradorList = ({
           <div className="px-6 py-16 text-center">
             <Users className="h-8 w-8 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500">
-              {busquedaLocal?.trim() 
-                ? `No se encontraron administradores que coincidan con "${busquedaLocal.trim()}"`
+              {busquedaAdmin?.trim() 
+                ? `No se encontraron administradores que coincidan con "${busquedaAdmin.trim()}"`
                 : (tipoAdminFiltro || estadoAdminFiltro)
                   ? "No hay administradores que coincidan con los filtros aplicados"
                   : "No hay administradores registrados"}

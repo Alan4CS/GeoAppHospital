@@ -860,20 +860,44 @@ export default function EnhancedMunicipalDashboard() {
 
         {/* Mensaje informativo cuando no se han seleccionado filtros */}
         {!filters.id_estado || !filters.id_municipio ? (
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 mb-8">
-              <div className="flex items-center justify-center space-x-3">
-                <MapPin className="h-8 w-8 text-blue-500" />
-                <div>
-                  <h3 className="text-lg font-semibold text-blue-800">Selecciona Estado y Municipio</h3>
-                  <p className="text-blue-600 mt-1">
-                    Para visualizar los datos del dashboard, primero selecciona un estado y un municipio en los filtros de arriba.
-                  </p>
+          <div className="bg-white rounded-2xl shadow-md p-10 mb-8 border border-gray-200">
+            <div className="text-center">
+              <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <MapPin className="h-10 w-10 text-blue-500" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-800 mb-3">
+                Configura los filtros para ver el análisis municipal
+              </h3>
+              <p className="text-gray-600 mb-4 max-w-md mx-auto">
+                Selecciona un estado y municipio para acceder a las estadísticas detalladas de hospitales, 
+                empleados y métricas de rendimiento municipal.
+              </p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-lg mx-auto">
+                <h4 className="text-sm font-semibold text-blue-800 mb-2">Análisis disponibles:</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm text-blue-700">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                    <span>KPIs municipales</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <span>Métricas por hospital</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                    <span>Mapa interactivo</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                    <span>Gráficos comparativos</span>
+                  </div>
                 </div>
               </div>
             </div>
-          ) : (
-            <>
-              {/* KPI Cards */}
+          </div>
+        ) : (
+          <>
+            {/* KPI Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
             {/* Hospitales Card */}
             <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg p-4 text-white">
