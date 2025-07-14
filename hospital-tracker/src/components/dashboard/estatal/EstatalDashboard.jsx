@@ -571,13 +571,13 @@ export default function EstatalDashboard() {
     try {
       const estatalData = {
         nombre_estado: stateCodeToName[selectedState] || selectedState,
-        totalMunicipios: horasPorMunicipioData.length || 0
+        totalMunicipios: municipalityData.length || 0
       };
 
       const estatalStats = {
         totalHospitales,
         totalEmpleados: totalPersonal,
-        totalMunicipios: horasPorMunicipioData.length || 0,
+        totalMunicipios: municipalityData.length || 0,
         totalHoras,
         totalSalidas,
         eficienciaPromedio: totalSalidas > 0 ? Math.round((totalHoras / (totalHoras + totalSalidas)) * 100) : 0
@@ -585,13 +585,14 @@ export default function EstatalDashboard() {
 
       // Debug logs para verificar los datos
       console.log('[PDF Debug] EstatalStats:', estatalStats);
-      console.log('[PDF Debug] Municipios data:', horasPorMunicipioData);
+      console.log('[PDF Debug] Municipios data (completos):', municipalityData);
+      console.log('[PDF Debug] Horas por municipio:', horasPorMunicipioData);
       console.log('[PDF Debug] Hospitales data:', rankingHospitalesData);
       console.log('[PDF Debug] EstatalData:', estatalData);
 
       await generarReporteEstatalPDF({
         estatalData,
-        municipios: horasPorMunicipioData,
+        municipios: municipalityData,
         hospitales: rankingHospitalesData,
         estatalStats,
         startDate: dateRange.startDate,
@@ -763,7 +764,7 @@ export default function EstatalDashboard() {
     fetchGraficas();
   }, [selectedState, dateRange]);
 
-  // Efecto para cargar la distribución municipal
+  // Efecto para cargar la distribución municipal (MEJORADO)
   useEffect(() => {
     async function fetchMunicipalityData() {
       if (!selectedState || !dateRange.startDate || !dateRange.endDate) return;
@@ -772,9 +773,21 @@ export default function EstatalDashboard() {
       try {
         const base = 'https://geoapphospital-b0yr.onrender.com/api/dashboards/estatal';
         const params = `?id_estado=${id_estado}&fechaInicio=${dateRange.startDate}&fechaFin=${dateRange.endDate}`;
-        const res = await fetch(`${base}/distribucion-municipal${params}`);
-        if (!res.ok) throw new Error('Error al obtener distribución municipal');
+        
+        // Usar el nuevo endpoint completo para datos municipales
+        const res = await fetch(`${base}/distribucion-municipal-completa${params}`);
+        if (!res.ok) {
+          // Fallback al endpoint original si el nuevo no está disponible
+          console.warn('Endpoint completo no disponible, usando endpoint original');
+          const resFallback = await fetch(`${base}/distribucion-municipal${params}`);
+          if (!resFallback.ok) throw new Error('Error al obtener distribución municipal');
+          const data = await resFallback.json();
+          setMunicipalityData(data);
+          return;
+        }
+        
         const data = await res.json();
+        console.log('[Dashboard] Datos municipales mejorados recibidos:', data);
         setMunicipalityData(data);
       } catch (err) {
         setMunicipalityData([]);
@@ -1079,7 +1092,7 @@ export default function EstatalDashboard() {
                 </div>
                 <TrendingUp className="h-4 w-4 text-white/70" />
               </div>
-              <p className="text-sm text-white/70">Registros de Entrada</p>
+              <p className="text-sm text-white/70">Horas Trabajadas</p>
               <p className="text-2xl font-bold">{totalHoras}</p>
             </div>
           </div>

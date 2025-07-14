@@ -349,7 +349,7 @@ router.get('/estatal/eventos-geocerca', async (req, res) => {
   }
 });
 
-// 3. Ranking de Hospitales por Salidas
+// 3. Ranking de Hospitales por Salidas (MEJORADO - incluye empleados, horas y métricas)
 // GET /api/dashboards/estadual/ranking-hospitales?id_estado=XX&fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
 router.get('/estatal/ranking-hospitales', async (req, res) => {
   try {
@@ -357,21 +357,40 @@ router.get('/estatal/ranking-hospitales', async (req, res) => {
     if (!id_estado || !fechaInicio || !fechaFin) {
       return res.status(400).json({ error: 'id_estado, fechaInicio y fechaFin son obligatorios' });
     }
+    
     const query = `
       SELECT 
         h.nombre_hospital,
         m.nombre_municipio as municipio,
-        SUM(CASE WHEN r.tipo_registro = 0 THEN 1 ELSE 0 END) as salidas
-      FROM registro_ubicaciones r
-      JOIN user_data u ON r.id_user = u.id_user
-      JOIN hospitals h ON u.id_hospital = h.id_hospital
+        COUNT(DISTINCT u.id_user) as empleados,
+        SUM(CASE WHEN r.evento = 0 THEN 1 ELSE 0 END) as salidas,
+        SUM(CASE WHEN r.tipo_registro = 1 THEN 1 ELSE 0 END) as horas_trabajadas,
+        COUNT(r.id_registro) as total_registros
+      FROM hospitals h
       JOIN municipios m ON h.id_municipio = m.id_municipio
-      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
-      GROUP BY h.nombre_hospital, m.nombre_municipio
-      ORDER BY salidas DESC
+      LEFT JOIN user_data u ON u.id_hospital = h.id_hospital AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
+      LEFT JOIN registro_ubicaciones r ON u.id_user = r.id_user AND r.fecha_hora BETWEEN $2 AND $3
+      WHERE m.id_estado = $1
+      GROUP BY h.id_hospital, h.nombre_hospital, m.nombre_municipio
+      HAVING COUNT(DISTINCT u.id_user) > 0 OR SUM(CASE WHEN r.evento = 0 THEN 1 ELSE 0 END) > 0
+      ORDER BY salidas DESC, empleados DESC
     `;
+    
     const result = await pool.query(query, [id_estado, fechaInicio, fechaFin]);
-    res.json(result.rows);
+    
+    // Procesar resultados para agregar métricas calculadas
+    const hospitalesConMetricas = result.rows.map(hospital => ({
+      ...hospital,
+      empleados: parseInt(hospital.empleados) || 0,
+      salidas: parseInt(hospital.salidas) || 0,
+      horas_trabajadas: parseInt(hospital.horas_trabajadas) || 0,
+      total_registros: parseInt(hospital.total_registros) || 0,
+      eficiencia: hospital.empleados > 0 ? parseFloat((hospital.salidas / hospital.empleados).toFixed(2)) : 0,
+      actividad_total: parseInt(hospital.salidas || 0) + parseInt(hospital.horas_trabajadas || 0),
+      ratio_salidas_horas: hospital.horas_trabajadas > 0 ? parseFloat((hospital.salidas / hospital.horas_trabajadas).toFixed(2)) : 0
+    }));
+    
+    res.json(hospitalesConMetricas);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al obtener ranking de hospitales' });
@@ -466,6 +485,70 @@ router.get('/estatal/distribucion-municipal', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al obtener la distribución municipal' });
+  }
+});
+
+// 5.1. Distribución Municipal OPTIMIZADA (para PDF y análisis avanzados)
+// GET /api/dashboards/estatal/distribucion-municipal-completa?id_estado=XX&fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
+router.get('/estatal/distribucion-municipal-completa', async (req, res) => {
+  try {
+    const { id_estado, fechaInicio, fechaFin } = req.query;
+    if (!id_estado || !fechaInicio || !fechaFin) {
+      return res.status(400).json({ error: 'id_estado, fechaInicio y fechaFin son obligatorios' });
+    }
+    
+    // Query optimizada que obtiene todos los datos en una sola consulta
+    const query = `
+      SELECT 
+        m.nombre_municipio as municipio,
+        COUNT(DISTINCT h.id_hospital) as hospitals,
+        COUNT(DISTINCT u.id_user) as employees,
+        SUM(CASE WHEN r.evento = 0 THEN 1 ELSE 0 END) as geofenceExits,
+        SUM(CASE WHEN r.tipo_registro = 1 THEN 1 ELSE 0 END) as hoursWorked,
+        COUNT(r.id_registro) as totalRegistros,
+        AVG(CASE WHEN r.evento = 0 THEN 1.0 ELSE 0.0 END) as promedioSalidas,
+        AVG(CASE WHEN r.tipo_registro = 1 THEN 1.0 ELSE 0.0 END) as promedioHoras
+      FROM municipios m
+      LEFT JOIN hospitals h ON h.id_municipio = m.id_municipio
+      LEFT JOIN user_data u ON u.id_municipio = m.id_municipio AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
+      LEFT JOIN registro_ubicaciones r ON u.id_user = r.id_user AND r.fecha_hora BETWEEN $2 AND $3
+      WHERE m.id_estado = $1
+      GROUP BY m.id_municipio, m.nombre_municipio
+      HAVING COUNT(DISTINCT u.id_user) > 0 OR SUM(CASE WHEN r.evento = 0 THEN 1 ELSE 0 END) > 0 OR SUM(CASE WHEN r.tipo_registro = 1 THEN 1 ELSE 0 END) > 0
+      ORDER BY (SUM(CASE WHEN r.evento = 0 THEN 1 ELSE 0 END) + SUM(CASE WHEN r.tipo_registro = 1 THEN 1 ELSE 0 END)) DESC
+    `;
+    
+    const result = await pool.query(query, [id_estado, fechaInicio, fechaFin]);
+    
+    // Procesar resultados para agregar métricas calculadas
+    const municipiosConMetricas = result.rows.map(municipio => {
+      const hospitals = parseInt(municipio.hospitals) || 0;
+      const employees = parseInt(municipio.employees) || 0;
+      const geofenceExits = parseInt(municipio.geofenceexits) || 0;
+      const hoursWorked = parseInt(municipio.hoursworked) || 0;
+      const totalRegistros = parseInt(municipio.totalregistros) || 0;
+      
+      return {
+        municipio: municipio.municipio,
+        hospitals,
+        employees,
+        geofenceExits,
+        hoursWorked,
+        totalRegistros,
+        // Métricas calculadas
+        actividadTotal: geofenceExits + hoursWorked,
+        eficiencia: employees > 0 ? parseFloat((hoursWorked / employees).toFixed(2)) : 0,
+        indiceActividad: hospitals > 0 ? parseFloat((geofenceExits / hospitals).toFixed(2)) : 0,
+        ratioSalidasHoras: hoursWorked > 0 ? parseFloat((geofenceExits / hoursWorked).toFixed(2)) : 0,
+        densidadHospitalaria: hospitals,
+        productividadEmpleado: employees > 0 ? parseFloat(((geofenceExits + hoursWorked) / employees).toFixed(2)) : 0
+      };
+    });
+    
+    res.json(municipiosConMetricas);
+  } catch (error) {
+    console.error('Error en distribucion-municipal-completa:', error);
+    res.status(500).json({ error: 'Error al obtener la distribución municipal completa' });
   }
 });
 

@@ -131,6 +131,45 @@ const styles = StyleSheet.create({
     fontSize: 9,
     marginBottom: 2,
     color: '#495057',
+    lineHeight: 1.4,
+  },
+  recommendationsContainer: {
+    backgroundColor: '#e3f2fd',
+    padding: 10,
+    borderRadius: 6,
+    border: '2px solid #1976d2',
+    marginTop: 10,
+  },
+  recommendationTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#1976d2',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  recommendationText: {
+    fontSize: 9,
+    marginBottom: 3,
+    color: '#0d47a1',
+    lineHeight: 1.3,
+  },
+  alertContainer: {
+    backgroundColor: '#fff3e0',
+    padding: 8,
+    borderRadius: 4,
+    border: '1px solid #ff9800',
+    marginTop: 8,
+  },
+  alertTitle: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#e65100',
+    marginBottom: 4,
+  },
+  alertText: {
+    fontSize: 9,
+    color: '#bf360c',
+    lineHeight: 1.3,
   },
 });
 
@@ -152,171 +191,522 @@ const Header = ({ estatalData, startDate, endDate }) => (
   </View>
 );
 
-const SummarySection = ({ estatalStats }) => (
-  <View style={styles.section}>
-    <Text style={styles.sectionTitle}>Resumen Ejecutivo Estatal</Text>
-    <View style={styles.statsGrid}>
-      <View style={styles.statCard}>
-        <Text style={styles.statLabel}>Total Hospitales</Text>
-        <Text style={styles.statValue}>{estatalStats?.totalHospitales || 0}</Text>
-      </View>
-      <View style={styles.statCard}>
-        <Text style={styles.statLabel}>Total Empleados</Text>
-        <Text style={styles.statValue}>{estatalStats?.totalEmpleados || 0}</Text>
-      </View>
-      <View style={styles.statCard}>
-        <Text style={styles.statLabel}>Total Municipios</Text>
-        <Text style={styles.statValue}>{estatalStats?.totalMunicipios || 0}</Text>
-      </View>
-      <View style={styles.statCard}>
-        <Text style={styles.statLabel}>Registros de Entrada</Text>
-        <Text style={styles.statValue}>{estatalStats?.totalHoras || 0}</Text>
-      </View>
-      <View style={styles.statCard}>
-        <Text style={styles.statLabel}>Salidas de Geocerca</Text>
-        <Text style={styles.statValue}>{estatalStats?.totalSalidas || 0}</Text>
-      </View>
-      <View style={styles.statCard}>
-        <Text style={styles.statLabel}>Eficiencia Promedio</Text>
-        <Text style={styles.statValue}>{estatalStats?.eficienciaPromedio || 0}%</Text>
+const SummarySection = ({ estatalStats, municipios }) => {
+  // Calcular métricas avanzadas
+  const totalHospitales = estatalStats?.totalHospitales || 0;
+  const totalEmpleados = estatalStats?.totalEmpleados || 0;
+  const totalMunicipios = estatalStats?.totalMunicipios || 0;
+  const totalHoras = estatalStats?.totalHoras || 0;
+  const totalSalidas = estatalStats?.totalSalidas || 0;
+  
+  const promedioEmpleadosPorHospital = totalHospitales > 0 ? Math.round(totalEmpleados / totalHospitales) : 0;
+  const promedioHospitalesPorMunicipio = totalMunicipios > 0 ? Math.round(totalHospitales / totalMunicipios) : 0;
+  const promedioHorasPorEmpleado = totalEmpleados > 0 ? Math.round(totalHoras / totalEmpleados) : 0;
+  const ratioSalidasHoras = totalHoras > 0 ? ((totalSalidas / totalHoras) * 100).toFixed(1) : 0;
+  
+  // Métricas de eficiencia operativa (corregidas)
+  const eficienciaOperativa = totalHoras > 0 && totalSalidas > 0 ? 
+    ((totalSalidas / totalHoras) * 100).toFixed(1) : '0.0';
+  const densidadEmpleados = totalMunicipios > 0 ? (totalEmpleados / totalMunicipios).toFixed(1) : 0;
+  const tasaCobertura = totalMunicipios > 0 ? ((municipios?.length || 0) / totalMunicipios * 100).toFixed(1) : 0;
+  
+  // Índice de retención (horas trabajadas vs salidas - mayor es mejor)
+  const indiceRetencion = totalSalidas > 0 ? (totalHoras / totalSalidas).toFixed(1) : 'N/A';
+  
+  // Productividad general
+  const productividadGeneral = totalEmpleados > 0 ? 
+    ((totalHoras + totalSalidas) / totalEmpleados).toFixed(1) : '0.0';
+  
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Resumen Ejecutivo Estatal</Text>
+      <View style={styles.statsGrid}>
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Total Hospitales</Text>
+          <Text style={styles.statValue}>{totalHospitales}</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Total Empleados</Text>
+          <Text style={styles.statValue}>{totalEmpleados}</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Municipios Activos</Text>
+          <Text style={styles.statValue}>{totalMunicipios}</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Total Horas Trabajadas</Text>
+          <Text style={styles.statValue}>{totalHoras.toLocaleString()}</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Salidas de Geocerca</Text>
+          <Text style={styles.statValue}>{totalSalidas.toLocaleString()}</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Ratio Salidas/Horas</Text>
+          <Text style={styles.statValue}>{ratioSalidasHoras}%</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Empleados por Hospital</Text>
+          <Text style={styles.statValue}>{promedioEmpleadosPorHospital}</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Hospitales por Municipio</Text>
+          <Text style={styles.statValue}>{promedioHospitalesPorMunicipio}</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Tasa de Movilidad</Text>
+          <Text style={styles.statValue}>{eficienciaOperativa}%</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Densidad de Personal</Text>
+          <Text style={styles.statValue}>{densidadEmpleados} emp/mun</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Cobertura Municipal</Text>
+          <Text style={styles.statValue}>{tasaCobertura}%</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Índice de Retención</Text>
+          <Text style={styles.statValue}>{indiceRetencion} hrs/salida</Text>
+        </View>
       </View>
     </View>
-  </View>
-);
+  );
+};
 
-const MunicipalTable = ({ municipios }) => (
-  <View style={styles.section}>
-    <Text style={styles.sectionTitle}>Detalle por Municipios</Text>
-    <View style={styles.table}>
-      <View style={styles.tableHeader}>
-        <Text style={[styles.tableCellHeader, { flex: 3 }]}>Municipio</Text>
-        <Text style={[styles.tableCellHeader, { flex: 1 }]}>Hospitales</Text>
-        <Text style={[styles.tableCellHeader, { flex: 1 }]}>Empleados</Text>
-        <Text style={[styles.tableCellHeader, { flex: 1 }]}>Entradas</Text>
-        <Text style={[styles.tableCellHeader, { flex: 1 }]}>Salidas</Text>
-      </View>
-      {municipios?.slice(0, 20).map((municipio, index) => (
-        <View key={index} style={[styles.tableRow, index % 2 === 1 && { backgroundColor: '#f8f9fa' }]}>
-          <Text style={[styles.tableCell, { flex: 3 }]}>
-            {municipio.municipio || municipio.nombre_municipio || municipio.municipality || 'N/A'}
-          </Text>
-          <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>
-            {municipio.hospitals || municipio.hospitales || municipio.totalHospitales || 0}
-          </Text>
-          <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>
-            {municipio.employees || municipio.empleados || municipio.totalEmpleados || 0}
-          </Text>
-          <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>
-            {municipio.hoursWorked || municipio.horas || municipio.totalHoras || municipio.hours || 0}
-          </Text>
-          <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>
-            {municipio.geofenceExits || municipio.salidas || municipio.totalSalidas || municipio.exits || 0}
-          </Text>
-        </View>
-      ))}
-      {(!municipios || municipios.length === 0) && (
-        <View style={styles.tableRow}>
-          <Text style={[styles.tableCell, { textAlign: 'center', fontStyle: 'italic', color: '#6c757d', flex: 1 }]}>
-            No hay datos de municipios para mostrar
-          </Text>
-        </View>
-      )}
-    </View>
-  </View>
-);
+const MunicipalTable = ({ municipios }) => {
+  // Los datos del backend mejorado ya incluyen métricas calculadas
+  const municipiosOrdenados = municipios?.map(m => {
+    const horas = m.hoursWorked || m.horas || 0;
+    const salidas = m.geofenceExits || m.salidas || 0;
+    const hospitals = m.hospitals || m.hospitales || 0;
+    const employees = m.employees || m.empleados || 0;
+    
+    return {
+      ...m,
+      // Usar actividad total del backend o calcular
+      actividadTotal: m.actividadTotal || (horas + salidas),
+      // Usar eficiencia del backend o calcular
+      eficiencia: m.eficiencia || (employees > 0 ? (horas / employees).toFixed(1) : 0),
+      // Usar índice de actividad del backend o calcular
+      indiceActividad: m.indiceActividad || (hospitals > 0 ? (salidas / hospitals).toFixed(1) : 0)
+    };
+  }).sort((a, b) => b.actividadTotal - a.actividadTotal) || [];
 
-const HospitalRankingTable = ({ hospitales }) => (
-  <View style={styles.section}>
-    <Text style={styles.sectionTitle}>Ranking de Hospitales por Salidas de Geocerca</Text>
-    <View style={styles.table}>
-      <View style={styles.tableHeader}>
-        <Text style={[styles.tableCellHeader, { flex: 1 }]}>Pos.</Text>
-        <Text style={[styles.tableCellHeader, { flex: 4 }]}>Hospital</Text>
-        <Text style={[styles.tableCellHeader, { flex: 2 }]}>Municipio</Text>
-        <Text style={[styles.tableCellHeader, { flex: 1 }]}>Salidas</Text>
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Análisis Municipal Detallado</Text>
+      <Text style={[styles.analysisText, { marginBottom: 8, fontStyle: 'italic' }]}>
+        Municipios ordenados por actividad total (horas trabajadas + salidas de geocerca). 
+        Métricas calculadas automáticamente por el sistema.
+      </Text>
+      <View style={styles.table}>
+        <View style={styles.tableHeader}>
+          <Text style={[styles.tableCellHeader, { flex: 0.6 }]}>Pos</Text>
+          <Text style={[styles.tableCellHeader, { flex: 2 }]}>Municipio</Text>
+          <Text style={[styles.tableCellHeader, { flex: 0.8 }]}>Hospitales</Text>
+          <Text style={[styles.tableCellHeader, { flex: 0.8 }]}>Empleados</Text>
+          <Text style={[styles.tableCellHeader, { flex: 1 }]}>Horas</Text>
+          <Text style={[styles.tableCellHeader, { flex: 1 }]}>Salidas</Text>
+          <Text style={[styles.tableCellHeader, { flex: 1 }]}>Efic.</Text>
+          <Text style={[styles.tableCellHeader, { flex: 1 }]}>Índice</Text>
+        </View>
+        {municipiosOrdenados.slice(0, 20).map((municipio, index) => {
+          const horas = municipio.hoursWorked || municipio.horas || 0;
+          const salidas = municipio.geofenceExits || municipio.salidas || 0;
+          const hospitals = municipio.hospitals || municipio.hospitales || 0;
+          const employees = municipio.employees || municipio.empleados || 0;
+          
+          return (
+            <View key={index} style={[styles.tableRow, index % 2 === 1 && { backgroundColor: '#f8f9fa' }]}>
+              <Text style={[styles.tableCell, { flex: 0.6, textAlign: 'center', fontWeight: 'bold' }]}>
+                {index + 1}
+              </Text>
+              <Text style={[styles.tableCell, { flex: 2, fontSize: 8 }]}>
+                {(municipio.municipio || municipio.nombre_municipio || municipio.municipality || 'N/A').substring(0, 20)}
+              </Text>
+              <Text style={[styles.tableCell, { flex: 0.8, textAlign: 'center' }]}>
+                {hospitals}
+              </Text>
+              <Text style={[styles.tableCell, { flex: 0.8, textAlign: 'center' }]}>
+                {employees}
+              </Text>
+              <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>
+                {horas.toLocaleString()}
+              </Text>
+              <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>
+                {salidas.toLocaleString()}
+              </Text>
+              <Text style={[styles.tableCell, { flex: 1, textAlign: 'center', fontWeight: 'bold' }]}>
+                {municipio.eficiencia}
+              </Text>
+              <Text style={[styles.tableCell, { flex: 1, textAlign: 'center', fontWeight: 'bold' }]}>
+                {municipio.indiceActividad}
+              </Text>
+            </View>
+          );
+        })}
+        {(!municipios || municipios.length === 0) && (
+          <View style={styles.tableRow}>
+            <Text style={[styles.tableCell, { textAlign: 'center', fontStyle: 'italic', color: '#6c757d', flex: 1 }]}>
+              No hay datos de municipios para mostrar
+            </Text>
+          </View>
+        )}
       </View>
-      {hospitales?.slice(0, 15).map((hospital, index) => (
-        <View key={index} style={[styles.tableRow, index % 2 === 1 && { backgroundColor: '#f8f9fa' }]}>
-          <Text style={[styles.tableCell, { flex: 1, textAlign: 'center', fontWeight: 'bold' }]}>{index + 1}</Text>
-          <Text style={[styles.tableCell, { flex: 4 }]}>
-            {hospital.nombre_hospital || hospital.hospital || hospital.name || 'Hospital sin nombre'}
-          </Text>
-          <Text style={[styles.tableCell, { flex: 2 }]}>
-            {hospital.municipio || hospital.nombre_municipio || hospital.municipality || 'Municipio no disponible'}
-          </Text>
-          <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>
-            {hospital.salidas || hospital.geofenceExits || hospital.exits || hospital.totalSalidas || 0}
-          </Text>
-        </View>
-      ))}
-      {(!hospitales || hospitales.length === 0) && (
-        <View style={styles.tableRow}>
-          <Text style={[styles.tableCell, { textAlign: 'center', fontStyle: 'italic', color: '#6c757d', flex: 1 }]}>
-            No hay datos de hospitales para mostrar
-          </Text>
-        </View>
-      )}
     </View>
-  </View>
-);
+  );
+};
+
+const HospitalRankingTable = ({ hospitales }) => {
+  // Calcular métricas adicionales para los hospitales
+  const hospitalesConMetricas = hospitales?.map((hospital, index) => {
+    // El backend mejorado ya incluye estos campos
+    const salidas = hospital.salidas || hospital.geofenceExits || hospital.exits || hospital.totalSalidas || 0;
+    const empleados = hospital.empleados || hospital.employees || 0;
+    const horasTrabajas = hospital.horas_trabajadas || hospital.hoursWorked || 0;
+    
+    // Usar eficiencia calculada del backend o calcular si no está disponible
+    const eficiencia = hospital.eficiencia || (empleados > 0 ? (salidas / empleados).toFixed(1) : 'N/D');
+    const categoria = salidas > 100 ? 'Alto' : salidas > 50 ? 'Medio' : 'Bajo';
+    
+    return {
+      ...hospital,
+      salidas,
+      empleados,
+      horasTrabajas,
+      eficiencia,
+      categoria,
+      posicion: index + 1
+    };
+  }).sort((a, b) => b.salidas - a.salidas) || [];
+
+  // Si no hay hospitales, mostrar mensaje
+  if (!hospitales || hospitales.length === 0) {
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Ranking de Hospitales por Desempeño</Text>
+        <View style={styles.alertContainer}>
+          <Text style={styles.alertTitle}>No hay datos de hospitales disponibles</Text>
+          <Text style={styles.alertText}>
+            No se encontraron registros de hospitales con actividad en el período seleccionado.
+            Esto puede indicar:
+          </Text>
+          <Text style={[styles.alertText, { marginLeft: 10 }]}>
+            • Los hospitales no están registrando actividad en el sistema
+          </Text>
+          <Text style={[styles.alertText, { marginLeft: 10 }]}>
+            • El personal no está utilizando correctamente las geocercas
+          </Text>
+          <Text style={[styles.alertText, { marginLeft: 10 }]}>
+            • Problemas de conectividad en las instituciones de salud
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Ranking de Hospitales por Desempeño</Text>
+      <Text style={[styles.analysisText, { marginBottom: 8, fontStyle: 'italic' }]}>
+        Top 15 hospitales ordenados por salidas de geocerca. Incluye empleados y eficiencia calculada.
+      </Text>
+      <View style={styles.table}>
+        <View style={styles.tableHeader}>
+          <Text style={[styles.tableCellHeader, { flex: 0.5 }]}>Pos</Text>
+          <Text style={[styles.tableCellHeader, { flex: 2.2 }]}>Hospital</Text>
+          <Text style={[styles.tableCellHeader, { flex: 1.3 }]}>Municipio</Text>
+          <Text style={[styles.tableCellHeader, { flex: 0.8 }]}>Empl.</Text>
+          <Text style={[styles.tableCellHeader, { flex: 0.8 }]}>Salidas</Text>
+          <Text style={[styles.tableCellHeader, { flex: 0.8 }]}>Efic.</Text>
+          <Text style={[styles.tableCellHeader, { flex: 0.6 }]}>Cat.</Text>
+        </View>
+      {hospitalesConMetricas.slice(0, 15).map((hospital, index) => {
+        const posicion = index + 1;
+        const categoriaColor = hospital.categoria === 'Alto' ? 'Alto' : hospital.categoria === 'Medio' ? 'Medio' : 'Bajo';
+        
+        return (
+          <View key={index} style={[styles.tableRow, index % 2 === 1 && { backgroundColor: '#f8f9fa' }]}>
+            <Text style={[styles.tableCell, { flex: 0.5, textAlign: 'center', fontSize: 11 }]}>
+              {posicion}
+            </Text>
+            <Text style={[styles.tableCell, { flex: 2.2, fontSize: 8 }]}>
+              {(hospital.nombre_hospital || hospital.hospital || hospital.name || 'Hospital sin nombre').substring(0, 25)}
+            </Text>
+            <Text style={[styles.tableCell, { flex: 1.3, fontSize: 8 }]}>
+              {(hospital.municipio || hospital.nombre_municipio || hospital.municipality || 'N/A').substring(0, 12)}
+            </Text>
+            <Text style={[styles.tableCell, { flex: 0.8, textAlign: 'center', fontSize: 9 }]}>
+              {hospital.empleados}
+            </Text>
+            <Text style={[styles.tableCell, { flex: 0.8, textAlign: 'center', fontWeight: 'bold', fontSize: 9 }]}>
+              {hospital.salidas.toLocaleString()}
+            </Text>
+            <Text style={[styles.tableCell, { flex: 0.8, textAlign: 'center', fontSize: 9 }]}>
+              {hospital.eficiencia}
+            </Text>
+            <Text style={[styles.tableCell, { flex: 0.6, textAlign: 'center', fontSize: 8 }]}>
+              {categoriaColor}
+            </Text>
+          </View>
+        );
+      })}
+      </View>
+    </View>
+  );
+};
 
 const AnalysisSection = ({ municipios, hospitales, estatalStats }) => {
   // Asegurar que tenemos datos para procesar
   const municipiosValidos = municipios?.filter(m => m && (m.municipio || m.nombre_municipio)) || [];
+  const hospitalesValidos = hospitales?.filter(h => h && (h.nombre_hospital || h.hospital)) || [];
+  
+  // Análisis de municipios
   const sortedMunicipios = municipiosValidos
     .sort((a, b) => {
       const salidasA = a.geofenceExits || a.salidas || a.totalSalidas || a.exits || 0;
       const salidasB = b.geofenceExits || b.salidas || b.totalSalidas || b.exits || 0;
       return salidasB - salidasA;
-    })
-    .slice(0, 5);
+    });
+  
+  const top5Municipios = sortedMunicipios.slice(0, 5);
+  const municipioMasActivo = top5Municipios[0];
+  const municipioMenosActivo = sortedMunicipios[sortedMunicipios.length - 1];
+  
+  // Análisis de hospitales
+  const hospitalMasActivo = hospitalesValidos.sort((a, b) => {
+    const salidasA = a.salidas || a.geofenceExits || 0;
+    const salidasB = b.salidas || b.geofenceExits || 0;
+    return salidasB - salidasA;
+  })[0];
+  
+  // Cálculos de rendimiento
+  const totalHospitales = estatalStats?.totalHospitales || 0;
+  const totalEmpleados = estatalStats?.totalEmpleados || 0;
+  const totalMunicipios = estatalStats?.totalMunicipios || 0;
+  const totalHoras = estatalStats?.totalHoras || 0;
+  const totalSalidas = estatalStats?.totalSalidas || 0;
+  
+  const promedioEmpleadosPorHospital = totalHospitales > 0 ? (totalEmpleados / totalHospitales).toFixed(1) : 0;
+  const promedioHorasPorEmpleado = totalEmpleados > 0 ? (totalHoras / totalEmpleados).toFixed(1) : 0;
+  const ratioSalidasPorEmpleado = totalEmpleados > 0 ? (totalSalidas / totalEmpleados).toFixed(2) : 0;
+  
+  // Distribución y variabilidad
+  const horasPorMunicipio = municipiosValidos.map(m => m.hoursWorked || m.horas || 0);
+  const salidasPorMunicipio = municipiosValidos.map(m => m.geofenceExits || m.salidas || 0);
+  
+  const promedioHorasMunicipal = horasPorMunicipio.length > 0 ? 
+    (horasPorMunicipio.reduce((a, b) => a + b, 0) / horasPorMunicipio.length).toFixed(0) : 0;
+  const promedioSalidasMunicipal = salidasPorMunicipio.length > 0 ? 
+    (salidasPorMunicipio.reduce((a, b) => a + b, 0) / salidasPorMunicipio.length).toFixed(0) : 0;
   
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Análisis de Rendimiento Estatal</Text>
+      <Text style={styles.sectionTitle}>Análisis de Rendimiento y Patrones Operativos</Text>
       
+      {/* Indicadores Clave de Rendimiento */}
       <View style={styles.analysisContainer}>
-        <Text style={styles.analysisSubtitle}>
-          Top 5 Municipios por Salidas de Geocerca:
+        <Text style={styles.analysisSubtitle}>Indicadores Clave de Rendimiento (KPIs)</Text>
+        <Text style={styles.analysisText}>
+          • Promedio de empleados por hospital: {promedioEmpleadosPorHospital} empleados
         </Text>
-        {sortedMunicipios.length > 0 ? (
-          sortedMunicipios.map((municipio, index) => {
+        <Text style={styles.analysisText}>
+          • Promedio de horas por empleado: {promedioHorasPorEmpleado} horas
+        </Text>
+        <Text style={styles.analysisText}>
+          • Ratio de salidas por empleado: {ratioSalidasPorEmpleado} salidas/empleado
+        </Text>
+        <Text style={styles.analysisText}>
+          • Cobertura hospitalaria: {totalHospitales} hospitales en {totalMunicipios} municipios
+        </Text>
+        <Text style={styles.analysisText}>
+          • Densidad promedio: {(totalHospitales / Math.max(totalMunicipios, 1)).toFixed(1)} hospitales/municipio
+        </Text>
+        <Text style={styles.analysisText}>
+          • Índice de retención de personal: {totalSalidas > 0 ? (totalHoras / totalSalidas).toFixed(1) : 'N/A'} horas por salida de geocerca
+        </Text>
+        <Text style={styles.analysisText}>
+          • Tasa de movilidad: {totalHoras > 0 && totalSalidas > 0 ? ((totalSalidas / totalHoras) * 100).toFixed(2) : '0.00'}% salidas por hora trabajada
+        </Text>
+      </View>
+      
+      {/* Análisis de Distribución y Variabilidad */}
+      <View style={[styles.analysisContainer, { marginTop: 8 }]}>
+        <Text style={styles.analysisSubtitle}>Análisis de Distribución y Variabilidad</Text>
+        <Text style={styles.analysisText}>
+          • Concentración de actividad: {((top5Municipios.reduce((acc, m) => acc + (m.geofenceExits || m.salidas || 0), 0) / Math.max(totalSalidas, 1)) * 100).toFixed(1)}% en top 5 municipios
+        </Text>
+        <Text style={styles.analysisText}>
+          • Municipios con datos activos: {municipiosValidos.length} de {totalMunicipios} total ({((municipiosValidos.length / Math.max(totalMunicipios, 1)) * 100).toFixed(1)}%)
+        </Text>
+        <Text style={styles.analysisText}>
+          • Promedio de horas por municipio: {promedioHorasMunicipal} horas
+        </Text>
+        <Text style={styles.analysisText}>
+          • Promedio de salidas por municipio: {promedioSalidasMunicipal} salidas
+        </Text>
+        <Text style={styles.analysisText}>
+          • Dispersión municipal: {municipiosValidos.length > 0 ? (Math.max(...salidasPorMunicipio) / Math.max(Math.min(...salidasPorMunicipio), 1)).toFixed(1) : 0}x diferencia máx/mín
+        </Text>
+      </View>
+
+      {/* Análisis de Hospitales */}
+      <View style={[styles.analysisContainer, { marginTop: 8 }]}>
+        <Text style={styles.analysisSubtitle}>Análisis de Desempeño Hospitalario</Text>
+        {hospitalMasActivo && (
+          <Text style={styles.analysisText}>
+            • Hospital líder: {(hospitalMasActivo.nombre_hospital || hospitalMasActivo.hospital || '').substring(0, 50)}...
+          </Text>
+        )}
+        <Text style={styles.analysisText}>
+          • Hospitales en ranking: {hospitalesValidos.length} instituciones
+        </Text>
+        <Text style={styles.analysisText}>
+          • Promedio de salidas por hospital: {totalHospitales > 0 ? (totalSalidas / totalHospitales).toFixed(0) : 0} salidas
+        </Text>
+        <Text style={styles.analysisText}>
+          • Tasa de actividad hospitalaria: {totalHospitales > 0 ? ((hospitalesValidos.length / totalHospitales) * 100).toFixed(1) : 0}%
+        </Text>
+        <Text style={styles.analysisText}>
+          • Índice de productividad: {totalEmpleados > 0 ? ((totalSalidas + totalHoras) / totalEmpleados).toFixed(1) : 0} actividades/empleado
+        </Text>
+      </View>
+
+      {/* Indicadores de Calidad Operativa */}
+      <View style={[styles.analysisContainer, { marginTop: 8 }]}>
+        <Text style={styles.analysisSubtitle}>Indicadores de Calidad Operativa</Text>
+        <Text style={styles.analysisText}>
+          • Ratio horas/salidas: {totalSalidas > 0 ? (totalHoras / totalSalidas).toFixed(2) : 'N/A'} horas por salida (mayor = mejor retención)
+        </Text>
+        <Text style={styles.analysisText}>
+          • Productividad por empleado: {totalEmpleados > 0 ? ((totalHoras + totalSalidas) / totalEmpleados).toFixed(1) : '0.0'} actividades/empleado
+        </Text>
+        <Text style={styles.analysisText}>
+          • Tasa de actividad: {totalHoras > 0 && totalSalidas > 0 ? ((totalSalidas / totalHoras) * 100).toFixed(2) : '0.00'}% movilidad por hora
+        </Text>
+        <Text style={styles.analysisText}>
+          • Cobertura territorial: {((municipiosValidos.length / Math.max(totalMunicipios, 1)) * 100).toFixed(1)}% municipios activos
+        </Text>
+        <Text style={styles.analysisText}>
+          • Densidad hospitalaria: {(totalHospitales / Math.max(municipiosValidos.length, 1)).toFixed(1)} hospitales/municipio activo
+        </Text>
+        <Text style={styles.analysisText}>
+          • Factor de concentración: {top5Municipios.length > 0 ? (((top5Municipios.reduce((acc, m) => acc + (m.geofenceExits || m.salidas || 0), 0) / Math.max(totalSalidas, 1)) * 100).toFixed(1)) : 0}% actividad en top 5
+        </Text>
+      </View>
+
+      {/* Top 5 Municipios */}
+      <View style={[styles.analysisContainer, { marginTop: 8 }]}>
+        <Text style={styles.analysisSubtitle}>Top 5 Municipios por Salidas de Geocerca</Text>
+        {top5Municipios.length > 0 ? (
+          top5Municipios.map((municipio, index) => {
             const nombre = municipio.municipio || municipio.nombre_municipio || 'N/A';
             const salidas = municipio.geofenceExits || municipio.salidas || municipio.totalSalidas || municipio.exits || 0;
+            const horas = municipio.hoursWorked || municipio.horas || 0;
             return (
               <Text key={index} style={styles.analysisText}>
-                {index + 1}. {nombre} - {salidas} salidas
+                {index + 1}. {nombre} - {salidas.toLocaleString()} salidas, {horas.toLocaleString()} horas
               </Text>
             );
           })
         ) : (
           <Text style={[styles.analysisText, { fontStyle: 'italic', color: '#6c757d' }]}>
-            No hay datos de municipios disponibles
+            No hay datos de municipios disponibles para el ranking
           </Text>
         )}
       </View>
+    </View>
+  );
+};
+
+const AlertSection = ({ estatalStats, municipios, hospitales }) => {
+  const totalHospitales = estatalStats?.totalHospitales || 0;
+  const totalEmpleados = estatalStats?.totalEmpleados || 0;
+  const totalMunicipios = estatalStats?.totalMunicipios || 0;
+  const municipiosConDatos = municipios?.length || 0;
+  const hospitalesConDatos = hospitales?.length || 0;
+
+  // Detectar problemas críticos
+  const problemasDetectados = [];
+  
+  if (totalEmpleados === 0) {
+    problemasDetectados.push("No hay empleados registrados en el sistema");
+  }
+  
+  if (totalHospitales === 0) {
+    problemasDetectados.push("No hay hospitales activos reportando datos");
+  }
+  
+  if (municipiosConDatos < 3) {
+    problemasDetectados.push(`Solo ${municipiosConDatos} municipio(s) con datos activos de ${totalMunicipios} total`);
+  }
+  
+  if (hospitalesConDatos === 0) {
+    problemasDetectados.push("Ningún hospital está proporcionando datos de personal");
+  }
+
+  const coberturaPublica = totalMunicipios > 0 ? ((municipiosConDatos / totalMunicipios) * 100).toFixed(1) : 0;
+  
+  if (parseFloat(coberturaPublica) < 50) {
+    problemasDetectados.push(`Cobertura estatal crítica: solo ${coberturaPublica}% de municipios reportan`);
+  }
+
+  if (problemasDetectados.length === 0) return null;
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>ALERTAS Y PROBLEMAS DETECTADOS</Text>
       
+      <View style={styles.alertContainer}>
+        <Text style={styles.alertTitle}>Situación Crítica del Sistema</Text>
+        <Text style={styles.alertText}>
+          Se han detectado {problemasDetectados.length} problema(s) que requieren atención inmediata:
+        </Text>
+        
+        {problemasDetectados.map((problema, index) => (
+          <Text key={index} style={[styles.alertText, { marginTop: 4, marginLeft: 10 }]}>
+            • {problema}
+          </Text>
+        ))}
+        
+        <Text style={[styles.alertText, { marginTop: 8, fontWeight: 'bold' }]}>
+          ACCIONES REQUERIDAS:
+        </Text>
+        <Text style={[styles.alertText, { marginLeft: 10 }]}>
+          • Verificar conectividad de hospitales al sistema
+        </Text>
+        <Text style={[styles.alertText, { marginLeft: 10 }]}>
+          • Revisar registro de empleados en la plataforma
+        </Text>
+        <Text style={[styles.alertText, { marginLeft: 10 }]}>
+          • Contactar municipios sin datos para activar el sistema
+        </Text>
+        <Text style={[styles.alertText, { marginLeft: 10 }]}>
+          • Capacitar personal en el uso correcto de geocercas
+        </Text>
+      </View>
+
       <View style={[styles.analysisContainer, { marginTop: 8 }]}>
-        <Text style={styles.analysisSubtitle}>
-          Estadísticas Generales del Estado:
+        <Text style={styles.analysisSubtitle}>Interpretación para Autoridades</Text>
+        <Text style={styles.analysisText}>
+          Este reporte indica que el sistema de monitoreo de personal de salud en {estatalStats?.nombre_estado || 'el estado'} 
+          está en una fase inicial de implementación o presenta fallas técnicas significativas.
         </Text>
         <Text style={styles.analysisText}>
-          • Promedio de hospitales por municipio: {Math.round((estatalStats?.totalHospitales || 0) / Math.max(estatalStats?.totalMunicipios || 1, 1))}
+          La ausencia de datos de empleados y hospitales sugiere que:
         </Text>
-        <Text style={styles.analysisText}>
-          • Promedio de empleados por hospital: {Math.round((estatalStats?.totalEmpleados || 0) / Math.max(estatalStats?.totalHospitales || 1, 1))}
+        <Text style={[styles.analysisText, { marginLeft: 10 }]}>
+          • El personal no está utilizando correctamente el sistema de geocercas
         </Text>
-        <Text style={styles.analysisText}>
-          • Total de registros de entrada: {estatalStats?.totalHoras || 0}
+        <Text style={[styles.analysisText, { marginLeft: 10 }]}>
+          • Los hospitales requieren capacitación técnica
         </Text>
-        <Text style={styles.analysisText}>
-          • Total de salidas de geocerca: {estatalStats?.totalSalidas || 0}
+        <Text style={[styles.analysisText, { marginLeft: 10 }]}>
+          • Es necesaria una auditoría del sistema de monitoreo
         </Text>
-        <Text style={styles.analysisText}>
-          • Cobertura municipal: {estatalStats?.totalMunicipios || 0} municipios con servicios
-        </Text>
-        <Text style={styles.analysisText}>
-          • Hospitales registrados: {hospitales?.length || 0} hospitales en el ranking
+        <Text style={[styles.analysisText, { marginLeft: 10 }]}>
+          • Se requiere un plan de implementación gradual por municipios
         </Text>
       </View>
     </View>
@@ -327,7 +717,8 @@ const ReportDocument = ({ estatalData, municipios, hospitales, estatalStats, sta
   <Document>
     <Page size="LETTER" style={styles.page}>
       <Header estatalData={estatalData} startDate={startDate} endDate={endDate} />
-      <SummarySection estatalStats={estatalStats} />
+      <AlertSection estatalStats={estatalStats} municipios={municipios} hospitales={hospitales} />
+      <SummarySection estatalStats={estatalStats} municipios={municipios} />
       <AnalysisSection municipios={municipios} hospitales={hospitales} estatalStats={estatalStats} />
       <MunicipalTable municipios={municipios} />
       <HospitalRankingTable hospitales={hospitales} />
@@ -353,11 +744,26 @@ const generarReporteEstatalPDF = async ({ estatalData, municipios, hospitales, e
     if (hospitales && hospitales.length > 0) {
       console.log('[EstatalPDF] Primer hospital ejemplo:', hospitales[0]);
       console.log('[EstatalPDF] Propiedades del primer hospital:', Object.keys(hospitales[0]));
+    } else {
+      console.log('[EstatalPDF] ⚠️ NO HAY DATOS DE HOSPITALES');
     }
     
     if (municipios && municipios.length > 0) {
       console.log('[EstatalPDF] Primer municipio ejemplo:', municipios[0]);
       console.log('[EstatalPDF] Propiedades del primer municipio:', Object.keys(municipios[0]));
+      
+      // Verificar específicamente los campos de horas y salidas
+      const primerMunicipio = municipios[0];
+      console.log('[EstatalPDF] Campos de actividad del primer municipio:', {
+        horas: primerMunicipio.horas,
+        hoursWorked: primerMunicipio.hoursWorked,
+        salidas: primerMunicipio.salidas,
+        geofenceExits: primerMunicipio.geofenceExits,
+        hospitals: primerMunicipio.hospitals,
+        employees: primerMunicipio.employees
+      });
+    } else {
+      console.log('[EstatalPDF] ⚠️ NO HAY DATOS DE MUNICIPIOS');
     }
 
     const MyDocument = () => (
