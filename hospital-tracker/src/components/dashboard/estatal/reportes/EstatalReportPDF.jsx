@@ -361,15 +361,11 @@ const MunicipalTable = ({ municipios }) => {
 const HospitalRankingTable = ({ hospitales }) => {
   // Calcular métricas adicionales para los hospitales
   const hospitalesConMetricas = hospitales?.map((hospital, index) => {
-    // El backend mejorado ya incluye estos campos
     const salidas = hospital.salidas || hospital.geofenceExits || hospital.exits || hospital.totalSalidas || 0;
     const empleados = hospital.empleados || hospital.employees || 0;
     const horasTrabajas = hospital.horas_trabajadas || hospital.hoursWorked || 0;
-    
-    // Usar eficiencia calculada del backend o calcular si no está disponible
     const eficiencia = hospital.eficiencia || (empleados > 0 ? (salidas / empleados).toFixed(1) : 'N/D');
     const categoria = salidas > 100 ? 'Alto' : salidas > 50 ? 'Medio' : 'Bajo';
-    
     return {
       ...hospital,
       salidas,
@@ -381,26 +377,24 @@ const HospitalRankingTable = ({ hospitales }) => {
     };
   }).sort((a, b) => b.salidas - a.salidas) || [];
 
-  // Si no hay hospitales, mostrar mensaje
+  // Mostrar la tabla aunque todos tengan salidas en cero
   if (!hospitales || hospitales.length === 0) {
     return (
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Ranking de Hospitales por Desempeño</Text>
-        <View style={styles.alertContainer}>
-          <Text style={styles.alertTitle}>No hay datos de hospitales disponibles</Text>
-          <Text style={styles.alertText}>
-            No se encontraron registros de hospitales con actividad en el período seleccionado.
-            Esto puede indicar:
-          </Text>
-          <Text style={[styles.alertText, { marginLeft: 10 }]}>
-            • Los hospitales no están registrando actividad en el sistema
-          </Text>
-          <Text style={[styles.alertText, { marginLeft: 10 }]}>
-            • El personal no está utilizando correctamente las geocercas
-          </Text>
-          <Text style={[styles.alertText, { marginLeft: 10 }]}>
-            • Problemas de conectividad en las instituciones de salud
-          </Text>
+        <View style={styles.table}>
+          <View style={styles.tableHeader}>
+            <Text style={[styles.tableCellHeader, { flex: 0.5 }]}>Pos</Text>
+            <Text style={[styles.tableCellHeader, { flex: 2.2 }]}>Hospital</Text>
+            <Text style={[styles.tableCellHeader, { flex: 1.3 }]}>Municipio</Text>
+            <Text style={[styles.tableCellHeader, { flex: 0.8 }]}>Empl.</Text>
+            <Text style={[styles.tableCellHeader, { flex: 0.8 }]}>Salidas</Text>
+            <Text style={[styles.tableCellHeader, { flex: 0.8 }]}>Efic.</Text>
+            <Text style={[styles.tableCellHeader, { flex: 0.6 }]}>Cat.</Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={[styles.tableCell, { flex: 1, textAlign: 'center', fontStyle: 'italic', color: '#6c757d' }]}>No hay hospitales registrados para mostrar</Text>
+          </View>
         </View>
       </View>
     );
@@ -425,7 +419,6 @@ const HospitalRankingTable = ({ hospitales }) => {
       {hospitalesConMetricas.slice(0, 15).map((hospital, index) => {
         const posicion = index + 1;
         const categoriaColor = hospital.categoria === 'Alto' ? 'Alto' : hospital.categoria === 'Medio' ? 'Medio' : 'Bajo';
-        
         return (
           <View key={index} style={[styles.tableRow, index % 2 === 1 && { backgroundColor: '#f8f9fa' }]}>
             <Text style={[styles.tableCell, { flex: 0.5, textAlign: 'center', fontSize: 11 }]}>
