@@ -360,12 +360,14 @@ router.get('/estatal/ranking-hospitales', async (req, res) => {
     const query = `
       SELECT 
         h.nombre_hospital,
+        m.nombre_municipio as municipio,
         SUM(CASE WHEN r.tipo_registro = 0 THEN 1 ELSE 0 END) as salidas
       FROM registro_ubicaciones r
       JOIN user_data u ON r.id_user = u.id_user
       JOIN hospitals h ON u.id_hospital = h.id_hospital
+      JOIN municipios m ON h.id_municipio = m.id_municipio
       WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
-      GROUP BY h.nombre_hospital
+      GROUP BY h.nombre_hospital, m.nombre_municipio
       ORDER BY salidas DESC
     `;
     const result = await pool.query(query, [id_estado, fechaInicio, fechaFin]);

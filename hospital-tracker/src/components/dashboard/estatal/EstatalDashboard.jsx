@@ -8,6 +8,7 @@ import { feature } from "topojson-client"
 import { geoCentroid } from "d3-geo"
 import React from "react"
 import { useAuth } from "../../../context/AuthContext"
+import { generarReporteEstatalPDF } from "./reportes/EstatalReportPDF"
 
 // URL del mapa GeoJSON de México (estados)
 const MEXICO_GEOJSON = "/lib/mx.json"
@@ -235,6 +236,7 @@ export default function EstatalDashboard() {
   // Estados para mapeo de municipios
   const [municipiosList, setMunicipiosList] = useState([]);
   const [municipiosMap, setMunicipiosMap] = useState(new Map());
+  const [loadingPDF, setLoadingPDF] = useState(false);
 
   // Estados para el filtro de fechas mejorado
   const datePresets = [
@@ -558,6 +560,51 @@ export default function EstatalDashboard() {
     return map;
   }, [municipalityData]);
 
+  // Función para generar el reporte PDF
+  const handleGeneratePDF = async () => {
+    if (!selectedState || !dateRange.startDate || !dateRange.endDate) {
+      alert('Por favor selecciona un estado y un rango de fechas válido');
+      return;
+    }
+
+    setLoadingPDF(true);
+    try {
+      const estatalData = {
+        nombre_estado: stateCodeToName[selectedState] || selectedState,
+        totalMunicipios: horasPorMunicipioData.length || 0
+      };
+
+      const estatalStats = {
+        totalHospitales,
+        totalEmpleados: totalPersonal,
+        totalMunicipios: horasPorMunicipioData.length || 0,
+        totalHoras,
+        totalSalidas,
+        eficienciaPromedio: totalSalidas > 0 ? Math.round((totalHoras / (totalHoras + totalSalidas)) * 100) : 0
+      };
+
+      // Debug logs para verificar los datos
+      console.log('[PDF Debug] EstatalStats:', estatalStats);
+      console.log('[PDF Debug] Municipios data:', horasPorMunicipioData);
+      console.log('[PDF Debug] Hospitales data:', rankingHospitalesData);
+      console.log('[PDF Debug] EstatalData:', estatalData);
+
+      await generarReporteEstatalPDF({
+        estatalData,
+        municipios: horasPorMunicipioData,
+        hospitales: rankingHospitalesData,
+        estatalStats,
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate
+      });
+    } catch (error) {
+      console.error('Error generando PDF:', error);
+      alert('Error al generar el PDF. Por favor intenta de nuevo.');
+    } finally {
+      setLoadingPDF(false);
+    }
+  };
+
   const mapContainerRef = useRef(null)
 
   // Mapeo de código de estado tipo 'MXROO' a id_estado numérico
@@ -814,6 +861,25 @@ export default function EstatalDashboard() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
+                <button
+                  onClick={handleGeneratePDF}
+                  disabled={!selectedState || !dateRange.startDate || !dateRange.endDate || loadingPDF}
+                  className="px-4 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loadingPDF ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Generando...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Reporte PDF
+                    </>
+                  )}
+                </button>
                 <button 
                   onClick={resetToOriginal}
                   className="px-4 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-2"
