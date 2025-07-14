@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import React, { useState, useEffect, useMemo } from "react"
 import { format, subDays, subMonths, subYears } from "date-fns"
-import { Calendar, Building2, MapPin, Clock, Users, ArrowUpRight, TrendingUp, Plus, Minus, Check } from "lucide-react"
+import { Calendar, Building2, MapPin, Clock, Users, ArrowUpRight, TrendingUp, Plus, Minus, Check, Download } from "lucide-react"
 import {
   Area,
   LineChart,
@@ -24,6 +24,7 @@ import "leaflet/dist/leaflet.css"
 import { feature } from "topojson-client"
 import { calcularEstadisticasEmpleado, calcularEstadisticasEmpleadoPorDias } from "../hospital/employeeStatsHelper"
 import { useAuth } from "../../../context/AuthContext"
+import { generarReporteMunicipalPDF } from "./reportes/MunicipalReportPDF"
 
 // URLs de los archivos GeoJSON
 const MUNICIPIOS_TOPOJSON = "/lib/mx_tj.json"
@@ -241,6 +242,7 @@ export default function EnhancedMunicipalDashboard() {
   // Estados para datos reales del API
   const [apiData, setApiData] = useState(null)
   const [isLoadingData, setIsLoadingData] = useState(false)
+  const [loadingPDF, setLoadingPDF] = useState(false)
 
   // Estados para datos del backend (como en HospitalDashboard)
   const [estados, setEstados] = useState([])
@@ -1163,6 +1165,55 @@ export default function EnhancedMunicipalDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Botón de descarga de PDF Municipal */}
+        {filters.id_municipio && hospitals.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-md p-6 mb-8 border border-gray-200">
+            <div className="flex justify-end">
+              <button
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-60"
+                disabled={loadingPDF}
+                onClick={async () => {
+                  setLoadingPDF(true)
+                  try {
+                    const municipalData = {
+                      nombre_municipio: filters.nombre_municipio,
+                      nombre_estado: filters.nombre_estado,
+                      totalHospitals: municipalStats.totalHospitals,
+                      activeEmployees: municipalStats.activeEmployees,
+                      totalEmployees: municipalStats.totalEmployees,
+                      averageEfficiency: municipalStats.averageEfficiency,
+                    }
+                    
+                    await generarReporteMunicipalPDF({
+                      municipalData,
+                      hospitals,
+                      municipalStats,
+                      startDate: dateRange.startDate,
+                      endDate: dateRange.endDate,
+                    })
+                  } catch (err) {
+                    console.error('Error al generar el PDF municipal:', err);
+                    alert("Error al generar el PDF municipal. Revisa la consola para más detalles.");
+                  }
+                  setLoadingPDF(false)
+                }}
+              >
+                {loadingPDF ? (
+                  <span className="flex items-center gap-2">
+                    <span className="animate-spin h-4 w-4 border-2 border-white border-t-blue-400 rounded-full"></span> 
+                    Generando PDF...
+                  </span>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" />
+                    Descargar Reporte Municipal PDF
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Mensaje informativo cuando no se han seleccionado filtros */}
         {!filters.id_estado || !filters.id_municipio ? (
