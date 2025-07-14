@@ -69,7 +69,7 @@ export default function ActivityLog() {
     try {
       // Primero obtenemos la información específica del superadmin
       const superadminResponse = await fetch(
-        `https://geoapphospital.onrender.com/api/superadmin/superadmin-hospital-ubi/${currentUserId}`
+        `https://geoapphospital-b0yr.onrender.com/api/superadmin/superadmin-hospital-ubi/${currentUserId}`
       );
 
       if (!superadminResponse.ok)
@@ -78,7 +78,7 @@ export default function ActivityLog() {
 
       // Luego obtenemos la lista completa para mostrar otros administradores
       const allAdminsResponse = await fetch(
-        "https://geoapphospital.onrender.com/api/superadmin/superadmin-hospital-work"
+        "https://geoapphospital-b0yr.onrender.com/api/superadmin/superadmin-hospital-work"
       );
 
       if (!allAdminsResponse.ok)
@@ -192,7 +192,7 @@ export default function ActivityLog() {
 
     try {
       const response = await fetch(
-        "https://geoapphospital.onrender.com/api/superadmin/superadmin-hospital",
+        "https://geoapphospital-b0yr.onrender.com/api/superadmin/superadmin-hospital",
         {
           method: "PUT",
           headers: {
@@ -270,7 +270,7 @@ export default function ActivityLog() {
     const fetchEstados = async () => {
       try {
         const res = await fetch(
-          "https://geoapphospital.onrender.com/api/superadmin/estados"
+          "https://geoapphospital-b0yr.onrender.com/api/superadmin/estados"
         );
         if (!res.ok) throw new Error("Error al obtener estados");
         const data = await res.json();
@@ -297,7 +297,7 @@ export default function ActivityLog() {
           }
 
           const res = await fetch(
-            `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${estadoSeleccionado.id_estado}`
+            `https://geoapphospital-b0yr.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${estadoSeleccionado.id_estado}`
           );
 
           if (!res.ok) throw new Error("Error al obtener municipios");
@@ -337,7 +337,7 @@ export default function ActivityLog() {
             return;
           }
           const res = await fetch(
-            `https://geoapphospital.onrender.com/api/superadmin/superadmin-hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${updateForm.municipio}`
+            `https://geoapphospital-b0yr.onrender.com/api/superadmin/superadmin-hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${updateForm.municipio}`
           );
           if (!res.ok) throw new Error("Error al obtener hospitales libres");
           const data = await res.json();
@@ -417,7 +417,7 @@ export default function ActivityLog() {
         if (estadoSeleccionado) {
           // Cargar municipios
           const resMunicipios = await fetch(
-            `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${estadoSeleccionado.id_estado}`
+            `https://geoapphospital-b0yr.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${estadoSeleccionado.id_estado}`
           );
           if (!resMunicipios.ok) throw new Error("Error al obtener municipios");
           const municipiosData = await resMunicipios.json();
@@ -427,7 +427,7 @@ export default function ActivityLog() {
           let hospitalesData = [];
           if (activity.id_municipio) {
             const resHospitales = await fetch(
-              `https://geoapphospital.onrender.com/api/superadmin/superadmin-hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${activity.id_municipio}`
+              `https://geoapphospital-b0yr.onrender.com/api/superadmin/superadmin-hospitals-by-municipio?id_estado=${estadoSeleccionado.id_estado}&id_municipio=${activity.id_municipio}`
             );
             if (!resHospitales.ok)
               throw new Error("Error al obtener hospitales");

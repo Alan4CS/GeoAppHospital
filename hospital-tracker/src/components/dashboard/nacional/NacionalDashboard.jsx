@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 
 // Configuración de la API
-const API_BASE_URL = "https://geoapphospital.onrender.com";
+const API_BASE_URL = "https://geoapphospital-b0yr.onrender.com";
 
 // Mapeo de códigos de estado a nombres
 const stateCodeToName = {

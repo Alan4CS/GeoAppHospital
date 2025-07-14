@@ -116,7 +116,7 @@ const AdministradorList = ({
         curp_user: formData.curp_user,
       }
 
-      const response = await fetch("https://geoapphospital.onrender.com/api/superadmin/update-admins", {
+      const response = await fetch("https://geoapphospital-b0yr.onrender.com/api/superadmin/update-admins", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -233,7 +233,7 @@ const AdministradorList = ({
 
     try {
       const response = await fetch(
-        `https://geoapphospital.onrender.com/api/superadmin/delete-admin/${adminEliminar.id_user}`,
+        `https://geoapphospital-b0yr.onrender.com/api/superadmin/delete-admin/${adminEliminar.id_user}`,
         {
           method: "POST",
           headers: {

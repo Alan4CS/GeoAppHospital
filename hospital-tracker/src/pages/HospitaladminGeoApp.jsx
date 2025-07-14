@@ -18,7 +18,7 @@ export default function HospitalAdminGeoApp() {
       try {
         setLoading(true);
         // Cambia la URL por la de tu backend real
-        const response = await fetch(`https://geoapphospital.onrender.com/api/hospitaladmin/hospital-by-user/${userId}`);
+        const response = await fetch(`https://geoapphospital-b0yr.onrender.com/api/hospitaladmin/hospital-by-user/${userId}`);
         const data = await response.json();
         setHospital(data);
       } catch (error) {

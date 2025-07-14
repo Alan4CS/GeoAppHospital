@@ -67,7 +67,7 @@ const GrupoListHospital = ({ hospitalId }) => {
     const fetchGrupos = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`https://geoapphospital.onrender.com/api/hospitaladmin/grupos-by-hospital/${hospitalId}`);
+        const res = await fetch(`https://geoapphospital-b0yr.onrender.com/api/hospitaladmin/grupos-by-hospital/${hospitalId}`);
         if (!res.ok) throw new Error("No se pudieron obtener los grupos del hospital");
         const data = await res.json();
         setGrupos(Array.isArray(data) ? data : []);
@@ -118,7 +118,7 @@ const GrupoListHospital = ({ hospitalId }) => {
       return;
     }
     // Fetch stats del hospital
-    fetch(`https://geoapphospital.onrender.com/api/hospitaladmin/stats-by-hospital/${hospitalId}`)
+    fetch(`https://geoapphospital-b0yr.onrender.com/api/hospitaladmin/stats-by-hospital/${hospitalId}`)
       .then(res => res.json())
       .then(data => {
         setStats(data);

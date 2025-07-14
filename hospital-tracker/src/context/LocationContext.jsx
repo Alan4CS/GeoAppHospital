@@ -9,7 +9,7 @@ export function LocationProvider({ children }) {
   const updateLocation = async (userId) => {
     try {
       const res = await fetch(
-        `https://geoapphospital.onrender.com/api/superadmin/superadmin-hospital-ubi/${userId}`
+        `https://geoapphospital-b0yr.onrender.com/api/superadmin/superadmin-hospital-ubi/${userId}`
       );
       const data = await res.json();
       if (data && data.length > 0) {

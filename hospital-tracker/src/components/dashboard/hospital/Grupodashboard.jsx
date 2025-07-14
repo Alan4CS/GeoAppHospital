@@ -449,7 +449,7 @@ export default function GrupoDashboard({
         };
         try {
           // 1. Fetch empleados con registros (activos)
-          const res = await fetch("https://geoapphospital.onrender.com/api/dashboards/grupo", {
+          const res = await fetch("https://geoapphospital-b0yr.onrender.com/api/dashboards/grupo", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
@@ -457,7 +457,7 @@ export default function GrupoDashboard({
           const data = await res.json();
           setDataEmpleados(data.empleados); // Guardar para listas
           // 2. Fetch todos los empleados del hospital
-          const allRes = await fetch("https://geoapphospital.onrender.com/api/employees/get-empleados");
+          const allRes = await fetch("https://geoapphospital-b0yr.onrender.com/api/employees/get-empleados");
           const allEmpleados = await allRes.json();
           // Filtrar solo los del hospital seleccionado
           const empleadosHospital = allEmpleados.filter(e => e.id_hospital == filters.id_hospital);

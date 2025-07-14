@@ -496,7 +496,7 @@ const EmployeeCalendarView = ({ employee, startDate, endDate, filters }) => {
               // Usar solo un fetch para todo el rango
               const fechaInicio = `${startDate} 00:00:00`
               const fechaFin = `${endDate} 23:59:59`
-              const res = await fetch("https://geoapphospital.onrender.com/api/reportes/empleado", {
+              const res = await fetch("https://geoapphospital-b0yr.onrender.com/api/reportes/empleado", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -1005,7 +1005,7 @@ const HospitalDashboard = () => {
   useEffect(() => {
     const fetchEstados = async () => {
       try {
-        const res = await fetch("https://geoapphospital.onrender.com/api/superadmin/estados")
+        const res = await fetch("https://geoapphospital-b0yr.onrender.com/api/superadmin/estados")
         const data = await res.json()
         setEstados(data)
       } catch (error) {
@@ -1030,7 +1030,7 @@ const HospitalDashboard = () => {
     
     try {
       console.log('[Debug] Fetching hospital for hospitaladmin with userId:', userId);
-      const response = await fetch(`https://geoapphospital.onrender.com/api/hospitaladmin/hospital-by-user/${userId}`);
+      const response = await fetch(`https://geoapphospital-b0yr.onrender.com/api/hospitaladmin/hospital-by-user/${userId}`);
       console.log('[Debug] Response status:', response.status);
       
       if (!response.ok) {
@@ -1068,7 +1068,7 @@ const HospitalDashboard = () => {
           // Después de configurar el estado, cargar municipios y seleccionar el del usuario
           setTimeout(async () => {
             try {
-              const municipiosResponse = await fetch(`https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${estadoEncontrado.id_estado}`);
+              const municipiosResponse = await fetch(`https://geoapphospital-b0yr.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${estadoEncontrado.id_estado}`);
               if (municipiosResponse.ok) {
                 const municipiosData = await municipiosResponse.json();
                 setMunicipios(municipiosData);
@@ -1090,7 +1090,7 @@ const HospitalDashboard = () => {
                   // Después de configurar el municipio, cargar hospitales y seleccionar el del usuario
                   setTimeout(async () => {
                     try {
-                      const hospitalesResponse = await fetch(`https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoEncontrado.id_estado}&id_municipio=${municipioEncontrado.id_municipio}`);
+                      const hospitalesResponse = await fetch(`https://geoapphospital-b0yr.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${estadoEncontrado.id_estado}&id_municipio=${municipioEncontrado.id_municipio}`);
                       if (hospitalesResponse.ok) {
                         const hospitalesData = await hospitalesResponse.json();
                         setHospitales(hospitalesData);
@@ -1194,7 +1194,7 @@ const HospitalDashboard = () => {
     const fetchMunicipios = async () => {
       try {
         const res = await fetch(
-          `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${filters.id_estado}`,
+          `https://geoapphospital-b0yr.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${filters.id_estado}`,
         )
         const data = await res.json()
         setMunicipios(data)
@@ -1216,7 +1216,7 @@ const HospitalDashboard = () => {
     const fetchHospitales = async () => {
       try {
         const res = await fetch(
-          `https://geoapphospital.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${filters.id_estado}&id_municipio=${filters.id_municipio}`,
+          `https://geoapphospital-b0yr.onrender.com/api/hospitaladmin/hospitals-by-municipio?id_estado=${filters.id_estado}&id_municipio=${filters.id_municipio}`,
         )
         const data = await res.json()
         setHospitales(data)
@@ -1241,7 +1241,7 @@ const HospitalDashboard = () => {
     const fetchEmpleados = async () => {
       try {
         const res = await fetch(
-          `https://geoapphospital.onrender.com/api/hospitaladmin/empleados-by-ubicacion?id_hospital=${filters.id_hospital}`
+          `https://geoapphospital-b0yr.onrender.com/api/hospitaladmin/empleados-by-ubicacion?id_hospital=${filters.id_hospital}`
         )
         const data = await res.json()
         // Mapear empleados y construir nombre completo
@@ -1295,7 +1295,7 @@ const HospitalDashboard = () => {
               const fechaInicio = `${tempDateRange.startDate} 00:00:00`;
               const fechaFin = `${tempDateRange.endDate} 23:59:59`;
               
-              const res = await fetch("https://geoapphospital.onrender.com/api/reportes/empleado", {
+              const res = await fetch("https://geoapphospital-b0yr.onrender.com/api/reportes/empleado", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

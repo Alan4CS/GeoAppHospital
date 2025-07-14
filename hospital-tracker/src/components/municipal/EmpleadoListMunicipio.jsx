@@ -20,7 +20,7 @@ const EmpleadoList = ({ id_user }) => {
     const fetchEmpleados = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`https://geoapphospital.onrender.com/api/municipioadmin/empleados-by-user/${id_user}`);
+        const res = await fetch(`https://geoapphospital-b0yr.onrender.com/api/municipioadmin/empleados-by-user/${id_user}`);
         const data = await res.json();
         let empleados = [];
         if (Array.isArray(data)) {
@@ -47,7 +47,7 @@ const EmpleadoList = ({ id_user }) => {
       setStatsLoading(false);
       return;
     }
-    fetch(`https://geoapphospital.onrender.com/api/municipioadmin/stats-by-user/${id}?source=stats`)
+    fetch(`https://geoapphospital-b0yr.onrender.com/api/municipioadmin/stats-by-user/${id}?source=stats`)
       .then((res) => {
         if (!res.ok) throw new Error("No se pudieron obtener las estadísticas de estadoadmin");
         return res.json();

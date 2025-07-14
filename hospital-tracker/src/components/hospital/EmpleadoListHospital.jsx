@@ -78,7 +78,7 @@ const EmpleadoListHospital = ({ hospitalId }) => {
     const fetchEmpleados = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`https://geoapphospital.onrender.com/api/hospitaladmin/empleados-by-ubicacion?id_hospital=${hospitalId}`);
+        const res = await fetch(`https://geoapphospital-b0yr.onrender.com/api/hospitaladmin/empleados-by-ubicacion?id_hospital=${hospitalId}`);
         const data = await res.json();
         let empleados = [];
         if (Array.isArray(data)) {
@@ -103,7 +103,7 @@ const EmpleadoListHospital = ({ hospitalId }) => {
       setStatsLoading(false);
       return;
     }
-    fetch(`https://geoapphospital.onrender.com/api/hospitaladmin/stats-by-hospital/${hospitalId}`)
+    fetch(`https://geoapphospital-b0yr.onrender.com/api/hospitaladmin/stats-by-hospital/${hospitalId}`)
       .then(res => res.json())
       .then(data => {
         setStats(data);

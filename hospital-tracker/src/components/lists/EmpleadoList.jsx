@@ -225,7 +225,7 @@ const EmpleadoList = ({
     // Cargar hospitales SOLO del municipio del empleado
     try {
       if (empleado.id_municipio) {
-        const url = `https://geoapphospital.onrender.com/api/superadmin/hospitales-by-municipio?id_municipio=${empleado.id_municipio}`
+        const url = `https://geoapphospital-b0yr.onrender.com/api/superadmin/hospitales-by-municipio?id_municipio=${empleado.id_municipio}`
         const hospitalesResponse = await fetch(url)
         if (hospitalesResponse.ok) {
           const hospitalesData = await hospitalesResponse.json()
@@ -244,7 +244,7 @@ const EmpleadoList = ({
     try {
       if (empleado.id_hospital) {
         const gruposResponse = await fetch(
-          `https://geoapphospital.onrender.com/api/employees/grupos-by-hospital?id_hospital=${empleado.id_hospital}`,
+          `https://geoapphospital-b0yr.onrender.com/api/employees/grupos-by-hospital?id_hospital=${empleado.id_hospital}`,
         )
         if (gruposResponse.ok) {
           const gruposData = await gruposResponse.json()
@@ -265,7 +265,7 @@ const EmpleadoList = ({
     if (hospitalObj) {
       try {
         const gruposResponse = await fetch(
-          `https://geoapphospital.onrender.com/api/employees/grupos-by-hospital?id_hospital=${hospitalObj.id_hospital}`,
+          `https://geoapphospital-b0yr.onrender.com/api/employees/grupos-by-hospital?id_hospital=${hospitalObj.id_hospital}`,
         )
         if (gruposResponse.ok) {
           const gruposData = await gruposResponse.json()
@@ -350,7 +350,7 @@ const EmpleadoList = ({
         id_group: id_group,
       }
 
-      const response = await fetch(`https://geoapphospital.onrender.com/api/employees/update-employee`, {
+      const response = await fetch(`https://geoapphospital-b0yr.onrender.com/api/employees/update-employee`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -389,7 +389,7 @@ const EmpleadoList = ({
 
     try {
       const response = await fetch(
-        `https://geoapphospital.onrender.com/api/employees/delete-employee/${empleadoEliminar.id_user}`,
+        `https://geoapphospital-b0yr.onrender.com/api/employees/delete-employee/${empleadoEliminar.id_user}`,
         {
           method: "POST",
           headers: {

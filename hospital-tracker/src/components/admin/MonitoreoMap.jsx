@@ -197,7 +197,7 @@ const MonitoreoMap = ({
   const fetchStates = async () => {
     try {
       const response = await fetch(
-        "https://geoapphospital.onrender.com/api/superadmin/estados"
+        "https://geoapphospital-b0yr.onrender.com/api/superadmin/estados"
       );
 
       if (!response.ok) {
@@ -222,7 +222,7 @@ const MonitoreoMap = ({
     
     try {
       const response = await fetch(
-        `https://geoapphospital.onrender.com/api/estadoadmin/hospitals-by-user/${estadoId}?source=hospitals`
+        `https://geoapphospital-b0yr.onrender.com/api/estadoadmin/hospitals-by-user/${estadoId}?source=hospitals`
       );
 
       if (!response.ok) {
@@ -249,7 +249,7 @@ const MonitoreoMap = ({
     
     try {
       const response = await fetch(
-        `https://geoapphospital.onrender.com/api/municipioadmin/hospitals-by-user/${municipioId}?source=hospitals`
+        `https://geoapphospital-b0yr.onrender.com/api/municipioadmin/hospitals-by-user/${municipioId}?source=hospitals`
       );
 
       if (!response.ok) {
@@ -279,7 +279,7 @@ const MonitoreoMap = ({
       setHospitalError(null);
 
       const response = await fetch(
-        "https://geoapphospital.onrender.com/api/superadmin/hospitals"
+        "https://geoapphospital-b0yr.onrender.com/api/superadmin/hospitals"
       );
 
       if (!response.ok) {
@@ -348,7 +348,7 @@ const MonitoreoMap = ({
       setError(null);
 
       const response = await fetch(
-        "https://geoapphospital.onrender.com/api/employees/monitoreo"
+        "https://geoapphospital-b0yr.onrender.com/api/employees/monitoreo"
       );
 
       if (!response.ok) {
@@ -429,7 +429,7 @@ const MonitoreoMap = ({
   const fetchTotalEmployees = useCallback(async () => {
     try {
       const response = await fetch(
-        "https://geoapphospital.onrender.com/api/employees/get-empleados"
+        "https://geoapphospital-b0yr.onrender.com/api/employees/get-empleados"
       );
 
       if (!response.ok) {

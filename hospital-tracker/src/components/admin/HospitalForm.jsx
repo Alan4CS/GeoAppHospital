@@ -64,7 +64,7 @@ export default function HospitalForm({
     const fetchEstados = async () => {
       try {
         const response = await fetch(
-          "https://geoapphospital.onrender.com/api/superadmin/estados"
+          "https://geoapphospital-b0yr.onrender.com/api/superadmin/estados"
         );
         const data = await response.json();
         setEstados(data);
@@ -78,7 +78,7 @@ export default function HospitalForm({
   const fetchMunicipios = async (idEstado) => {
     try {
       const response = await fetch(
-        `https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado/${idEstado}`
+        `https://geoapphospital-b0yr.onrender.com/api/municipioadmin/municipios-by-estado/${idEstado}`
       );
       const data = await response.json();
       setMunicipios(data);

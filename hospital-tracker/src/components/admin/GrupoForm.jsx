@@ -142,7 +142,7 @@ const GrupoForm = ({
       console.log("Enviando datos al servidor:", payload);
 
       const res = await fetch(
-        "https://geoapphospital.onrender.com/api/groups/create-groups",
+        "https://geoapphospital-b0yr.onrender.com/api/groups/create-groups",
         {
           method: "POST",
           headers: {

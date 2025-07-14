@@ -36,7 +36,7 @@ const GrupoList = ({ id_user }) => {
     const fetchGrupos = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`https://geoapphospital.onrender.com/api/municipioadmin/grupos-by-user/${id_user}?source=groups`);
+        const res = await fetch(`https://geoapphospital-b0yr.onrender.com/api/municipioadmin/grupos-by-user/${id_user}?source=groups`);
         if (!res.ok) throw new Error("No se pudieron obtener los grupos de estadoadmin");
         const data = await res.json();
         // Adaptar para aceptar tanto array plano como objeto con 'grupos'
@@ -69,7 +69,7 @@ const GrupoList = ({ id_user }) => {
       return;
     }
     setStatsLoading(true);
-    fetch(`https://geoapphospital.onrender.com/api/municipioadmin/stats-by-user/${id}?source=stats`)
+    fetch(`https://geoapphospital-b0yr.onrender.com/api/municipioadmin/stats-by-user/${id}?source=stats`)
       .then((res) => {
         if (!res.ok) throw new Error("No se pudieron obtener las estadísticas de estadoadmin");
         return res.json();

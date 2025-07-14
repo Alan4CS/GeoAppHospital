@@ -20,7 +20,7 @@ const app = express();
 
 const allowedOrigins = [
   "http://localhost:5173",  // Tu frontend en desarrollo
-  "https://geoapphospital.onrender.com",  // Tu backend en producción
+  "https://geoapphospital-b0yr.onrender.com",  // Tu backend en producción
   "https://mystifying-carson.192-99-212-154.plesk.page",  // Frontend temporal
   // Agrega aquí el dominio de tu frontend en producción cuando lo despliegues
 ];

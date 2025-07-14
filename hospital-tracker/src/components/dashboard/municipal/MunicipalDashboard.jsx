@@ -256,7 +256,7 @@ export default function EnhancedMunicipalDashboard() {
   useEffect(() => {
     const fetchEstados = async () => {
       try {
-        const response = await fetch("https://geoapphospital.onrender.com/api/superadmin/estados")
+        const response = await fetch("https://geoapphospital-b0yr.onrender.com/api/superadmin/estados")
         if (response.ok) {
           const data = await response.json()
           setEstados(data)
@@ -285,7 +285,7 @@ export default function EnhancedMunicipalDashboard() {
     
     try {
       console.log('[Debug] Fetching state for estadoadmin with userId:', userId);
-      const response = await fetch(`https://geoapphospital.onrender.com/api/estadoadmin/hospitals-by-user/${userId}`);
+      const response = await fetch(`https://geoapphospital-b0yr.onrender.com/api/estadoadmin/hospitals-by-user/${userId}`);
       console.log('[Debug] Response status:', response.status);
       
       if (!response.ok) {
@@ -341,7 +341,7 @@ export default function EnhancedMunicipalDashboard() {
     
     try {
       console.log('[Debug] Fetching municipality for municipioadmin with userId:', userId);
-      const response = await fetch(`https://geoapphospital.onrender.com/api/municipioadmin/hospitals-by-user/${userId}`);
+      const response = await fetch(`https://geoapphospital-b0yr.onrender.com/api/municipioadmin/hospitals-by-user/${userId}`);
       console.log('[Debug] Response status:', response.status);
       
       if (!response.ok) {
@@ -375,7 +375,7 @@ export default function EnhancedMunicipalDashboard() {
           // Después de configurar el estado, cargar municipios y seleccionar el del usuario
           setTimeout(async () => {
             try {
-              const municipiosResponse = await fetch(`https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${estadoEncontrado.id_estado}`);
+              const municipiosResponse = await fetch(`https://geoapphospital-b0yr.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${estadoEncontrado.id_estado}`);
               if (municipiosResponse.ok) {
                 const municipiosData = await municipiosResponse.json();
                 setMunicipios(municipiosData);
@@ -459,7 +459,7 @@ export default function EnhancedMunicipalDashboard() {
     const fetchMunicipios = async () => {
       if (filters.id_estado) {
         try {
-          const response = await fetch(`https://geoapphospital.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${filters.id_estado}`)
+          const response = await fetch(`https://geoapphospital-b0yr.onrender.com/api/municipioadmin/municipios-by-estado-hospital/${filters.id_estado}`)
           if (response.ok) {
             const data = await response.json()
             setMunicipios(data)
@@ -613,7 +613,7 @@ export default function EnhancedMunicipalDashboard() {
         fechaFin: `${endDate} 23:59:59`
       }
       
-      const response = await fetch("https://geoapphospital.onrender.com/api/dashboards/municipio", {
+      const response = await fetch("https://geoapphospital-b0yr.onrender.com/api/dashboards/municipio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody)

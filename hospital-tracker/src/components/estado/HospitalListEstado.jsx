@@ -18,7 +18,7 @@ export default function HospitalList({ estadoNombre = "Nombre del Estado", hospi
       return;
     }
     setStatsLoading(true);
-    fetch(`https://geoapphospital.onrender.com/api/estadoadmin/stats-by-user/${userId}?source=stats`)
+    fetch(`https://geoapphospital-b0yr.onrender.com/api/estadoadmin/stats-by-user/${userId}?source=stats`)
       .then((res) => {
         if (!res.ok) throw new Error("No se pudieron obtener las estadísticas de estadoadmin");
         return res.json();

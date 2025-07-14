@@ -5,7 +5,7 @@ const sendCredentialsEmail = async (credentials) => {
     }
 
     console.log('📧 Enviando credenciales por email...');
-    const response = await fetch('https://geoapphospital.onrender.com/api/email/send-credentials', {
+    const response = await fetch('https://geoapphospital-b0yr.onrender.com/api/email/send-credentials', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(credentials)

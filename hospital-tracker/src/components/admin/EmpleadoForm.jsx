@@ -165,7 +165,7 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
   const fetchGrupos = async (hospitalId) => {
     try {
       const res = await fetch(
-        `https://geoapphospital.onrender.com/api/employees/grupos-by-hospital?id_hospital=${hospitalId}`
+        `https://geoapphospital-b0yr.onrender.com/api/employees/grupos-by-hospital?id_hospital=${hospitalId}`
       );
       if (!res.ok) throw new Error("Error al obtener grupos");
       const data = await res.json();

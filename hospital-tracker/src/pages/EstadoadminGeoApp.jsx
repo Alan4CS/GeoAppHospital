@@ -20,7 +20,7 @@ export default function EstadoAdminDashboard() {
     const fetchHospitalesYEstado = async () => {
       try {
         setHospitalesLoading(true);
-        const response = await fetch(`https://geoapphospital.onrender.com/api/estadoadmin/hospitals-by-user/${userId}?source=hospitals`);
+        const response = await fetch(`https://geoapphospital-b0yr.onrender.com/api/estadoadmin/hospitals-by-user/${userId}?source=hospitals`);
         const data = await response.json();
         setHospitales(data);
         // Si hay hospitales, toma el nombre_estado del primero

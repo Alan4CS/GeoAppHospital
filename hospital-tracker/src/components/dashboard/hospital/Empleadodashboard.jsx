@@ -787,7 +787,7 @@ export default function EmpleadoDashboard({
                               // Usar solo un fetch para todo el rango
                               const fechaInicio = `${startDate} 00:00:00`
                               const fechaFin = `${endDate} 23:59:59`
-                              const res = await fetch("https://geoapphospital.onrender.com/api/reportes/empleado", {
+                              const res = await fetch("https://geoapphospital-b0yr.onrender.com/api/reportes/empleado", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({

@@ -281,7 +281,7 @@ export default function CsvUploader({ onCancelar }) {
         });
 
         const response = await fetch(
-          "https://geoapphospital.onrender.com/api/employees/create-empleado-nombres",
+          "https://geoapphospital-b0yr.onrender.com/api/employees/create-empleado-nombres",
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -330,7 +330,7 @@ export default function CsvUploader({ onCancelar }) {
   // Descargar glosario de hospitales en Excel
   const descargarGlosarioHospitales = async () => {
     try {
-      const res = await fetch("https://geoapphospital.onrender.com/api/groups/get-groups");
+      const res = await fetch("https://geoapphospital-b0yr.onrender.com/api/groups/get-groups");
       if (!res.ok) throw new Error("Error al obtener los datos");
       const data = await res.json();
 

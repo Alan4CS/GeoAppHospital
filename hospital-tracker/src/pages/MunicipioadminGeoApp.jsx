@@ -20,7 +20,7 @@ export default function MunicipioAdminDashboard() {
       try {
         setHospitalesLoading(true);
         // Endpoint para hospitales por municipioadmin
-        const response = await fetch(`https://geoapphospital.onrender.com/api/municipioadmin/hospitals-by-user/${userId}`);
+        const response = await fetch(`https://geoapphospital-b0yr.onrender.com/api/municipioadmin/hospitals-by-user/${userId}`);
         const data = await response.json();
         setHospitales(data);
         // Si hay hospitales, toma el nombre_municipio del primero

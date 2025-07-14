@@ -133,7 +133,7 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
 
       if (!id_hospital) {
         try {
-          const hospitalResponse = await fetch("https://geoapphospital.onrender.com/api/superadmin/hospitals")
+          const hospitalResponse = await fetch("https://geoapphospital-b0yr.onrender.com/api/superadmin/hospitals")
           const hospitalData = await hospitalResponse.json()
           const hospitalEncontrado = hospitalData.find((h) => h.nombre_hospital === grupoEditando.nombre_hospital)
           id_hospital = hospitalEncontrado?.id_hospital
@@ -156,7 +156,7 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
 
       console.log("Enviando datos:", body)
 
-      const response = await fetch(`https://geoapphospital.onrender.com/api/groups/update-groups`, {
+      const response = await fetch(`https://geoapphospital-b0yr.onrender.com/api/groups/update-groups`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -195,7 +195,7 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
 
     try {
       const response = await fetch(
-        `https://geoapphospital.onrender.com/api/groups/delete-groups/${grupoEliminar.id_group}`,
+        `https://geoapphospital-b0yr.onrender.com/api/groups/delete-groups/${grupoEliminar.id_group}`,
         {
           method: "POST",
           headers: {

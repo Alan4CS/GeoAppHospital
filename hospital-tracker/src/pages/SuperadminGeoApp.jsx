@@ -75,7 +75,7 @@ export default function SuperadminGeoApp() {
     const fetchHospitales = async () => {
       try {
         const response = await fetch(
-          "https://geoapphospital.onrender.com/api/superadmin/hospitals"
+          "https://geoapphospital-b0yr.onrender.com/api/superadmin/hospitals"
         );
         const data = await response.json();
         const hospitalesFormateados = data.map((h) => ({
@@ -100,7 +100,7 @@ export default function SuperadminGeoApp() {
     const fetchEstados = async () => {
       try {
         const response = await fetch(
-          "https://geoapphospital.onrender.com/api/superadmin/estados"
+          "https://geoapphospital-b0yr.onrender.com/api/superadmin/estados"
         );
         const data = await response.json();
         setEstados(data);
@@ -116,7 +116,7 @@ export default function SuperadminGeoApp() {
   const fetchAdministradores = async () => {
     try {
       const response = await fetch(
-        "https://geoapphospital.onrender.com/api/superadmin/totaladmins"
+        "https://geoapphospital-b0yr.onrender.com/api/superadmin/totaladmins"
       );
       const data = await response.json();
       setAdministradores(data);
@@ -132,7 +132,7 @@ export default function SuperadminGeoApp() {
   const fetchGrupos = async () => {
     try {
       const response = await fetch(
-        "https://geoapphospital.onrender.com/api/groups/get-groups"
+        "https://geoapphospital-b0yr.onrender.com/api/groups/get-groups"
       );
       if (!response.ok) {
         throw new Error("Error al obtener grupos");
@@ -155,7 +155,7 @@ export default function SuperadminGeoApp() {
       // Actualizar también la lista de empleados
       try {
         const empleadosResponse = await fetch(
-          "https://geoapphospital.onrender.com/api/employees/get-empleados"
+          "https://geoapphospital-b0yr.onrender.com/api/employees/get-empleados"
         );
         if (empleadosResponse.ok) {
           const empleadosData = await empleadosResponse.json();
@@ -342,18 +342,18 @@ export default function SuperadminGeoApp() {
   const handleGuardarAdmin = async (nuevoAdmin) => {
     try {
       let endpoint =
-        "https://geoapphospital.onrender.com/api/superadmin/create-admin";
+        "https://geoapphospital-b0yr.onrender.com/api/superadmin/create-admin";
 
       // Seleccionar endpoint según el tipo de admin
       if (nuevoAdmin.role_name === "superadmin") {
         endpoint =
-          "https://geoapphospital.onrender.com/api/superadmin/create-superadmin";
+          "https://geoapphospital-b0yr.onrender.com/api/superadmin/create-superadmin";
       } else if (nuevoAdmin.role_name === "municipioadmin") {
         endpoint =
-          "https://geoapphospital.onrender.com/api/municipioadmin/create-municipioadmin";
+          "https://geoapphospital-b0yr.onrender.com/api/municipioadmin/create-municipioadmin";
       } else if (nuevoAdmin.role_name === "hospitaladmin") {
         endpoint =
-          "https://geoapphospital.onrender.com/api/hospitaladmin/create-hospitaladmin";
+          "https://geoapphospital-b0yr.onrender.com/api/hospitaladmin/create-hospitaladmin";
       }
 
       const response = await fetch(endpoint, {
@@ -415,7 +415,7 @@ export default function SuperadminGeoApp() {
   const fetchEmpleados = async () => {
     try {
       const empleadosResponse = await fetch(
-        "https://geoapphospital.onrender.com/api/employees/get-empleados"
+        "https://geoapphospital-b0yr.onrender.com/api/employees/get-empleados"
       );
       if (empleadosResponse.ok) {
         const empleadosData = await empleadosResponse.json();
@@ -451,7 +451,7 @@ export default function SuperadminGeoApp() {
   const handleGuardarEmpleado = async (empleadoData) => {
     try {
       console.log('📝 Creando empleado...');
-      const response = await fetch("https://geoapphospital.onrender.com/api/employees/create-empleado", {
+      const response = await fetch("https://geoapphospital-b0yr.onrender.com/api/employees/create-empleado", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(empleadoData)
