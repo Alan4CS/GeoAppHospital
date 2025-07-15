@@ -3,6 +3,326 @@ import { pool } from '../db/index.js';
 
 const router = express.Router();
 
+/**
+ * DASHBOARDS ROUTES - CÁLCULO DE HORAS TRABAJADAS REALES
+ * 
+ * Este módulo calcula las horas trabajadas basándose en intervalos de tiempo
+ * reales entre eventos de entrada y salida de geocerca, no en conteo de registros.
+ * 
+ * Características:
+ * - Calcula horas reales trabajadas dentro de geocerca
+ * - Maneja descansos (eventos 2 y 3)
+ * - Agrupa por días para evitar duplicación
+ * - Optimizado para múltiples empleados/municipios
+ */
+
+// --- FUNCIONES AUXILIARES PARA CÁLCULO DE HORAS TRABAJADAS ---
+
+// Convierte milisegundos a horas con 2 decimales
+function msToHours(ms) {
+  return +(ms / 3600000).toFixed(2);
+}
+
+// Calcula las horas dentro, fuera, descanso y total de salidas de un arreglo de registros
+function calcularEstadisticasEmpleado(registros = []) {
+  let totalDentro = 0;
+  let totalFuera = 0;
+  let totalDescanso = 0;
+  let totalSalidas = 0;
+  let estadoGeocerca = null;
+  let horaIntervalo = null;
+  let inicioDescanso = null;
+  
+  // Función auxiliar para normalizar fechas
+  const normalizarFecha = (fecha) => {
+    if (fecha instanceof Date) return fecha;
+    if (typeof fecha === 'string') return new Date(fecha);
+    return new Date(fecha);
+  };
+  
+  const ordenadas = registros.slice().sort((a, b) => 
+    normalizarFecha(a.fecha_hora) - normalizarFecha(b.fecha_hora)
+  );
+  
+  for (let i = 0; i < ordenadas.length; i++) {
+    const act = ordenadas[i];
+    
+    if (i === 0) {
+      estadoGeocerca = act.dentro_geocerca;
+      horaIntervalo = normalizarFecha(act.fecha_hora);
+      continue;
+    }
+    
+    if (typeof act.evento === 'number') {
+      const fechaActual = normalizarFecha(act.fecha_hora);
+      
+      // Manejo de descansos
+      if (act.evento === 2) {
+        // Inicio de descanso
+        inicioDescanso = fechaActual;
+      } else if (act.evento === 3 && inicioDescanso) {
+        // Fin de descanso
+        totalDescanso += (fechaActual - inicioDescanso);
+        inicioDescanso = null;
+      }
+      
+      // Manejo de geocerca
+      if (act.evento === 0 && estadoGeocerca === true && horaIntervalo) {
+        totalDentro += (fechaActual - horaIntervalo);
+        estadoGeocerca = false;
+        horaIntervalo = fechaActual;
+        totalSalidas++;
+      } else if (act.evento === 1 && estadoGeocerca === false && horaIntervalo) {
+        totalFuera += (fechaActual - horaIntervalo);
+        estadoGeocerca = true;
+        horaIntervalo = fechaActual;
+      }
+    }
+    
+    if (i === ordenadas.length - 1 && horaIntervalo && estadoGeocerca !== null) {
+      const fechaFinal = normalizarFecha(act.fecha_hora);
+      if (estadoGeocerca) {
+        totalDentro += (fechaFinal - horaIntervalo);
+      } else {
+        totalFuera += (fechaFinal - horaIntervalo);
+      }
+    }
+  }
+  
+  return {
+    workedHours: msToHours(totalDentro),
+    outsideHours: msToHours(totalFuera),
+    restHours: msToHours(totalDescanso),
+    totalExits: totalSalidas,
+  };
+}
+
+// Agrupa registros por día y suma horas por día (para evitar duplicar horas)
+function calcularEstadisticasEmpleadoPorDias(registros = []) {
+  // Agrupar registros por día local
+  const actividadesPorDia = {};
+  registros.forEach((registro) => {
+    // Manejar tanto strings como objetos Date
+    let fechaStr;
+    if (registro.fecha_hora instanceof Date) {
+      fechaStr = registro.fecha_hora.toISOString().slice(0, 10); // yyyy-MM-dd
+    } else if (typeof registro.fecha_hora === 'string') {
+      fechaStr = registro.fecha_hora.slice(0, 10); // yyyy-MM-dd
+    } else {
+      fechaStr = new Date(registro.fecha_hora).toISOString().slice(0, 10);
+    }
+    
+    if (!actividadesPorDia[fechaStr]) actividadesPorDia[fechaStr] = [];
+    actividadesPorDia[fechaStr].push(registro);
+  });
+  
+  let totalTrabajadas = 0;
+  let totalFuera = 0;
+  let totalDescanso = 0;
+  let totalSalidas = 0;
+  
+  Object.values(actividadesPorDia).forEach(acts => {
+    const stats = calcularEstadisticasEmpleado(acts);
+    totalTrabajadas += stats.workedHours || 0;
+    totalFuera += stats.outsideHours || 0;
+    totalDescanso += stats.restHours || 0;
+    totalSalidas += stats.totalExits || 0;
+  });
+  
+  return {
+    workedHours: totalTrabajadas,
+    outsideHours: totalFuera,
+    restHours: totalDescanso,
+    totalExits: totalSalidas,
+  };
+}
+
+// Función auxiliar para calcular horas trabajadas reales para múltiples empleados
+async function calcularHorasTrabajadasReales(empleados, fechaInicio, fechaFin) {
+  if (!empleados || empleados.length === 0) return 0;
+  
+  try {
+    const empleadoIds = empleados.map(emp => emp.id_user);
+    
+    // Obtener todos los registros de todos los empleados en una sola consulta
+    const registrosQuery = `
+      SELECT id_user, fecha_hora, dentro_geocerca, evento, tipo_registro
+      FROM registro_ubicaciones
+      WHERE id_user = ANY($1) AND fecha_hora BETWEEN $2 AND $3
+      ORDER BY id_user, fecha_hora ASC
+    `;
+    
+    const result = await pool.query(registrosQuery, [empleadoIds, fechaInicio, fechaFin]);
+    
+    // Agrupar registros por empleado
+    const registrosPorEmpleado = {};
+    result.rows.forEach(registro => {
+      if (!registrosPorEmpleado[registro.id_user]) {
+        registrosPorEmpleado[registro.id_user] = [];
+      }
+      registrosPorEmpleado[registro.id_user].push(registro);
+    });
+    
+    let totalHorasReales = 0;
+    
+    // Calcular horas para cada empleado
+    Object.values(registrosPorEmpleado).forEach(registros => {
+      if (registros.length > 0) {
+        try {
+          const stats = calcularEstadisticasEmpleadoPorDias(registros);
+          totalHorasReales += stats.workedHours;
+        } catch (error) {
+          console.error('Error calculando estadísticas para empleado:', error);
+        }
+      }
+    });
+    
+    return totalHorasReales;
+  } catch (error) {
+    console.error('Error en calcularHorasTrabajadasReales:', error);
+    return 0;
+  }
+}
+
+// Función auxiliar para calcular todas las estadísticas de horas (trabajadas, descanso, fuera)
+async function calcularHorasTrabajadasRealesTotales(empleados, fechaInicio, fechaFin) {
+  if (!empleados || empleados.length === 0) {
+    return {
+      workedHours: 0,
+      outsideHours: 0,
+      restHours: 0,
+      totalExits: 0
+    };
+  }
+  
+  try {
+    const empleadoIds = empleados.map(emp => emp.id_user);
+    
+    // Obtener todos los registros de todos los empleados en una sola consulta
+    const registrosQuery = `
+      SELECT id_user, fecha_hora, dentro_geocerca, evento, tipo_registro
+      FROM registro_ubicaciones
+      WHERE id_user = ANY($1) AND fecha_hora BETWEEN $2 AND $3
+      ORDER BY id_user, fecha_hora ASC
+    `;
+    
+    const result = await pool.query(registrosQuery, [empleadoIds, fechaInicio, fechaFin]);
+    
+    // Agrupar registros por empleado
+    const registrosPorEmpleado = {};
+    result.rows.forEach(registro => {
+      if (!registrosPorEmpleado[registro.id_user]) {
+        registrosPorEmpleado[registro.id_user] = [];
+      }
+      registrosPorEmpleado[registro.id_user].push(registro);
+    });
+    
+    let totalWorkedHours = 0;
+    let totalOutsideHours = 0;
+    let totalRestHours = 0;
+    let totalExits = 0;
+    
+    // Calcular estadísticas completas para cada empleado
+    Object.values(registrosPorEmpleado).forEach(registros => {
+      if (registros.length > 0) {
+        try {
+          const stats = calcularEstadisticasEmpleadoPorDias(registros);
+          totalWorkedHours += stats.workedHours || 0;
+          totalOutsideHours += stats.outsideHours || 0;
+          totalRestHours += stats.restHours || 0;
+          totalExits += stats.totalExits || 0;
+        } catch (error) {
+          console.error('Error calculando estadísticas para empleado:', error);
+        }
+      }
+    });
+    
+    return {
+      workedHours: totalWorkedHours,
+      outsideHours: totalOutsideHours,
+      restHours: totalRestHours,
+      totalExits: totalExits
+    };
+  } catch (error) {
+    console.error('Error en calcularHorasTrabajadasRealesTotales:', error);
+    return {
+      workedHours: 0,
+      outsideHours: 0,
+      restHours: 0,
+      totalExits: 0
+    };
+  }
+}
+
+// Función auxiliar optimizada para calcular horas por municipio
+async function calcularHorasTrabajadasPorMunicipio(idEstado, fechaInicio, fechaFin) {
+  try {
+    // Obtener todos los empleados del estado con su municipio
+    const empleadosQuery = `
+      SELECT u.id_user, m.id_municipio, m.nombre_municipio
+      FROM user_data u
+      JOIN municipios m ON u.id_municipio = m.id_municipio
+      WHERE m.id_estado = $1 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
+    `;
+    
+    const empleadosRes = await pool.query(empleadosQuery, [idEstado]);
+    
+    if (empleadosRes.rows.length === 0) return [];
+    
+    const empleadoIds = empleadosRes.rows.map(emp => emp.id_user);
+    
+    // Obtener todos los registros en una sola consulta
+    const registrosQuery = `
+      SELECT id_user, fecha_hora, dentro_geocerca, evento, tipo_registro
+      FROM registro_ubicaciones
+      WHERE id_user = ANY($1) AND fecha_hora BETWEEN $2 AND $3
+      ORDER BY id_user, fecha_hora ASC
+    `;
+    
+    const registrosRes = await pool.query(registrosQuery, [empleadoIds, fechaInicio, fechaFin]);
+    
+    // Agrupar registros por empleado
+    const registrosPorEmpleado = {};
+    registrosRes.rows.forEach(registro => {
+      if (!registrosPorEmpleado[registro.id_user]) {
+        registrosPorEmpleado[registro.id_user] = [];
+      }
+      registrosPorEmpleado[registro.id_user].push(registro);
+    });
+    
+    // Agrupar horas por municipio
+    const horasPorMunicipio = {};
+    
+    empleadosRes.rows.forEach(empleado => {
+      const registros = registrosPorEmpleado[empleado.id_user] || [];
+      if (registros.length > 0) {
+        try {
+          const stats = calcularEstadisticasEmpleadoPorDias(registros);
+          
+          if (!horasPorMunicipio[empleado.nombre_municipio]) {
+            horasPorMunicipio[empleado.nombre_municipio] = 0;
+          }
+          horasPorMunicipio[empleado.nombre_municipio] += stats.workedHours;
+        } catch (error) {
+          console.error(`Error calculando horas para empleado ${empleado.id_user}:`, error);
+        }
+      }
+    });
+    
+    // Convertir a array y filtrar municipios con horas > 0
+    return Object.entries(horasPorMunicipio)
+      .filter(([_, horas]) => horas > 0)
+      .map(([municipio, horas]) => ({
+        municipio,
+        horas: Math.round(horas * 100) / 100
+      }))
+      .sort((a, b) => b.horas - a.horas);
+  } catch (error) {
+    console.error('Error en calcularHorasTrabajadasPorMunicipio:', error);
+    return [];
+  }
+}
+
 // Función auxiliar para mapear IDs de estado a códigos de mapa
 const getStateCodeMapping = () => {
   return {
@@ -240,9 +560,9 @@ router.get('/estatal/metricas', async (req, res) => {
       WHERE m.id_estado = $1
     `;
 
-    // Query para total de empleados únicos en el estado (solo los que tienen hospital y grupo asignados)
+    // Query para obtener empleados únicos en el estado (solo los que tienen hospital y grupo asignados)
     const empleadosQuery = `
-      SELECT COUNT(DISTINCT u.id_user) as total_empleados
+      SELECT u.id_user
       FROM user_data u
       WHERE u.id_estado = $1 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
     `;
@@ -255,27 +575,24 @@ router.get('/estatal/metricas', async (req, res) => {
       WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.evento = 0 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
     `;
 
-    // Query para total de registros de entrada (horas trabajadas) en el período (solo empleados con hospital y grupo asignados)
-    const horasTrabajadasQuery = `
-      SELECT COUNT(*) as total_horas_trabajadas
-      FROM registro_ubicaciones r
-      JOIN user_data u ON r.id_user = u.id_user
-      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.tipo_registro = 1 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
-    `;
-
-    // Ejecutar todas las queries en paralelo
-    const [hospitalesRes, empleadosRes, salidasRes, horasRes] = await Promise.all([
+    // Ejecutar queries básicas en paralelo
+    const [hospitalesRes, empleadosRes, salidasRes] = await Promise.all([
       pool.query(hospitalesQuery, [id_estado]),
       pool.query(empleadosQuery, [id_estado]),
-      pool.query(salidasGeocercaQuery, [id_estado, fechaInicio, fechaFin]),
-      pool.query(horasTrabajadasQuery, [id_estado, fechaInicio, fechaFin])
+      pool.query(salidasGeocercaQuery, [id_estado, fechaInicio, fechaFin])
     ]);
+
+    // Calcular horas trabajadas reales usando las funciones auxiliares
+    const empleados = empleadosRes.rows;
+    const statsCompletas = await calcularHorasTrabajadasRealesTotales(empleados, fechaInicio, fechaFin);
 
     const metricas = {
       total_hospitales: parseInt(hospitalesRes.rows[0]?.total_hospitales) || 0,
-      total_empleados: parseInt(empleadosRes.rows[0]?.total_empleados) || 0,
+      total_empleados: empleados.length || 0,
       total_salidas_geocerca: parseInt(salidasRes.rows[0]?.total_salidas_geocerca) || 0,
-      total_horas_trabajadas: parseInt(horasRes.rows[0]?.total_horas_trabajadas) || 0
+      total_horas_trabajadas: Math.round(statsCompletas.workedHours * 100) / 100, // Redondear a 2 decimales
+      total_horas_descanso: Math.round(statsCompletas.restHours * 100) / 100,
+      total_horas_fuera: Math.round(statsCompletas.outsideHours * 100) / 100
     };
 
     res.json(metricas);
@@ -349,7 +666,7 @@ router.get('/estatal/eventos-geocerca', async (req, res) => {
   }
 });
 
-// 3. Ranking de Hospitales por Salidas (MEJORADO - incluye empleados, horas y métricas)
+// 3. Ranking de Hospitales por Salidas (MEJORADO - incluye empleados, horas reales y métricas)
 // GET /api/dashboards/estadual/ranking-hospitales?id_estado=XX&fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
 router.get('/estatal/ranking-hospitales', async (req, res) => {
   try {
@@ -358,13 +675,14 @@ router.get('/estatal/ranking-hospitales', async (req, res) => {
       return res.status(400).json({ error: 'id_estado, fechaInicio y fechaFin son obligatorios' });
     }
     
+    // Query para obtener hospitales con empleados y salidas
     const query = `
       SELECT 
+        h.id_hospital,
         h.nombre_hospital,
         m.nombre_municipio as municipio,
         COUNT(DISTINCT u.id_user) as empleados,
         SUM(CASE WHEN r.evento = 0 THEN 1 ELSE 0 END) as salidas,
-        SUM(CASE WHEN r.tipo_registro = 1 THEN 1 ELSE 0 END) as horas_trabajadas,
         COUNT(r.id_registro) as total_registros
       FROM hospitals h
       JOIN municipios m ON h.id_municipio = m.id_municipio
@@ -378,17 +696,31 @@ router.get('/estatal/ranking-hospitales', async (req, res) => {
     
     const result = await pool.query(query, [id_estado, fechaInicio, fechaFin]);
     
-    // Procesar resultados para agregar métricas calculadas
-    const hospitalesConMetricas = result.rows.map(hospital => ({
-      ...hospital,
-      empleados: parseInt(hospital.empleados) || 0,
-      salidas: parseInt(hospital.salidas) || 0,
-      horas_trabajadas: parseInt(hospital.horas_trabajadas) || 0,
-      total_registros: parseInt(hospital.total_registros) || 0,
-      eficiencia: hospital.empleados > 0 ? parseFloat((hospital.salidas / hospital.empleados).toFixed(2)) : 0,
-      actividad_total: parseInt(hospital.salidas || 0) + parseInt(hospital.horas_trabajadas || 0),
-      ratio_salidas_horas: hospital.horas_trabajadas > 0 ? parseFloat((hospital.salidas / hospital.horas_trabajadas).toFixed(2)) : 0
-    }));
+    // Calcular horas reales para cada hospital
+    const hospitalesConMetricas = [];
+    
+    for (const hospital of result.rows) {
+      // Obtener empleados del hospital
+      const empleadosQuery = `
+        SELECT id_user FROM user_data 
+        WHERE id_hospital = $1 AND id_hospital IS NOT NULL AND id_group IS NOT NULL
+      `;
+      const empleadosRes = await pool.query(empleadosQuery, [hospital.id_hospital]);
+      
+      // Calcular horas reales trabajadas
+      const horasReales = await calcularHorasTrabajadasReales(empleadosRes.rows, fechaInicio, fechaFin);
+      
+      hospitalesConMetricas.push({
+        ...hospital,
+        empleados: parseInt(hospital.empleados) || 0,
+        salidas: parseInt(hospital.salidas) || 0,
+        horas_trabajadas: Math.round(horasReales * 100) / 100, // Horas reales
+        total_registros: parseInt(hospital.total_registros) || 0,
+        eficiencia: hospital.empleados > 0 ? parseFloat((hospital.salidas / hospital.empleados).toFixed(2)) : 0,
+        actividad_total: parseInt(hospital.salidas || 0) + horasReales,
+        ratio_salidas_horas: horasReales > 0 ? parseFloat((hospital.salidas / horasReales).toFixed(2)) : 0
+      });
+    }
     
     res.json(hospitalesConMetricas);
   } catch (error) {
@@ -397,7 +729,7 @@ router.get('/estatal/ranking-hospitales', async (req, res) => {
   }
 });
 
-// 4. Horas trabajadas por municipio
+// 4. Horas trabajadas reales por municipio
 // GET /api/dashboards/estadual/horas-municipio?id_estado=XX&fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
 router.get('/estatal/horas-municipio', async (req, res) => {
   try {
@@ -405,19 +737,9 @@ router.get('/estatal/horas-municipio', async (req, res) => {
     if (!id_estado || !fechaInicio || !fechaFin) {
       return res.status(400).json({ error: 'id_estado, fechaInicio y fechaFin son obligatorios' });
     }
-    const query = `
-      SELECT 
-        m.nombre_municipio as municipio,
-        COUNT(*) as horas
-      FROM registro_ubicaciones r
-      JOIN user_data u ON r.id_user = u.id_user
-      JOIN municipios m ON u.id_municipio = m.id_municipio
-      WHERE u.id_estado = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.tipo_registro = 1 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
-      GROUP BY m.nombre_municipio
-      ORDER BY horas DESC
-    `;
-    const result = await pool.query(query, [id_estado, fechaInicio, fechaFin]);
-    res.json(result.rows);
+
+    const resultados = await calcularHorasTrabajadasPorMunicipio(id_estado, fechaInicio, fechaFin);
+    res.json(resultados);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al obtener horas por municipio' });
@@ -452,7 +774,7 @@ router.get('/estatal/distribucion-municipal', async (req, res) => {
     const registrosQuery = `
       SELECT m.nombre_municipio as municipio,
         SUM(CASE WHEN r.evento = 0 THEN 1 ELSE 0 END) as geofenceExits,
-        SUM(CASE WHEN r.tipo_registro = 1 THEN 1 ELSE 0 END) as hoursWorked
+        SUM(CASE WHEN r.tipo_registro = 1 AND r.dentro_geocerca = true THEN 1 ELSE 0 END) as hoursWorked
       FROM registro_ubicaciones r
       JOIN user_data u ON r.id_user = u.id_user
       JOIN municipios m ON u.id_municipio = m.id_municipio
@@ -504,18 +826,18 @@ router.get('/estatal/distribucion-municipal-completa', async (req, res) => {
         COUNT(DISTINCT h.id_hospital) as hospitals,
         COUNT(DISTINCT u.id_user) as employees,
         SUM(CASE WHEN r.evento = 0 THEN 1 ELSE 0 END) as geofenceExits,
-        SUM(CASE WHEN r.tipo_registro = 1 THEN 1 ELSE 0 END) as hoursWorked,
+        SUM(CASE WHEN r.tipo_registro = 1 AND r.dentro_geocerca = true THEN 1 ELSE 0 END) as hoursWorked,
         COUNT(r.id_registro) as totalRegistros,
         AVG(CASE WHEN r.evento = 0 THEN 1.0 ELSE 0.0 END) as promedioSalidas,
-        AVG(CASE WHEN r.tipo_registro = 1 THEN 1.0 ELSE 0.0 END) as promedioHoras
+        AVG(CASE WHEN r.tipo_registro = 1 AND r.dentro_geocerca = true THEN 1.0 ELSE 0.0 END) as promedioHoras
       FROM municipios m
       LEFT JOIN hospitals h ON h.id_municipio = m.id_municipio
       LEFT JOIN user_data u ON u.id_municipio = m.id_municipio AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
       LEFT JOIN registro_ubicaciones r ON u.id_user = r.id_user AND r.fecha_hora BETWEEN $2 AND $3
       WHERE m.id_estado = $1
       GROUP BY m.id_municipio, m.nombre_municipio
-      HAVING COUNT(DISTINCT u.id_user) > 0 OR SUM(CASE WHEN r.evento = 0 THEN 1 ELSE 0 END) > 0 OR SUM(CASE WHEN r.tipo_registro = 1 THEN 1 ELSE 0 END) > 0
-      ORDER BY (SUM(CASE WHEN r.evento = 0 THEN 1 ELSE 0 END) + SUM(CASE WHEN r.tipo_registro = 1 THEN 1 ELSE 0 END)) DESC
+      HAVING COUNT(DISTINCT u.id_user) > 0 OR SUM(CASE WHEN r.evento = 0 THEN 1 ELSE 0 END) > 0 OR SUM(CASE WHEN r.tipo_registro = 1 AND r.dentro_geocerca = true THEN 1 ELSE 0 END) > 0
+      ORDER BY (SUM(CASE WHEN r.evento = 0 THEN 1 ELSE 0 END) + SUM(CASE WHEN r.tipo_registro = 1 AND r.dentro_geocerca = true THEN 1 ELSE 0 END)) DESC
     `;
     
     const result = await pool.query(query, [id_estado, fechaInicio, fechaFin]);
@@ -570,7 +892,7 @@ router.get('/estatal/municipio-detalle', async (req, res) => {
 
     // Query para empleados en el municipio (solo los que tienen hospital y grupo asignados)
     const employeesQuery = `
-      SELECT COUNT(u.id_user) as employees
+      SELECT u.id_user
       FROM user_data u
       WHERE u.id_municipio = $1 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
     `;
@@ -583,14 +905,6 @@ router.get('/estatal/municipio-detalle', async (req, res) => {
       WHERE u.id_municipio = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.evento = 0 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
     `;
 
-    // Query para horas trabajadas en el período (solo empleados con hospital y grupo asignados)
-    const hoursWorkedQuery = `
-      SELECT COUNT(*) as hoursWorked
-      FROM registro_ubicaciones r
-      JOIN user_data u ON r.id_user = u.id_user
-      WHERE u.id_municipio = $1 AND r.fecha_hora BETWEEN $2 AND $3 AND r.tipo_registro = 1 AND u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
-    `;
-
     // Query para obtener el nombre del municipio
     const municipioQuery = `
       SELECT m.nombre_municipio, e.nombre_estado
@@ -599,12 +913,11 @@ router.get('/estatal/municipio-detalle', async (req, res) => {
       WHERE m.id_municipio = $1
     `;
 
-    // Ejecutar todas las queries en paralelo
-    const [hospitalsRes, employeesRes, geofenceRes, hoursRes, municipioRes] = await Promise.all([
+    // Ejecutar queries básicas en paralelo
+    const [hospitalsRes, employeesRes, geofenceRes, municipioRes] = await Promise.all([
       pool.query(hospitalsQuery, [id_municipio]),
       pool.query(employeesQuery, [id_municipio]),
       pool.query(geofenceExitsQuery, [id_municipio, fechaInicio, fechaFin]),
-      pool.query(hoursWorkedQuery, [id_municipio, fechaInicio, fechaFin]),
       pool.query(municipioQuery, [id_municipio])
     ]);
 
@@ -613,14 +926,18 @@ router.get('/estatal/municipio-detalle', async (req, res) => {
       return res.status(404).json({ error: 'Municipio no encontrado' });
     }
 
+    // Calcular horas trabajadas reales usando la función auxiliar
+    const empleados = employeesRes.rows;
+    const horasReales = await calcularHorasTrabajadasReales(empleados, fechaInicio, fechaFin);
+
     const result = {
       id_municipio: parseInt(id_municipio),
       municipio: municipioRes.rows[0].nombre_municipio,
       estado: municipioRes.rows[0].nombre_estado,
       hospitals: parseInt(hospitalsRes.rows[0]?.hospitals) || 0,
-      employees: parseInt(employeesRes.rows[0]?.employees) || 0,
+      employees: empleados.length || 0,
       geofenceExits: parseInt(geofenceRes.rows[0]?.geofenceexits) || 0,
-      hoursWorked: parseInt(hoursRes.rows[0]?.hoursworked) || 0
+      hoursWorked: Math.round(horasReales * 100) / 100 // Horas reales con 2 decimales
     };
 
     res.json(result);
@@ -701,6 +1018,7 @@ router.get('/nacional/estadisticas-estados', async (req, res) => {
         JOIN estados e3 ON u3.id_estado = e3.id_estado
         WHERE r2.fecha_hora BETWEEN $1 AND $2 
           AND r2.tipo_registro = 1 
+          AND r2.dentro_geocerca = true
           AND u3.id_hospital IS NOT NULL 
           AND u3.id_group IS NOT NULL
         GROUP BY e3.id_estado
@@ -778,6 +1096,7 @@ router.get('/nacional/totales', async (req, res) => {
       JOIN user_data u ON r.id_user = u.id_user
       WHERE r.fecha_hora BETWEEN $1 AND $2 
         AND r.tipo_registro = 1 
+        AND r.dentro_geocerca = true
         AND u.id_hospital IS NOT NULL 
         AND u.id_group IS NOT NULL
     `;
@@ -850,6 +1169,7 @@ router.get('/nacional/ranking-estados', async (req, res) => {
         JOIN estados e ON u.id_estado = e.id_estado
         WHERE r.fecha_hora BETWEEN $1 AND $2 
           AND r.tipo_registro = 1 
+          AND r.dentro_geocerca = true
           AND u.id_hospital IS NOT NULL 
           AND u.id_group IS NOT NULL
         GROUP BY e.id_estado, e.nombre_estado

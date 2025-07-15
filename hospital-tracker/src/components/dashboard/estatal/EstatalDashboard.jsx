@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react"
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps"
 import { scaleQuantile } from "d3-scale"
 import { format, subDays, subMonths, subYears, isAfter } from "date-fns"
-import { Calendar, Building2, MapPin, Clock, LogOut, Plus, Minus, Users, ArrowUpRight, Briefcase, Building, TrendingUp, Check } from "lucide-react"
+import { Calendar, Building2, MapPin, Clock, LogOut, Plus, Minus, Users, ArrowUpRight, Briefcase, Building, TrendingUp, Check, Coffee, Navigation } from "lucide-react"
 import { AreaChart, Area, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, LabelList } from 'recharts'
 import { feature } from "topojson-client"
 import { geoCentroid } from "d3-geo"
@@ -318,7 +318,9 @@ export default function EstatalDashboard() {
   const totalHospitales = metricas?.total_hospitales || 0;
   const totalPersonal = metricas?.total_empleados || 0;
   const totalSalidas = metricas?.total_salidas_geocerca || 0;
-  const totalHoras = metricas?.total_horas_trabajadas || 0;
+  const totalHoras = Math.round(metricas?.total_horas_trabajadas || 0);
+  const totalHorasDescanso = Math.round(metricas?.total_horas_descanso || 0);
+  const totalHorasFuera = Math.round(metricas?.total_horas_fuera || 0);
 
   // Cargar municipios TopoJSON del sureste mexicano (mx_tj.json - versión optimizada)
   useEffect(() => {
@@ -579,6 +581,8 @@ export default function EstatalDashboard() {
         totalEmpleados: totalPersonal,
         totalMunicipios: municipalityData.length || 0,
         totalHoras,
+        totalHorasDescanso,
+        totalHorasFuera,
         totalSalidas,
         eficienciaPromedio: totalSalidas > 0 ? Math.round((totalHoras / (totalHoras + totalSalidas)) * 100) : 0
       };
@@ -821,7 +825,7 @@ export default function EstatalDashboard() {
     if (!id_estado) return;
     
     try {
-      const res = await fetch(`https://geoapphospital-b0yr.onrender.com/api/dashboards/municipios-by-estado/${id_estado}`);
+      const res = await fetch(`https:///api/dashboards/municipios-by-estado/${id_estado}`);
       if (!res.ok) throw new Error('Error al obtener municipios');
       const data = await res.json();
       
@@ -1051,7 +1055,7 @@ export default function EstatalDashboard() {
           </div>
 
           {/* Métricas Rápidas */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
             <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl p-6 text-white">
               <div className="flex items-center justify-between mb-4">
                 <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
@@ -1074,17 +1078,6 @@ export default function EstatalDashboard() {
               <p className="text-2xl font-bold">{totalPersonal}</p>
             </div>
 
-            <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-6 text-white">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-                  <MapPin className="h-5 w-5 text-white" />
-                </div>
-                <TrendingUp className="h-4 w-4 text-white/70" />
-              </div>
-              <p className="text-sm text-white/70">Salidas de Geocerca</p>
-              <p className="text-2xl font-bold">{totalSalidas}</p>
-            </div>
-
             <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-6 text-white">
               <div className="flex items-center justify-between mb-4">
                 <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
@@ -1094,6 +1087,39 @@ export default function EstatalDashboard() {
               </div>
               <p className="text-sm text-white/70">Horas Trabajadas</p>
               <p className="text-2xl font-bold">{totalHoras}</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl p-6 text-white">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Coffee className="h-5 w-5 text-white" />
+                </div>
+                <TrendingUp className="h-4 w-4 text-white/70" />
+              </div>
+              <p className="text-sm text-white/70">Horas de Descanso</p>
+              <p className="text-2xl font-bold">{totalHorasDescanso}</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl p-6 text-white">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Navigation className="h-5 w-5 text-white" />
+                </div>
+                <TrendingUp className="h-4 w-4 text-white/70" />
+              </div>
+              <p className="text-sm text-white/70">Horas Fuera Geocerca</p>
+              <p className="text-2xl font-bold">{totalHorasFuera}</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-6 text-white">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <MapPin className="h-5 w-5 text-white" />
+                </div>
+                <TrendingUp className="h-4 w-4 text-white/70" />
+              </div>
+              <p className="text-sm text-white/70">Salidas de Geocerca</p>
+              <p className="text-2xl font-bold">{totalSalidas}</p>
             </div>
           </div>
 
