@@ -629,7 +629,7 @@ export default function EstatalDashboard() {
     
     try {
       console.log('[Debug] Fetching state for estadoadmin with userId:', userId);
-      const response = await fetch(`http://geoapphospital-b0yr.onrender.com/api/estadoadmin/hospitals-by-user/${userId}`);
+      const response = await fetch(`https://geoapphospital-b0yr.onrender.com/api/estadoadmin/hospitals-by-user/${userId}`);
       console.log('[Debug] Response status:', response.status);
       
       if (!response.ok) {
@@ -733,7 +733,7 @@ export default function EstatalDashboard() {
       setLoadingGraficas(true);
       setErrorGraficas(null);
       try {
-        const base = 'http://geoapphospital-b0yr.onrender.com/api/dashboards/estatal';
+        const base = 'https://geoapphospital-b0yr.onrender.com/api/dashboards/estatal';
         const params = `?id_estado=${id_estado}&fechaInicio=${dateRange.startDate}&fechaFin=${dateRange.endDate}`;
         const [entradasSalidasRes, eventosRes, rankingRes, horasRes, metricasRes] = await Promise.all([
           fetch(`${base}/entradas-salidas${params}`),
@@ -771,7 +771,7 @@ export default function EstatalDashboard() {
       const id_estado = stateCodeToId[selectedState];
       if (!id_estado) return;
       try {
-        const base = 'http://geoapphospital-b0yr.onrender.com/api/dashboards/estatal';
+        const base = 'https://geoapphospital-b0yr.onrender.com/api/dashboards/estatal';
         const params = `?id_estado=${id_estado}&fechaInicio=${dateRange.startDate}&fechaFin=${dateRange.endDate}`;
         
         // Usar el nuevo endpoint completo para datos municipales
@@ -802,7 +802,7 @@ export default function EstatalDashboard() {
     
     setLoadingTooltip(true);
     try {
-      const base = 'http://geoapphospital-b0yr.onrender.com/api/dashboards/estatal';
+      const base = 'https://geoapphospital-b0yr.onrender.com/api/dashboards/estatal';
       const params = `?id_municipio=${municipioId}&fechaInicio=${dateRange.startDate}&fechaFin=${dateRange.endDate}`;
       const res = await fetch(`${base}/municipio-detalle${params}`);
       if (!res.ok) throw new Error('Error al obtener detalle del municipio');
@@ -821,7 +821,7 @@ export default function EstatalDashboard() {
     if (!id_estado) return;
     
     try {
-      const res = await fetch(`http://geoapphospital-b0yr.onrender.com/api/dashboards/municipios-by-estado/${id_estado}`);
+      const res = await fetch(`https://geoapphospital-b0yr.onrender.com/api/dashboards/municipios-by-estado/${id_estado}`);
       if (!res.ok) throw new Error('Error al obtener municipios');
       const data = await res.json();
       
