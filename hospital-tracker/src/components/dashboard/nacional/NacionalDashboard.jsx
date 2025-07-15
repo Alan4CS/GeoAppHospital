@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { Download } from "lucide-react";
+import { generarReporteNacionalPDF } from "./reportes/NacionalReportPDF";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import { scaleQuantile } from "d3-scale";
 import { format, subDays, subMonths, subYears, isAfter } from "date-fns";
@@ -51,6 +53,23 @@ const stateCodeToName = {
 };
 
 export default function NacionalDashboard() {
+  const [loadingPDF, setLoadingPDF] = useState(false);
+
+  const handleGeneratePDF = async () => {
+    setLoadingPDF(true);
+    try {
+      await generarReporteNacionalPDF({
+        dateRange,
+        totalStats,
+        stateData: stateData.map(s => ({
+          ...s,
+          stateName: stateCodeToName[s.state] || s.state
+        }))
+      });
+    } finally {
+      setLoadingPDF(false);
+    }
+  };
   const [activeTab, setActiveTab] = useState("Nacional");
   const [dateRange, setDateRange] = useState({
     startDate: format(
@@ -319,6 +338,27 @@ export default function NacionalDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <div className="max-w-7xl mx-auto px-4 pt-6">
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={handleGeneratePDF}
+            disabled={loadingPDF}
+            className="px-4 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 flex items-center gap-2 disabled:opacity-50"
+          >
+            {loadingPDF ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Generando...
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4" />
+                Descargar PDF
+              </>
+            )}
+          </button>
+        </div>
+      </div>
       {/* Filtro de fechas compacto */}
       <div className="max-w-7xl mx-auto px-4 pt-6">
         <div className="bg-white rounded-2xl shadow-lg p-5 mb-6">
