@@ -217,6 +217,15 @@ const SummarySection = ({ estatalStats, municipios }) => {
   const productividadGeneral = totalEmpleados > 0 ? 
     ((totalHoras + totalSalidas) / totalEmpleados).toFixed(1) : '0.0';
   
+  // Debug: Verificar cómo se calculan las horas en el resumen
+  if (municipios && municipios.length > 0) {
+    const horasMunicipios = municipios.map(m => ({
+      municipio: m.municipio || m.nombre_municipio,
+      horas: m.horas,
+      hoursWorked: m.hoursWorked
+    }));
+    console.log('[PDF] [SummarySection] Horas por municipio:', horasMunicipios);
+  }
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Resumen Ejecutivo Estatal</Text>
@@ -275,23 +284,22 @@ const SummarySection = ({ estatalStats, municipios }) => {
 };
 
 const MunicipalTable = ({ municipios }) => {
-  // Los datos del backend mejorado ya incluyen métricas calculadas
-  const municipiosOrdenados = municipios?.map(m => {
-    const horas = m.hoursWorked || m.horas || 0;
-    const salidas = m.geofenceExits || m.salidas || 0;
-    const hospitals = m.hospitals || m.hospitales || 0;
-    const employees = m.employees || m.empleados || 0;
-    
-    return {
-      ...m,
-      // Usar actividad total del backend o calcular
-      actividadTotal: m.actividadTotal || (horas + salidas),
-      // Usar eficiencia del backend o calcular
-      eficiencia: m.eficiencia || (employees > 0 ? (horas / employees).toFixed(1) : 0),
-      // Usar índice de actividad del backend o calcular
-      indiceActividad: m.indiceActividad || (hospitals > 0 ? (salidas / hospitals).toFixed(1) : 0)
-    };
-  }).sort((a, b) => b.actividadTotal - a.actividadTotal) || [];
+  // Aceptar datos tal como vienen del endpoint, sin filtrar por nombre de municipio
+  const municipiosOrdenados = (municipios && Array.isArray(municipios))
+    ? municipios
+        .filter(m => typeof m === 'object' && m != null && (m.municipio || m.nombre_municipio))
+        .sort((a, b) => (b.actividadTotal || (b.hoursWorked + b.geofenceExits)) - (a.actividadTotal || (a.hoursWorked + a.geofenceExits)))
+    : [];
+
+  // Debug: Mostrar cómo se usan las horas en la tabla municipal
+  if (municipiosOrdenados.length > 0) {
+    const horasTabla = municipiosOrdenados.map(m => ({
+      municipio: m.municipio || m.nombre_municipio,
+      horas: m.horas,
+      hoursWorked: m.hoursWorked
+    }));
+    console.log('[PDF] [MunicipalTable] Horas mostradas en tabla:', horasTabla);
+  }
 
   return (
     <View style={styles.section}>
@@ -312,34 +320,29 @@ const MunicipalTable = ({ municipios }) => {
           <Text style={[styles.tableCellHeader, { flex: 1 }]}>Índice</Text>
         </View>
         {municipiosOrdenados.slice(0, 20).map((municipio, index) => {
-          const horas = municipio.hoursWorked || municipio.horas || 0;
-          const salidas = municipio.geofenceExits || municipio.salidas || 0;
-          const hospitals = municipio.hospitals || municipio.hospitales || 0;
-          const employees = municipio.employees || municipio.empleados || 0;
-          
           return (
-            <View key={index} style={[styles.tableRow, index % 2 === 1 && { backgroundColor: '#f8f9fa' }]}>
-              <Text style={[styles.tableCell, { flex: 0.6, textAlign: 'center', fontWeight: 'bold' }]}>
+            <View key={index} style={[styles.tableRow, index % 2 === 1 && { backgroundColor: '#f8f9fa' }]}> 
+              <Text style={[styles.tableCell, { flex: 0.6, textAlign: 'center', fontWeight: 'bold' }]}> 
                 {index + 1}
               </Text>
-              <Text style={[styles.tableCell, { flex: 2, fontSize: 8 }]}>
+              <Text style={[styles.tableCell, { flex: 2, fontSize: 8 }]}> 
                 {(municipio.municipio || municipio.nombre_municipio || municipio.municipality || 'N/A').substring(0, 20)}
               </Text>
-              <Text style={[styles.tableCell, { flex: 0.8, textAlign: 'center' }]}>
-                {hospitals}
+              <Text style={[styles.tableCell, { flex: 0.8, textAlign: 'center' }]}> 
+                {municipio.hospitals ?? municipio.hospitales ?? ''}
               </Text>
-              <Text style={[styles.tableCell, { flex: 0.8, textAlign: 'center' }]}>
-                {employees}
+              <Text style={[styles.tableCell, { flex: 0.8, textAlign: 'center' }]}> 
+                {municipio.employees ?? municipio.empleados ?? ''}
               </Text>
-              <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>
-                {horas.toLocaleString()}
+              <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}> 
+                {(municipio.hoursWorked ?? municipio.horas ?? 0).toLocaleString()}
               </Text>
-              <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>
-                {salidas.toLocaleString()}
+              <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}> 
+                {(municipio.geofenceExits ?? municipio.salidas ?? 0).toLocaleString()}
               </Text>
               {/* Celda eficiencia eliminada */}
-              <Text style={[styles.tableCell, { flex: 1, textAlign: 'center', fontWeight: 'bold' }]}>
-                {municipio.indiceActividad}
+              <Text style={[styles.tableCell, { flex: 1, textAlign: 'center', fontWeight: 'bold' }]}> 
+                {municipio.indiceActividad ?? ''}
               </Text>
             </View>
           );
@@ -485,6 +488,16 @@ const AnalysisSection = ({ municipios, hospitales, estatalStats }) => {
   // Distribución y variabilidad
   const horasPorMunicipio = municipiosValidos.map(m => m.hoursWorked || m.horas || 0);
   const salidasPorMunicipio = municipiosValidos.map(m => m.geofenceExits || m.salidas || 0);
+
+  // Debug: Mostrar cómo se calculan las horas en el análisis
+  if (municipiosValidos.length > 0) {
+    const horasAnalisis = municipiosValidos.map(m => ({
+      municipio: m.municipio || m.nombre_municipio,
+      horas: m.horas,
+      hoursWorked: m.hoursWorked
+    }));
+    console.log('[PDF] [AnalysisSection] Horas usadas en análisis:', horasAnalisis);
+  }
   
   const promedioHorasMunicipal = horasPorMunicipio.length > 0 ? 
     (horasPorMunicipio.reduce((a, b) => a + b, 0) / horasPorMunicipio.length).toFixed(0) : 0;

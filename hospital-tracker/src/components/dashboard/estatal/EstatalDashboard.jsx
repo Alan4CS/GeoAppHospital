@@ -584,21 +584,50 @@ export default function EstatalDashboard() {
         totalHorasDescanso,
         totalHorasFuera,
         totalSalidas,
-        // Eficiencia promedio: % de empleados con al menos una salida (máx 100%)
-        // Como no hay arreglo de empleados, se usa el total de salidas y total de empleados (limitado a 100%)
         eficienciaPromedio: (totalPersonal > 0 ? Math.min(100, Math.round((totalSalidas / totalPersonal) * 100)) : 0),
       };
 
+      // --- FIX: Corregir horas por municipio sumando hospitales ---
+      let municipalityDataFixed = [];
+      if (municipalityData && municipalityData.length > 0 && rankingHospitalesData && rankingHospitalesData.length > 0) {
+        municipalityDataFixed = municipalityData.map(mun => {
+          const nombreMun = mun.municipio || mun.nombre_municipio || mun.municipality;
+          // Sumar las horas de todos los hospitales de este municipio
+          const hospitalesDeMun = rankingHospitalesData.filter(h => {
+            const munHosp = h.municipio || h.nombre_municipio || h.municipality;
+            return munHosp && nombreMun && munHosp.toLowerCase() === nombreMun.toLowerCase();
+          });
+          const sumaHoras = hospitalesDeMun.reduce((acc, h) => acc + (h.horas_trabajadas || h.hoursWorked || 0), 0);
+          return {
+            ...mun,
+            horas: sumaHoras,
+            hoursWorked: sumaHoras // para compatibilidad con el PDF
+          };
+        });
+      } else {
+        municipalityDataFixed = municipalityData;
+      }
+
+      // Debug: Mostrar cómo se calculan las horas por municipio justo antes de generar el PDF
+      if (municipalityDataFixed && municipalityDataFixed.length > 0) {
+        const horasMunicipios = municipalityDataFixed.map(m => ({
+          municipio: m.municipio || m.nombre_municipio,
+          horas: m.horas,
+          hoursWorked: m.hoursWorked
+        }));
+        console.log('[DASHBOARD][FIXED] Horas por municipio (sumando hospitales):', horasMunicipios);
+      }
+
       // Debug logs para verificar los datos
       console.log('[PDF Debug] EstatalStats:', estatalStats);
-      console.log('[PDF Debug] Municipios data (completos):', municipalityData);
+      console.log('[PDF Debug] Municipios data (completos):', municipalityDataFixed);
       console.log('[PDF Debug] Horas por municipio:', horasPorMunicipioData);
       console.log('[PDF Debug] Hospitales data:', rankingHospitalesData);
       console.log('[PDF Debug] EstatalData:', estatalData);
 
       await generarReporteEstatalPDF({
         estatalData,
-        municipios: municipalityData,
+        municipios: municipalityDataFixed,
         hospitales: rankingHospitalesData,
         estatalStats,
         startDate: dateRange.startDate,
