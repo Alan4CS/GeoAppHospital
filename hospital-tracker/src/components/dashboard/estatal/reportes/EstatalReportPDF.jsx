@@ -304,11 +304,11 @@ const MunicipalTable = ({ municipios }) => {
         <View style={styles.tableHeader}>
           <Text style={[styles.tableCellHeader, { flex: 0.6 }]}>Pos</Text>
           <Text style={[styles.tableCellHeader, { flex: 2 }]}>Municipio</Text>
-          <Text style={[styles.tableCellHeader, { flex: 0.8 }]}>Hospitales</Text>
-          <Text style={[styles.tableCellHeader, { flex: 0.8 }]}>Empleados</Text>
+          <Text style={[styles.tableCellHeader, { flex: 0.8, textAlign: 'center' }]}>Empleados</Text>
+          <Text style={[styles.tableCellHeader, { flex: 0.8, textAlign: 'center' }]}>Empleados</Text>
           <Text style={[styles.tableCellHeader, { flex: 1 }]}>Horas</Text>
           <Text style={[styles.tableCellHeader, { flex: 1 }]}>Salidas</Text>
-          <Text style={[styles.tableCellHeader, { flex: 1 }]}>Efic.</Text>
+          {/* Columna eficiencia eliminada */}
           <Text style={[styles.tableCellHeader, { flex: 1 }]}>Índice</Text>
         </View>
         {municipiosOrdenados.slice(0, 20).map((municipio, index) => {
@@ -337,9 +337,7 @@ const MunicipalTable = ({ municipios }) => {
               <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>
                 {salidas.toLocaleString()}
               </Text>
-              <Text style={[styles.tableCell, { flex: 1, textAlign: 'center', fontWeight: 'bold' }]}>
-                {municipio.eficiencia}
-              </Text>
+              {/* Celda eficiencia eliminada */}
               <Text style={[styles.tableCell, { flex: 1, textAlign: 'center', fontWeight: 'bold' }]}>
                 {municipio.indiceActividad}
               </Text>
@@ -364,21 +362,13 @@ const HospitalRankingTable = ({ hospitales }) => {
     const salidas = hospital.salidas || hospital.geofenceExits || hospital.exits || hospital.totalSalidas || 0;
     const empleados = hospital.empleados || hospital.employees || 0;
     const horasTrabajas = hospital.horas_trabajadas || hospital.hoursWorked || 0;
-    // Eficiencia: % de empleados con al menos una salida (máx 100%)
-    let eficiencia = 'N/D';
-    if (Array.isArray(hospital.employeeRecords) && hospital.employeeRecords.length > 0) {
-      const empleadosConSalida = hospital.employeeRecords.filter(emp => Array.isArray(emp.registros) && emp.registros.some(r => r.tipo_registro === 0)).length;
-      eficiencia = ((empleadosConSalida / hospital.employeeRecords.length) * 100).toFixed(1);
-    } else if (empleados > 0) {
-      eficiencia = Math.min(100, (salidas / empleados) * 100).toFixed(1);
-    }
     const categoria = salidas > 100 ? 'Alto' : salidas > 50 ? 'Medio' : 'Bajo';
     return {
       ...hospital,
       salidas,
       empleados,
       horasTrabajas,
-      eficiencia,
+      // eficiencia eliminada
       categoria,
       posicion: index + 1
     };
@@ -388,7 +378,7 @@ const HospitalRankingTable = ({ hospitales }) => {
   if (!hospitales || hospitales.length === 0) {
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Ranking de Hospitales por Desempeño</Text>
+        <Text style={styles.sectionTitle}>Hospitales ordenados por salidas de geocerca</Text>
         <View style={styles.table}>
           <View style={styles.tableHeader}>
             <Text style={[styles.tableCellHeader, { flex: 0.5 }]}>Pos</Text>
@@ -396,7 +386,7 @@ const HospitalRankingTable = ({ hospitales }) => {
             <Text style={[styles.tableCellHeader, { flex: 1.3 }]}>Municipio</Text>
             <Text style={[styles.tableCellHeader, { flex: 0.8 }]}>Empl.</Text>
             <Text style={[styles.tableCellHeader, { flex: 0.8 }]}>Salidas</Text>
-            <Text style={[styles.tableCellHeader, { flex: 0.8 }]}>Efic.</Text>
+            {/* <Text style={[styles.tableCellHeader, { flex: 0.8 }]}>Efic.</Text> */}
             <Text style={[styles.tableCellHeader, { flex: 0.6 }]}>Cat.</Text>
           </View>
           <View style={styles.tableRow}>
@@ -409,19 +399,19 @@ const HospitalRankingTable = ({ hospitales }) => {
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Ranking de Hospitales por Desempeño</Text>
-      <Text style={[styles.analysisText, { marginBottom: 8, fontStyle: 'italic' }]}>
-        Top 15 hospitales ordenados por salidas de geocerca. Eficiencia: % de empleados con al menos una salida.
+      <Text style={styles.sectionTitle}>Hospitales ordenados por salidas de geocerca</Text>
+      <Text style={[styles.analysisText, { marginBottom: 8, fontStyle: 'italic' }]}> 
+        Top 15 hospitales ordenados por salidas de geocerca.
       </Text>
       <View style={styles.table}>
         <View style={styles.tableHeader}>
           <Text style={[styles.tableCellHeader, { flex: 0.5 }]}>Pos</Text>
           <Text style={[styles.tableCellHeader, { flex: 2.2 }]}>Hospital</Text>
           <Text style={[styles.tableCellHeader, { flex: 1.3 }]}>Municipio</Text>
-          <Text style={[styles.tableCellHeader, { flex: 0.8 }]}>Empl.</Text>
+          <Text style={[styles.tableCellHeader, { flex: 0.8 }]}>Empleados</Text>
           <Text style={[styles.tableCellHeader, { flex: 0.8 }]}>Salidas</Text>
-          <Text style={[styles.tableCellHeader, { flex: 0.8 }]}>Efic.</Text>
-          <Text style={[styles.tableCellHeader, { flex: 0.6 }]}>Cat.</Text>
+          {/* <Text style={[styles.tableCellHeader, { flex: 0.8 }]}>Efic.</Text> */}
+          <Text style={[styles.tableCellHeader, { flex: 0.6 }]}>Categoría</Text>
         </View>
       {hospitalesConMetricas.slice(0, 15).map((hospital, index) => {
         const posicion = index + 1;
@@ -443,9 +433,9 @@ const HospitalRankingTable = ({ hospitales }) => {
             <Text style={[styles.tableCell, { flex: 0.8, textAlign: 'center', fontWeight: 'bold', fontSize: 9 }]}>
               {hospital.salidas.toLocaleString()}
             </Text>
-            <Text style={[styles.tableCell, { flex: 0.8, textAlign: 'center', fontSize: 9 }]}>
+            {/* <Text style={[styles.tableCell, { flex: 0.8, textAlign: 'center', fontSize: 9 }]}> 
               {hospital.eficiencia}
-            </Text>
+            </Text> */}
             <Text style={[styles.tableCell, { flex: 0.6, textAlign: 'center', fontSize: 8 }]}>
               {categoriaColor}
             </Text>
@@ -563,7 +553,7 @@ const AnalysisSection = ({ municipios, hospitales, estatalStats }) => {
           • Hospitales en ranking: {hospitalesValidos.length} instituciones
         </Text>
         <Text style={styles.analysisText}>
-          • Promedio de salidas por hospital: {totalHospitales > 0 ? (totalSalidas / totalHospitales).toFixed(0) : 0} salidas
+          • Promedio de salidas por hospital: {totalHospitales > 0 ? (totalSalidas / totalHospitales).toFixed(1) : 0} salidas
         </Text>
         <Text style={styles.analysisText}>
           • Tasa de actividad hospitalaria: {totalHospitales > 0 ? ((hospitalesValidos.length / totalHospitales) * 100).toFixed(1) : 0}%

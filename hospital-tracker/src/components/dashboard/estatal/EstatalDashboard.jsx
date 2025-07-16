@@ -585,13 +585,8 @@ export default function EstatalDashboard() {
         totalHorasFuera,
         totalSalidas,
         // Eficiencia promedio: % de empleados con al menos una salida (máx 100%)
-        eficienciaPromedio: (() => {
-          if (Array.isArray(apiData?.empleados) && apiData.empleados.length > 0) {
-            const empleadosConSalida = apiData.empleados.filter(emp => Array.isArray(emp.registros) && emp.registros.some(r => r.tipo_registro === 0)).length;
-            return Math.round((empleadosConSalida / apiData.empleados.length) * 100);
-          }
-          return 0;
-        })(),
+        // Como no hay arreglo de empleados, se usa el total de salidas y total de empleados (limitado a 100%)
+        eficienciaPromedio: (totalPersonal > 0 ? Math.min(100, Math.round((totalSalidas / totalPersonal) * 100)) : 0),
       };
 
       // Debug logs para verificar los datos

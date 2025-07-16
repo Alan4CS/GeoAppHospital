@@ -817,16 +817,7 @@ const GrupoList = ({ grupos, onGuardar, hospitales = [] }) => {
         }
       `}</style>
 
-      {/* Mostrar encabezado de búsqueda como en EmpleadoList */}
-      {busquedaGrupo.trim() && !isSearching && !isWaiting && (
-        <div className="bg-green-50 border border-green-200 rounded-lg px-6 py-4 mb-4 fadeIn">
-          <div className="flex items-center gap-2">
-            <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" /></svg>
-            <span className="text-base font-semibold text-green-900">Resultados de búsqueda: "{busquedaGrupo.trim()}"</span>
-            <span className="ml-2 text-green-700 text-sm">{gruposFiltradosOrdenados.length} grupo{gruposFiltradosOrdenados.length !== 1 ? 's' : ''} encontrado{gruposFiltradosOrdenados.length !== 1 ? 's' : ''}</span>
-          </div>
-        </div>
-      )}
+      {/* Encabezado de búsqueda duplicado eliminado */}
     </div>
   )
 }
