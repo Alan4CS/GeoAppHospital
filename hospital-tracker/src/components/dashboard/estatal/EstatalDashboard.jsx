@@ -825,7 +825,7 @@ export default function EstatalDashboard() {
     if (!id_estado) return;
     
     try {
-      const res = await fetch(`https:///api/dashboards/municipios-by-estado/${id_estado}`);
+      const res = await fetch(`https://geoapphospital-b0yr.onrender.com/api/dashboards/municipios-by-estado/${id_estado}`);
       if (!res.ok) throw new Error('Error al obtener municipios');
       const data = await res.json();
       
