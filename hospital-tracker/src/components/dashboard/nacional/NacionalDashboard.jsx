@@ -535,7 +535,7 @@ export default function NacionalDashboard() {
               Horas Totales
             </h3>
             <p className="text-2xl font-bold">
-              {totalStats.totalHours.toLocaleString()}
+              {totalStats.totalHours.toLocaleString('es-MX', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}h
             </p>
           </div>
         </div>
@@ -614,7 +614,7 @@ export default function NacionalDashboard() {
 
                                 setGeocercaTooltip({
                                   content: stateInfo
-                                    ? `${stateName}\nSalidas: ${stateInfo.geofenceExits}\nHospitales: ${stateInfo.hospitals}`
+                                    ? `${stateName}\nSalidas: ${stateInfo.geofenceExits.toLocaleString()}\nHoras: ${stateInfo.hoursWorked.toLocaleString('es-MX', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}h\nHospitales: ${stateInfo.hospitals}\nEmpleados: ${stateInfo.employees.toLocaleString()}`
                                     : stateName || "Estado",
                                   position: tooltipPosition,
                                   show: true,
@@ -827,7 +827,7 @@ export default function NacionalDashboard() {
 
                                 setHorasTooltip({
                                   content: stateInfo
-                                    ? `${stateName}\nHoras: ${stateInfo.hoursWorked}\nHospitales: ${stateInfo.hospitals}`
+                                    ? `${stateName}\nHoras: ${stateInfo.hoursWorked.toLocaleString('es-MX', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}h\nSalidas: ${stateInfo.geofenceExits.toLocaleString()}\nHospitales: ${stateInfo.hospitals}\nEmpleados: ${stateInfo.employees.toLocaleString()}`
                                     : stateName || "Estado",
                                   position: tooltipPosition,
                                   show: true,
@@ -940,7 +940,7 @@ export default function NacionalDashboard() {
                               {stateCodeToName[state.state] || state.state}
                             </span>
                             <span className="text-xs font-bold text-blue-600">
-                              {state.hoursWorked.toLocaleString()}h
+                              {state.hoursWorked.toLocaleString('es-MX', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}h
                             </span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">

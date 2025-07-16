@@ -983,15 +983,14 @@ router.get('/nacional/estadisticas-estados', async (req, res) => {
       return res.status(400).json({ error: 'fechaInicio y fechaFin son obligatorios' });
     }
 
-    // Query para obtener estadísticas por estado
-    const query = `
+    // Query para obtener estadísticas básicas por estado
+    const queryBasica = `
       SELECT 
         e.id_estado as state,
         e.nombre_estado as stateName,
         COUNT(DISTINCT h.id_hospital) as hospitals,
         COUNT(DISTINCT CASE WHEN u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL THEN u.id_user END) as employees,
-        COALESCE(sg.geofenceExits, 0) as geofenceExits,
-        COALESCE(ht.hoursWorked, 0) as hoursWorked
+        COALESCE(sg.geofenceExits, 0) as geofenceExits
       FROM estados e
       LEFT JOIN municipios m ON e.id_estado = m.id_estado
       LEFT JOIN hospitals h ON m.id_municipio = h.id_municipio
@@ -1009,37 +1008,37 @@ router.get('/nacional/estadisticas-estados', async (req, res) => {
           AND u2.id_group IS NOT NULL
         GROUP BY e2.id_estado
       ) sg ON e.id_estado = sg.id_estado
-      LEFT JOIN (
-        SELECT 
-          e3.id_estado,
-          COUNT(*) as hoursWorked
-        FROM registro_ubicaciones r2
-        JOIN user_data u3 ON r2.id_user = u3.id_user
-        JOIN estados e3 ON u3.id_estado = e3.id_estado
-        WHERE r2.fecha_hora BETWEEN $1 AND $2 
-          AND r2.tipo_registro = 1 
-          AND r2.dentro_geocerca = true
-          AND u3.id_hospital IS NOT NULL 
-          AND u3.id_group IS NOT NULL
-        GROUP BY e3.id_estado
-      ) ht ON e.id_estado = ht.id_estado
-      GROUP BY e.id_estado, e.nombre_estado, sg.geofenceExits, ht.hoursWorked
+      GROUP BY e.id_estado, e.nombre_estado, sg.geofenceExits
       ORDER BY e.nombre_estado
     `;
 
-    const result = await pool.query(query, [fechaInicio, fechaFin]);
+    const result = await pool.query(queryBasica, [fechaInicio, fechaFin]);
     
     // Mapear los códigos de estado a formato de mapa (MX + código)
     const stateCodeMapping = getStateCodeMapping();
 
-    const data = result.rows.map(row => ({
-      state: stateCodeMapping[row.state] || `MX${row.state}`,
-      stateName: row.statename,
-      hospitals: parseInt(row.hospitals) || 0,
-      employees: parseInt(row.employees) || 0,
-      geofenceExits: parseInt(row.geofenceexits) || 0,
-      hoursWorked: parseInt(row.hoursworked) || 0
-    }));
+    // Calcular horas trabajadas reales para cada estado usando las funciones auxiliares
+    const data = [];
+    for (const row of result.rows) {
+      // Obtener empleados del estado
+      const empleadosQuery = `
+        SELECT id_user FROM user_data 
+        WHERE id_estado = $1 AND id_hospital IS NOT NULL AND id_group IS NOT NULL
+      `;
+      const empleadosRes = await pool.query(empleadosQuery, [row.state]);
+      
+      // Calcular horas reales trabajadas
+      const horasReales = await calcularHorasTrabajadasReales(empleadosRes.rows, fechaInicio, fechaFin);
+      
+      data.push({
+        state: stateCodeMapping[row.state] || `MX${row.state}`,
+        stateName: row.statename,
+        hospitals: parseInt(row.hospitals) || 0,
+        employees: parseInt(row.employees) || 0,
+        geofenceExits: parseInt(row.geofenceexits) || 0,
+        hoursWorked: Math.round(horasReales * 100) / 100 // Horas reales con 2 decimales
+      });
+    }
 
     res.json({
       success: true,
@@ -1073,9 +1072,8 @@ router.get('/nacional/totales', async (req, res) => {
 
     // Query para total de empleados únicos (solo los que tienen hospital y grupo asignados)
     const empleadosQuery = `
-      SELECT COUNT(DISTINCT u.id_user) as totalEmployees
-      FROM user_data u
-      WHERE u.id_hospital IS NOT NULL AND u.id_group IS NOT NULL
+      SELECT id_user FROM user_data
+      WHERE id_hospital IS NOT NULL AND id_group IS NOT NULL
     `;
 
     // Query para total de salidas de geocerca en el período
@@ -1089,31 +1087,22 @@ router.get('/nacional/totales', async (req, res) => {
         AND u.id_group IS NOT NULL
     `;
 
-    // Query para total de horas trabajadas en el período
-    const horasTrabajadasQuery = `
-      SELECT COUNT(*) as totalHoursWorked
-      FROM registro_ubicaciones r
-      JOIN user_data u ON r.id_user = u.id_user
-      WHERE r.fecha_hora BETWEEN $1 AND $2 
-        AND r.tipo_registro = 1 
-        AND r.dentro_geocerca = true
-        AND u.id_hospital IS NOT NULL 
-        AND u.id_group IS NOT NULL
-    `;
-
-    // Ejecutar todas las queries en paralelo
-    const [hospitalesRes, empleadosRes, salidasRes, horasRes] = await Promise.all([
+    // Ejecutar queries básicas en paralelo
+    const [hospitalesRes, empleadosRes, salidasRes] = await Promise.all([
       pool.query(hospitalesQuery),
       pool.query(empleadosQuery),
-      pool.query(salidasGeocercaQuery, [fechaInicio, fechaFin]),
-      pool.query(horasTrabajadasQuery, [fechaInicio, fechaFin])
+      pool.query(salidasGeocercaQuery, [fechaInicio, fechaFin])
     ]);
+
+    // Calcular horas trabajadas reales usando las funciones auxiliares
+    const empleados = empleadosRes.rows;
+    const horasReales = await calcularHorasTrabajadasReales(empleados, fechaInicio, fechaFin);
 
     const totales = {
       totalHospitals: parseInt(hospitalesRes.rows[0]?.totalhospitals) || 0,
-      totalEmployees: parseInt(empleadosRes.rows[0]?.totalemployees) || 0,
+      totalEmployees: empleados.length || 0,
       totalGeofenceExits: parseInt(salidasRes.rows[0]?.totalgeofenceexits) || 0,
-      totalHoursWorked: parseInt(horasRes.rows[0]?.totalhoursworked) || 0
+      totalHoursWorked: Math.round(horasReales * 100) / 100 // Horas reales con 2 decimales
     };
 
     res.json({
@@ -1140,9 +1129,11 @@ router.get('/nacional/ranking-estados', async (req, res) => {
       return res.status(400).json({ error: 'fechaInicio y fechaFin son obligatorios' });
     }
 
-    let query;
+    let data = [];
+    
     if (metric === 'geofenceExits') {
-      query = `
+      // Query para obtener salidas de geocerca por estado
+      const query = `
         SELECT 
           e.id_estado as state,
           e.nombre_estado as stateName,
@@ -1158,39 +1149,64 @@ router.get('/nacional/ranking-estados', async (req, res) => {
         ORDER BY value DESC
         LIMIT $3
       `;
+      
+      const result = await pool.query(query, [fechaInicio, fechaFin, limit]);
+      
+      // Mapear los códigos de estado
+      const stateCodeMapping = getStateCodeMapping();
+
+      data = result.rows.map((row, index) => ({
+        state: stateCodeMapping[row.state] || `MX${row.state}`,
+        stateName: row.statename,
+        value: parseInt(row.value) || 0,
+        rank: index + 1
+      }));
+      
     } else if (metric === 'hoursWorked') {
-      query = `
-        SELECT 
-          e.id_estado as state,
-          e.nombre_estado as stateName,
-          COUNT(*) as value
-        FROM registro_ubicaciones r
-        JOIN user_data u ON r.id_user = u.id_user
-        JOIN estados e ON u.id_estado = e.id_estado
-        WHERE r.fecha_hora BETWEEN $1 AND $2 
-          AND r.tipo_registro = 1 
-          AND r.dentro_geocerca = true
-          AND u.id_hospital IS NOT NULL 
-          AND u.id_group IS NOT NULL
-        GROUP BY e.id_estado, e.nombre_estado
-        ORDER BY value DESC
-        LIMIT $3
+      // Para horas trabajadas, usar las funciones auxiliares de cálculo real
+      const estadosQuery = `
+        SELECT id_estado, nombre_estado
+        FROM estados
+        ORDER BY nombre_estado
       `;
+      
+      const estadosResult = await pool.query(estadosQuery);
+      const stateCodeMapping = getStateCodeMapping();
+      
+      // Calcular horas reales para cada estado
+      const estadosConHoras = [];
+      for (const estado of estadosResult.rows) {
+        // Obtener empleados del estado
+        const empleadosQuery = `
+          SELECT id_user FROM user_data 
+          WHERE id_estado = $1 AND id_hospital IS NOT NULL AND id_group IS NOT NULL
+        `;
+        const empleadosRes = await pool.query(empleadosQuery, [estado.id_estado]);
+        
+        // Calcular horas reales trabajadas
+        const horasReales = await calcularHorasTrabajadasReales(empleadosRes.rows, fechaInicio, fechaFin);
+        
+        if (horasReales > 0) {
+          estadosConHoras.push({
+            state: stateCodeMapping[estado.id_estado] || `MX${estado.id_estado}`,
+            stateName: estado.nombre_estado,
+            value: Math.round(horasReales * 100) / 100, // Horas reales con 2 decimales
+          });
+        }
+      }
+      
+      // Ordenar por horas trabajadas y tomar el top
+      data = estadosConHoras
+        .sort((a, b) => b.value - a.value)
+        .slice(0, parseInt(limit))
+        .map((row, index) => ({
+          ...row,
+          rank: index + 1
+        }));
+        
     } else {
       return res.status(400).json({ error: 'metric debe ser geofenceExits o hoursWorked' });
     }
-
-    const result = await pool.query(query, [fechaInicio, fechaFin, limit]);
-
-    // Mapear los códigos de estado
-    const stateCodeMapping = getStateCodeMapping();
-
-    const data = result.rows.map((row, index) => ({
-      state: stateCodeMapping[row.state] || `MX${row.state}`,
-      stateName: row.statename,
-      value: parseInt(row.value) || 0,
-      rank: index + 1
-    }));
 
     res.json({
       success: true,
