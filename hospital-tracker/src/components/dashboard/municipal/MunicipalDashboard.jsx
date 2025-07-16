@@ -194,8 +194,6 @@ const MapTooltip = ({ x, y, hospital }) => {
             <span className="font-medium text-yellow-600">{hospital.hoursRest || 0}h</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-gray-600">Eficiencia:</span>
-            <span className="font-medium text-purple-600">{hospital.efficiency}%</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-gray-600">Grupo:</span>
@@ -700,10 +698,7 @@ export default function EnhancedMunicipalDashboard() {
         hoursWorked: Math.round(totalHorasT),
         hoursOutside: Math.round(totalHorasFuera),
         hoursRest: Math.round(totalHorasDescanso),
-        // Eficiencia: % de empleados con al menos una salida (máx 100%)
-        efficiency: empleadosHospital.length > 0
-          ? Math.round((empleadosHospital.filter(emp => Array.isArray(emp.registros) && emp.registros.some(r => r.tipo_registro === 0)).length / empleadosHospital.length) * 100)
-          : 0,
+        // Eficiencia eliminada completamente
         department: departmentText,
         grupos: gruposUnicos, // Lista completa de grupos
         direccion: hospital.direccion
@@ -736,9 +731,6 @@ export default function EnhancedMunicipalDashboard() {
       totalHoursWorked: hospitals.reduce((sum, h) => sum + h.hoursWorked, 0),
       totalHoursOutside: hospitals.reduce((sum, h) => sum + h.hoursOutside, 0),
       totalHoursRest: hospitals.reduce((sum, h) => sum + h.hoursRest, 0),
-      // Eficiencia promedio: % de empleados con al menos una salida (máx 100%)
-      averageEfficiency:
-        hospitals.length > 0 ? Math.round(hospitals.reduce((sum, h) => sum + h.efficiency, 0) / hospitals.length) : 0,
     }
   }, [hospitals, apiData, filters.nombre_municipio, filters.nombre_estado])
 
@@ -1186,7 +1178,7 @@ export default function EnhancedMunicipalDashboard() {
                       totalHospitals: municipalStats.totalHospitals,
                       activeEmployees: municipalStats.activeEmployees,
                       totalEmployees: municipalStats.totalEmployees,
-                      averageEfficiency: municipalStats.averageEfficiency,
+                      // averageEfficiency eliminado
                     }
                     
                     await generarReporteMunicipalPDF({
@@ -1437,7 +1429,7 @@ export default function EnhancedMunicipalDashboard() {
                           <h4 className="font-bold mb-1">{hospital.name}</h4>
                           <p>Empleados: {hospital.employees}</p>
                           <p>Salidas: {hospital.geofenceExits}</p>
-                          <p>Eficiencia: {hospital.efficiency}%</p>
+                          {/* Eficiencia eliminada */}
                         </div>
                       </Popup>
                     </CircleMarker>
@@ -1624,14 +1616,7 @@ export default function EnhancedMunicipalDashboard() {
                   <div>
                     <h4 className="text-sm font-semibold text-gray-700 mb-4">Métricas Promedio</h4>
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-blue-50 rounded-lg p-3">
-                        <div className="text-xs text-blue-600 font-medium">Eficiencia Promedio</div>
-                        <div className="text-xl font-bold text-blue-700">
-                          {hospitals.length > 0 ? 
-                            Math.round(hospitals.reduce((sum, h) => sum + h.efficiency, 0) / hospitals.length) 
-                            : 0}%
-                        </div>
-                      </div>
+                      {/* Eficiencia Promedio eliminada completamente */}
                       <div className="bg-green-50 rounded-lg p-3">
                         <div className="text-xs text-green-600 font-medium">Horas Promedio/Hospital</div>
                         <div className="text-xl font-bold text-green-700">
@@ -1661,10 +1646,10 @@ export default function EnhancedMunicipalDashboard() {
                   
                   {/* Top hospitales */}
                   <div className="lg:col-span-2">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-4">Hospitales Más Eficientes</h4>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-4">Hospitales Destacados</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {hospitals
-                        .sort((a, b) => b.efficiency - a.efficiency)
+                        // Ordenamiento por eficiencia eliminado
                         .slice(0, 6)
                         .map((hospital, index) => (
                           <div key={hospital.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
@@ -1689,8 +1674,9 @@ export default function EnhancedMunicipalDashboard() {
                               </div>
                             </div>
                             <div className="text-right ml-2">
-                              <div className="text-sm font-bold text-green-600">{hospital.efficiency}%</div>
+                              {/* Mostrar empleados y horas trabajadas */}
                               <div className="text-xs text-gray-500">{hospital.employees} emp.</div>
+                              <div className="text-xs text-green-600">{hospital.hoursWorked} h</div>
                             </div>
                           </div>
                         ))}
@@ -1777,7 +1763,7 @@ export default function EnhancedMunicipalDashboard() {
                         <th className="px-6 py-4 text-center font-semibold text-gray-700">Horas Geocerca</th>
                         <th className="px-6 py-4 text-center font-semibold text-gray-700">Horas Fuera</th>
                         <th className="px-6 py-4 text-center font-semibold text-gray-700">Horas Descanso</th>
-                        <th className="px-6 py-4 text-center font-semibold text-gray-700">Eficiencia</th>
+                        {/* Columna eficiencia eliminada */}
                         <th className="px-6 py-4 text-center font-semibold text-gray-700">Ubicación</th>
                       </tr>
                     </thead>
@@ -1815,17 +1801,7 @@ export default function EnhancedMunicipalDashboard() {
                           </td>
                           <td className="px-6 py-4 text-center">
                             <div className="flex items-center justify-center">
-                              <span
-                                className={`font-medium ${
-                                  hospital.efficiency >= 90
-                                    ? "text-emerald-600"
-                                    : hospital.efficiency >= 70
-                                      ? "text-amber-600"
-                                      : "text-red-600"
-                                }`}
-                              >
-                                {hospital.efficiency}%
-                              </span>
+                              {/* Sin eficiencia */}
                             </div>
                           </td>
                           <td className="px-6 py-4 text-center">

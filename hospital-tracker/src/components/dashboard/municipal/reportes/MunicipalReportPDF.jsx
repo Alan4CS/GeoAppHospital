@@ -182,10 +182,6 @@ const SummarySection = ({ municipalStats }) => (
         <Text style={styles.statLabel}>Salidas de Geocerca</Text>
         <Text style={styles.statValue}>{municipalStats?.totalGeofenceExits || 0}</Text>
       </View>
-      <View style={styles.statCard}>
-        <Text style={styles.statLabel}>Eficiencia Promedio (% de empleados con al menos una salida)</Text>
-        <Text style={styles.statValue}>{municipalStats?.averageEfficiency || 0}%</Text>
-      </View>
     </View>
   </View>
 );
@@ -199,7 +195,6 @@ const HospitalTable = ({ hospitals }) => (
         <Text style={[styles.tableCellHeader, { flex: 1 }]}>Empleados</Text>
         <Text style={[styles.tableCellHeader, { flex: 1 }]}>Horas T.</Text>
         <Text style={[styles.tableCellHeader, { flex: 1 }]}>Salidas</Text>
-        <Text style={[styles.tableCellHeader, { flex: 1 }]}>Eficiencia (%)</Text>
       </View>
       {hospitals?.slice(0, 15).map((hospital, index) => (
         <View key={index} style={[styles.tableRow, index % 2 === 1 && { backgroundColor: '#f8f9fa' }]}>
@@ -207,7 +202,6 @@ const HospitalTable = ({ hospitals }) => (
           <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{hospital.employees}</Text>
           <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{hospital.hoursWorked}h</Text>
           <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{hospital.geofenceExits}</Text>
-          <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{hospital.efficiency}%</Text>
         </View>
       ))}
       {hospitals?.length === 0 && (
@@ -222,20 +216,21 @@ const HospitalTable = ({ hospitals }) => (
 );
 
 const AnalysisSection = ({ hospitals, municipalStats }) => {
-  const topHospitals = hospitals?.slice(0, 5).sort((a, b) => b.efficiency - a.efficiency) || [];
-  
+  // Ordenar por horas trabajadas
+  const topHospitals = hospitals?.slice(0, 5).sort((a, b) => b.hoursWorked - a.hoursWorked) || [];
+
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Análisis de Rendimiento</Text>
-      
+
       <View style={styles.analysisContainer}>
         <Text style={styles.analysisSubtitle}>
-          Top 5 Hospitales por Eficiencia (% de empleados con al menos una salida):
+          Top 5 Hospitales por Horas Trabajadas:
         </Text>
         {topHospitals.length > 0 ? (
           topHospitals.map((hospital, index) => (
             <Text key={index} style={styles.analysisText}>
-              {index + 1}. {hospital.name} - {hospital.efficiency}%
+              {index + 1}. {hospital.name} - {hospital.hoursWorked}h
             </Text>
           ))
         ) : (
@@ -244,7 +239,7 @@ const AnalysisSection = ({ hospitals, municipalStats }) => {
           </Text>
         )}
       </View>
-      
+
       <View style={[styles.analysisContainer, { marginTop: 8 }]}>
         <Text style={styles.analysisSubtitle}>
           Estadísticas Generales:
@@ -257,9 +252,6 @@ const AnalysisSection = ({ hospitals, municipalStats }) => {
         </Text>
         <Text style={styles.analysisText}>
           • Salidas promedio por hospital: {Math.round((municipalStats?.totalGeofenceExits || 0) / Math.max(municipalStats?.totalHospitals || 1, 1))}
-        </Text>
-        <Text style={styles.analysisText}>
-          • Tasa de eficiencia municipal: {municipalStats?.averageEfficiency || 0}%
         </Text>
       </View>
     </View>
