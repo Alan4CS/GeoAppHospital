@@ -834,7 +834,7 @@ const EmployeeCalendarView = ({ employee, startDate, endDate, filters }) => {
                     {/* Información adicional */}
                     <div className="mt-3 text-xs text-gray-600 text-center bg-blue-50 rounded-lg p-2">
                       <strong>Horario programado:</strong> {employee.schedule} | <strong>Tiempo fuera:</strong> 30
-                      minutos (11:00-11:30) | <strong>Eficiencia:</strong> 94.4% (8.5h de 9h)
+                      minutos (11:00-11:30) | <strong>Eficiencia:</strong> % de empleados con al menos una salida
                     </div>
                   </div>
                 </div>

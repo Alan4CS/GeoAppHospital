@@ -183,7 +183,7 @@ const SummarySection = ({ municipalStats }) => (
         <Text style={styles.statValue}>{municipalStats?.totalGeofenceExits || 0}</Text>
       </View>
       <View style={styles.statCard}>
-        <Text style={styles.statLabel}>Eficiencia Promedio</Text>
+        <Text style={styles.statLabel}>Eficiencia Promedio (% de empleados con al menos una salida)</Text>
         <Text style={styles.statValue}>{municipalStats?.averageEfficiency || 0}%</Text>
       </View>
     </View>
@@ -199,7 +199,7 @@ const HospitalTable = ({ hospitals }) => (
         <Text style={[styles.tableCellHeader, { flex: 1 }]}>Empleados</Text>
         <Text style={[styles.tableCellHeader, { flex: 1 }]}>Horas T.</Text>
         <Text style={[styles.tableCellHeader, { flex: 1 }]}>Salidas</Text>
-        <Text style={[styles.tableCellHeader, { flex: 1 }]}>Eficiencia</Text>
+        <Text style={[styles.tableCellHeader, { flex: 1 }]}>Eficiencia (%)</Text>
       </View>
       {hospitals?.slice(0, 15).map((hospital, index) => (
         <View key={index} style={[styles.tableRow, index % 2 === 1 && { backgroundColor: '#f8f9fa' }]}>
@@ -230,7 +230,7 @@ const AnalysisSection = ({ hospitals, municipalStats }) => {
       
       <View style={styles.analysisContainer}>
         <Text style={styles.analysisSubtitle}>
-          Top 5 Hospitales por Eficiencia:
+          Top 5 Hospitales por Eficiencia (% de empleados con al menos una salida):
         </Text>
         {topHospitals.length > 0 ? (
           topHospitals.map((hospital, index) => (

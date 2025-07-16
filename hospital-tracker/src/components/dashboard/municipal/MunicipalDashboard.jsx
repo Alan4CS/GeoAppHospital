@@ -700,7 +700,10 @@ export default function EnhancedMunicipalDashboard() {
         hoursWorked: Math.round(totalHorasT),
         hoursOutside: Math.round(totalHorasFuera),
         hoursRest: Math.round(totalHorasDescanso),
-        efficiency: empleadosHospital.length > 0 ? Math.round((totalHorasT / (totalHorasT + totalHorasFuera)) * 100) || 0 : 0,
+        // Eficiencia: % de empleados con al menos una salida (máx 100%)
+        efficiency: empleadosHospital.length > 0
+          ? Math.round((empleadosHospital.filter(emp => Array.isArray(emp.registros) && emp.registros.some(r => r.tipo_registro === 0)).length / empleadosHospital.length) * 100)
+          : 0,
         department: departmentText,
         grupos: gruposUnicos, // Lista completa de grupos
         direccion: hospital.direccion
@@ -733,6 +736,7 @@ export default function EnhancedMunicipalDashboard() {
       totalHoursWorked: hospitals.reduce((sum, h) => sum + h.hoursWorked, 0),
       totalHoursOutside: hospitals.reduce((sum, h) => sum + h.hoursOutside, 0),
       totalHoursRest: hospitals.reduce((sum, h) => sum + h.hoursRest, 0),
+      // Eficiencia promedio: % de empleados con al menos una salida (máx 100%)
       averageEfficiency:
         hospitals.length > 0 ? Math.round(hospitals.reduce((sum, h) => sum + h.efficiency, 0) / hospitals.length) : 0,
     }

@@ -203,9 +203,22 @@ const StatesTable = ({ stateData }) => (
 
 const AnalysisSection = ({ totalStats, stateData }) => {
   // Top 5 estados por eficiencia (definida como salidas/empleados)
+  // Eficiencia: % de empleados que marcaron al menos una salida (máx 100%)
   const topStates = [...(stateData || [])]
-    .filter(s => s.employees > 0)
-    .map(s => ({ ...s, efficiency: ((s.geofenceExits || 0) / (s.employees || 1) * 100).toFixed(1) }))
+    .filter(s => s.employees > 0 && Array.isArray(s.employeeRecords))
+    .map(s => {
+      // Suponiendo que s.employeeRecords es un array de empleados con sus registros
+      // Si no existe, fallback a geofenceExits/employees como antes
+      let efficiency = 0;
+      if (Array.isArray(s.employeeRecords) && s.employeeRecords.length > 0) {
+        const empleadosConSalida = s.employeeRecords.filter(emp => Array.isArray(emp.registros) && emp.registros.some(r => r.tipo_registro === 0)).length;
+        efficiency = (empleadosConSalida / s.employeeRecords.length) * 100;
+      } else if (s.geofenceExits && s.employees) {
+        // Fallback: si no hay registros individuales, usar la métrica anterior pero limitada a 100%
+        efficiency = Math.min(100, (s.geofenceExits / s.employees) * 100);
+      }
+      return { ...s, efficiency: efficiency.toFixed(1) };
+    })
     .sort((a, b) => b.efficiency - a.efficiency)
     .slice(0, 5);
 
