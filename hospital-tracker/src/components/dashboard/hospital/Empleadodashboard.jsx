@@ -722,7 +722,7 @@ export default function EmpleadoDashboard({
                                 <td className="px-4 py-3 text-sm font-semibold text-green-600 text-center">{formatHorasMinutos(stats.workedHours || 0)}</td>
                                 <td className="px-4 py-3 text-sm font-semibold text-blue-600 text-center">{formatHorasMinutos(stats.restHours || 0)}</td>
                                 <td className="px-4 py-3 text-sm font-semibold text-red-600 text-center">{formatHorasMinutos(stats.outsideHours || 0)}</td>
-                                <td className="px-4 py-3 text-sm font-semibold text-indigo-600 text-center">{emp.totalExits ?? 0}</td>
+                                <td className="px-4 py-3 text-sm font-semibold text-indigo-600 text-center">{(emp.registros ? emp.registros.filter(r => r.tipo_registro === 0).length : 0)}</td>
                               </tr>
                             );
                           })}

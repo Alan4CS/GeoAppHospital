@@ -364,7 +364,14 @@ const HospitalRankingTable = ({ hospitales }) => {
     const salidas = hospital.salidas || hospital.geofenceExits || hospital.exits || hospital.totalSalidas || 0;
     const empleados = hospital.empleados || hospital.employees || 0;
     const horasTrabajas = hospital.horas_trabajadas || hospital.hoursWorked || 0;
-    const eficiencia = hospital.eficiencia || (empleados > 0 ? (salidas / empleados).toFixed(1) : 'N/D');
+    // Eficiencia: % de empleados con al menos una salida (máx 100%)
+    let eficiencia = 'N/D';
+    if (Array.isArray(hospital.employeeRecords) && hospital.employeeRecords.length > 0) {
+      const empleadosConSalida = hospital.employeeRecords.filter(emp => Array.isArray(emp.registros) && emp.registros.some(r => r.tipo_registro === 0)).length;
+      eficiencia = ((empleadosConSalida / hospital.employeeRecords.length) * 100).toFixed(1);
+    } else if (empleados > 0) {
+      eficiencia = Math.min(100, (salidas / empleados) * 100).toFixed(1);
+    }
     const categoria = salidas > 100 ? 'Alto' : salidas > 50 ? 'Medio' : 'Bajo';
     return {
       ...hospital,
@@ -404,7 +411,7 @@ const HospitalRankingTable = ({ hospitales }) => {
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Ranking de Hospitales por Desempeño</Text>
       <Text style={[styles.analysisText, { marginBottom: 8, fontStyle: 'italic' }]}>
-        Top 15 hospitales ordenados por salidas de geocerca. Incluye empleados y eficiencia calculada.
+        Top 15 hospitales ordenados por salidas de geocerca. Eficiencia: % de empleados con al menos una salida.
       </Text>
       <View style={styles.table}>
         <View style={styles.tableHeader}>
