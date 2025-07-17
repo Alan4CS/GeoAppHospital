@@ -1763,7 +1763,6 @@ export default function EnhancedMunicipalDashboard() {
                         <th className="px-6 py-4 text-center font-semibold text-gray-700">Horas Geocerca</th>
                         <th className="px-6 py-4 text-center font-semibold text-gray-700">Horas Fuera</th>
                         <th className="px-6 py-4 text-center font-semibold text-gray-700">Horas Descanso</th>
-                        {/* Columna eficiencia eliminada */}
                         <th className="px-6 py-4 text-center font-semibold text-gray-700">Ubicación</th>
                       </tr>
                     </thead>
@@ -1800,13 +1799,10 @@ export default function EnhancedMunicipalDashboard() {
                             <span className="font-medium text-yellow-600">{hospital.hoursRest || 0}h</span>
                           </td>
                           <td className="px-6 py-4 text-center">
-                            <div className="flex items-center justify-center">
-                              {/* Sin eficiencia */}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-center">
                             <span className="text-xs text-gray-500 font-mono">
-                              {hospital.coords[1].toFixed(3)}, {hospital.coords[0].toFixed(3)}
+                              {hospital.coords && hospital.coords.length === 2
+                                ? `${hospital.coords[1].toFixed(3)}, ${hospital.coords[0].toFixed(3)}`
+                                : '--'}
                             </span>
                           </td>
                         </tr>
