@@ -312,12 +312,12 @@ const MunicipalTable = ({ municipios }) => {
         <View style={styles.tableHeader}>
           <Text style={[styles.tableCellHeader, { flex: 0.6 }]}>Pos</Text>
           <Text style={[styles.tableCellHeader, { flex: 2 }]}>Municipio</Text>
-          <Text style={[styles.tableCellHeader, { flex: 0.8, textAlign: 'center' }]}>Empleados</Text>
+          <Text style={[styles.tableCellHeader, { flex: 0.8, textAlign: 'center' }]}>Hospitales</Text>
           <Text style={[styles.tableCellHeader, { flex: 0.8, textAlign: 'center' }]}>Empleados</Text>
           <Text style={[styles.tableCellHeader, { flex: 1 }]}>Horas</Text>
           <Text style={[styles.tableCellHeader, { flex: 1 }]}>Salidas</Text>
           {/* Columna eficiencia eliminada */}
-          <Text style={[styles.tableCellHeader, { flex: 1 }]}>Índice</Text>
+          <Text style={[styles.tableCellHeader, { flex: 1 }]}>Índice de Actividad</Text>
         </View>
         {municipiosOrdenados.slice(0, 20).map((municipio, index) => {
           return (
@@ -450,179 +450,6 @@ const HospitalRankingTable = ({ hospitales }) => {
   );
 };
 
-const AnalysisSection = ({ municipios, hospitales, estatalStats }) => {
-  // Asegurar que tenemos datos para procesar
-  const municipiosValidos = municipios?.filter(m => m && (m.municipio || m.nombre_municipio)) || [];
-  const hospitalesValidos = hospitales?.filter(h => h && (h.nombre_hospital || h.hospital)) || [];
-  
-  // Análisis de municipios
-  const sortedMunicipios = municipiosValidos
-    .sort((a, b) => {
-      const salidasA = a.geofenceExits || a.salidas || a.totalSalidas || a.exits || 0;
-      const salidasB = b.geofenceExits || b.salidas || b.totalSalidas || b.exits || 0;
-      return salidasB - salidasA;
-    });
-  
-  const top5Municipios = sortedMunicipios.slice(0, 5);
-  const municipioMasActivo = top5Municipios[0];
-  const municipioMenosActivo = sortedMunicipios[sortedMunicipios.length - 1];
-  
-  // Análisis de hospitales
-  const hospitalMasActivo = hospitalesValidos.sort((a, b) => {
-    const salidasA = a.salidas || a.geofenceExits || 0;
-    const salidasB = b.salidas || b.geofenceExits || 0;
-    return salidasB - salidasA;
-  })[0];
-  
-  // Cálculos de rendimiento
-  const totalHospitales = estatalStats?.totalHospitales || 0;
-  const totalEmpleados = estatalStats?.totalEmpleados || 0;
-  const totalMunicipios = estatalStats?.totalMunicipios || 0;
-  const totalHoras = estatalStats?.totalHoras || 0;
-  const totalSalidas = estatalStats?.totalSalidas || 0;
-  
-  const promedioEmpleadosPorHospital = totalHospitales > 0 ? (totalEmpleados / totalHospitales).toFixed(1) : 0;
-  const promedioHorasPorEmpleado = totalEmpleados > 0 ? (totalHoras / totalEmpleados).toFixed(1) : 0;
-  const ratioSalidasPorEmpleado = totalEmpleados > 0 ? (totalSalidas / totalEmpleados).toFixed(2) : 0;
-  
-  // Distribución y variabilidad
-  const horasPorMunicipio = municipiosValidos.map(m => m.hoursWorked || m.horas || 0);
-  const salidasPorMunicipio = municipiosValidos.map(m => m.geofenceExits || m.salidas || 0);
-
-  // Debug: Mostrar cómo se calculan las horas en el análisis
-  if (municipiosValidos.length > 0) {
-    const horasAnalisis = municipiosValidos.map(m => ({
-      municipio: m.municipio || m.nombre_municipio,
-      horas: m.horas,
-      hoursWorked: m.hoursWorked
-    }));
-    console.log('[PDF] [AnalysisSection] Horas usadas en análisis:', horasAnalisis);
-  }
-  
-  const promedioHorasMunicipal = horasPorMunicipio.length > 0 ? 
-    (horasPorMunicipio.reduce((a, b) => a + b, 0) / horasPorMunicipio.length).toFixed(0) : 0;
-  const promedioSalidasMunicipal = salidasPorMunicipio.length > 0 ? 
-    (salidasPorMunicipio.reduce((a, b) => a + b, 0) / salidasPorMunicipio.length).toFixed(0) : 0;
-  
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Análisis de Rendimiento y Patrones Operativos</Text>
-      
-      {/* Indicadores Clave de Rendimiento */}
-      <View style={styles.analysisContainer}>
-        <Text style={styles.analysisSubtitle}>Indicadores Clave de Rendimiento (KPIs)</Text>
-        <Text style={styles.analysisText}>
-          • Promedio de empleados por hospital: {promedioEmpleadosPorHospital} empleados
-        </Text>
-        <Text style={styles.analysisText}>
-          • Promedio de horas por empleado: {promedioHorasPorEmpleado} horas
-        </Text>
-        <Text style={styles.analysisText}>
-          • Ratio de salidas por empleado: {ratioSalidasPorEmpleado} salidas/empleado
-        </Text>
-        <Text style={styles.analysisText}>
-          • Cobertura hospitalaria: {totalHospitales} hospitales en {totalMunicipios} municipios
-        </Text>
-        <Text style={styles.analysisText}>
-          • Densidad promedio: {(totalHospitales / Math.max(totalMunicipios, 1)).toFixed(1)} hospitales/municipio
-        </Text>
-        <Text style={styles.analysisText}>
-          • Índice de retención de personal: {totalSalidas > 0 ? (totalHoras / totalSalidas).toFixed(1) : 'N/A'} horas por salida de geocerca
-        </Text>
-        <Text style={styles.analysisText}>
-          • Tasa de movilidad: {totalHoras > 0 && totalSalidas > 0 ? ((totalSalidas / totalHoras) * 100).toFixed(2) : '0.00'}% salidas por hora trabajada
-        </Text>
-      </View>
-      
-      {/* Análisis de Distribución y Variabilidad */}
-      <View style={[styles.analysisContainer, { marginTop: 8 }]}>
-        <Text style={styles.analysisSubtitle}>Análisis de Distribución y Variabilidad</Text>
-        <Text style={styles.analysisText}>
-          • Concentración de actividad: {((top5Municipios.reduce((acc, m) => acc + (m.geofenceExits || m.salidas || 0), 0) / Math.max(totalSalidas, 1)) * 100).toFixed(1)}% en top 5 municipios
-        </Text>
-        <Text style={styles.analysisText}>
-          • Municipios con datos activos: {municipiosValidos.length} de {totalMunicipios} total ({((municipiosValidos.length / Math.max(totalMunicipios, 1)) * 100).toFixed(1)}%)
-        </Text>
-        <Text style={styles.analysisText}>
-          • Promedio de horas por municipio: {promedioHorasMunicipal} horas
-        </Text>
-        <Text style={styles.analysisText}>
-          • Promedio de salidas por municipio: {promedioSalidasMunicipal} salidas
-        </Text>
-        <Text style={styles.analysisText}>
-          • Dispersión municipal: {municipiosValidos.length > 0 ? (Math.max(...salidasPorMunicipio) / Math.max(Math.min(...salidasPorMunicipio), 1)).toFixed(1) : 0}x diferencia máx/mín
-        </Text>
-      </View>
-
-      {/* Análisis de Hospitales */}
-      <View style={[styles.analysisContainer, { marginTop: 8 }]}>
-        <Text style={styles.analysisSubtitle}>Análisis de Desempeño Hospitalario</Text>
-        {hospitalMasActivo && (
-          <Text style={styles.analysisText}>
-            • Hospital líder: {(hospitalMasActivo.nombre_hospital || hospitalMasActivo.hospital || '').substring(0, 50)}...
-          </Text>
-        )}
-        <Text style={styles.analysisText}>
-          • Hospitales en ranking: {hospitalesValidos.length} instituciones
-        </Text>
-        <Text style={styles.analysisText}>
-          • Promedio de salidas por hospital: {totalHospitales > 0 ? (totalSalidas / totalHospitales).toFixed(1) : 0} salidas
-        </Text>
-        <Text style={styles.analysisText}>
-          • Tasa de actividad hospitalaria: {totalHospitales > 0 ? ((hospitalesValidos.length / totalHospitales) * 100).toFixed(1) : 0}%
-        </Text>
-        <Text style={styles.analysisText}>
-          • Índice de productividad: {totalEmpleados > 0 ? ((totalSalidas + totalHoras) / totalEmpleados).toFixed(1) : 0} actividades/empleado
-        </Text>
-      </View>
-
-      {/* Indicadores de Calidad Operativa */}
-      <View style={[styles.analysisContainer, { marginTop: 8 }]}>
-        <Text style={styles.analysisSubtitle}>Indicadores de Calidad Operativa</Text>
-        <Text style={styles.analysisText}>
-          • Ratio horas/salidas: {totalSalidas > 0 ? (totalHoras / totalSalidas).toFixed(2) : 'N/A'} horas por salida (mayor = mejor retención)
-        </Text>
-        <Text style={styles.analysisText}>
-          • Productividad por empleado: {totalEmpleados > 0 ? ((totalHoras + totalSalidas) / totalEmpleados).toFixed(1) : '0.0'} actividades/empleado
-        </Text>
-        <Text style={styles.analysisText}>
-          • Tasa de actividad: {totalHoras > 0 && totalSalidas > 0 ? ((totalSalidas / totalHoras) * 100).toFixed(2) : '0.00'}% movilidad por hora
-        </Text>
-        <Text style={styles.analysisText}>
-          • Cobertura territorial: {((municipiosValidos.length / Math.max(totalMunicipios, 1)) * 100).toFixed(1)}% municipios activos
-        </Text>
-        <Text style={styles.analysisText}>
-          • Densidad hospitalaria: {(totalHospitales / Math.max(municipiosValidos.length, 1)).toFixed(1)} hospitales/municipio activo
-        </Text>
-        <Text style={styles.analysisText}>
-          • Factor de concentración: {top5Municipios.length > 0 ? (((top5Municipios.reduce((acc, m) => acc + (m.geofenceExits || m.salidas || 0), 0) / Math.max(totalSalidas, 1)) * 100).toFixed(1)) : 0}% actividad en top 5
-        </Text>
-      </View>
-
-      {/* Top 5 Municipios */}
-      <View style={[styles.analysisContainer, { marginTop: 8 }]}>
-        <Text style={styles.analysisSubtitle}>Top 5 Municipios por Salidas de Geocerca</Text>
-        {top5Municipios.length > 0 ? (
-          top5Municipios.map((municipio, index) => {
-            const nombre = municipio.municipio || municipio.nombre_municipio || 'N/A';
-            const salidas = municipio.geofenceExits || municipio.salidas || municipio.totalSalidas || municipio.exits || 0;
-            const horas = municipio.hoursWorked || municipio.horas || 0;
-            return (
-              <Text key={index} style={styles.analysisText}>
-                {index + 1}. {nombre} - {salidas.toLocaleString()} salidas, {horas.toLocaleString()} horas
-              </Text>
-            );
-          })
-        ) : (
-          <Text style={[styles.analysisText, { fontStyle: 'italic', color: '#6c757d' }]}>
-            No hay datos de municipios disponibles para el ranking
-          </Text>
-        )}
-      </View>
-    </View>
-  );
-};
-
 const AlertSection = ({ estatalStats, municipios, hospitales }) => {
   const totalHospitales = estatalStats?.totalHospitales || 0;
   const totalEmpleados = estatalStats?.totalEmpleados || 0;
@@ -722,7 +549,6 @@ const ReportDocument = ({ estatalData, municipios, hospitales, estatalStats, sta
       <Header estatalData={estatalData} startDate={startDate} endDate={endDate} />
       <AlertSection estatalStats={estatalStats} municipios={municipios} hospitales={hospitales} />
       <SummarySection estatalStats={estatalStats} municipios={municipios} />
-      <AnalysisSection municipios={municipios} hospitales={hospitales} estatalStats={estatalStats} />
       <MunicipalTable municipios={municipios} />
       <HospitalRankingTable hospitales={hospitales} />
     </Page>
