@@ -286,7 +286,7 @@ const PeriodAnalysisCard = ({ cardData }) => (
       <View style={styles.statsItem}>
         <Text style={styles.statsValue}>{cardData.consistentEmployees || 0}</Text>
         <Text style={styles.statsLabel}>EMPLEADOS CONSISTENTES</Text>
-        <Text style={[styles.statsLabel, { fontSize: 7, marginTop: 2 }]}>≥50% días del período</Text>
+        <Text style={[styles.statsLabel, { fontSize: 7, marginTop: 2 }]}>50% o más días del período</Text>
       </View>
       <View style={styles.statsItemLast}>
         <Text style={styles.statsValue}>{cardData.activeGroups || 0}</Text>
