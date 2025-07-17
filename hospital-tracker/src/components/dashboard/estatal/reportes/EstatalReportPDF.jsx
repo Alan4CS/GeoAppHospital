@@ -202,7 +202,7 @@ const SummarySection = ({ estatalStats, municipios }) => {
   const promedioEmpleadosPorHospital = totalHospitales > 0 ? Math.round(totalEmpleados / totalHospitales) : 0;
   const promedioHospitalesPorMunicipio = totalMunicipios > 0 ? Math.round(totalHospitales / totalMunicipios) : 0;
   const promedioHorasPorEmpleado = totalEmpleados > 0 ? Math.round(totalHoras / totalEmpleados) : 0;
-  const ratioSalidasHoras = totalHoras > 0 ? ((totalSalidas / totalHoras) * 100).toFixed(1) : 0;
+  // Eliminado ratioSalidasHoras
   
   // Métricas de eficiencia operativa (corregidas)
   const eficienciaOperativa = totalHoras > 0 && totalSalidas > 0 ? 
@@ -249,10 +249,6 @@ const SummarySection = ({ estatalStats, municipios }) => {
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>Salidas de Geocerca</Text>
           <Text style={styles.statValue}>{totalSalidas.toLocaleString()}</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Ratio Salidas/Horas</Text>
-          <Text style={styles.statValue}>{ratioSalidasHoras}%</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>Empleados por Hospital</Text>
