@@ -572,6 +572,11 @@ export default function GrupoDashboard({
             activeEmployees: totalEmpleados, // Empleados activos en el período
             consistentEmployees: muyActivos + activos, // Empleados que trabajaron 50% o más
             occasionalEmployees: pocoActivos + esporadicos, // Empleados esporádicos
+            muyActivos,
+            activos,
+            pocoActivos,
+            esporadicos,
+            inactivos: empleadosHospital.length - totalEmpleados,
             totalExits,
             totalHours: Math.round(totalHours * 100) / 100,
             totalDentro: Math.round(totalDentro * 100) / 100,

@@ -11,13 +11,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
   header: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#059669', // verde esmeralda
     color: 'white',
     padding: 14,
     marginBottom: 14,
     borderRadius: 7,
     boxShadow: '0 1px 4px #0001',
-    border: '1px solid #1d4ed8',
+    border: '1px solid #047857', // borde verde oscuro
     minHeight: 0,
     display: 'flex',
     flexDirection: 'column',
@@ -30,6 +30,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
+    color: '#059669', // verde esmeralda para el título
   },
   headerInfo: {
     flexDirection: 'row',
@@ -60,19 +61,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     marginBottom: 6,
-    color: '#2563eb',
+    color: '#059669', // verde esmeralda
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
   table: {
     width: '100%',
     marginTop: 10,
-    border: '1px solid #2563eb',
+    border: '1px solid #059669', // verde esmeralda
     borderRadius: 3,
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#2563eb',
+    backgroundColor: '#059669', // verde esmeralda
     color: 'white',
     fontWeight: 'bold',
     fontSize: 10,
@@ -132,7 +133,7 @@ const styles = StyleSheet.create({
   statsValue: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#2563eb',
+    color: '#059669', // verde esmeralda
     marginBottom: 3,
   },
   statsLabel: {
@@ -146,7 +147,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   groupHeader: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#10b981', // verde más claro
     color: 'white',
     padding: 4,
     fontSize: 8.5,
@@ -238,7 +239,7 @@ const Header = ({
 
 const EmployeeSummaryCards = ({ cardData, empleadosActivos, empleadosInactivos }) => (
   <View style={styles.section}>
-    <Text style={styles.sectionTitle}>RESUMEN DE EMPLEADOS</Text>
+    <Text style={styles.sectionTitle}>RESUMEN GENERAL DE EMPLEADOS</Text>
     <View style={styles.statsCard}>
       <View style={styles.statsItem}>
         <Text style={styles.statsValue}>{empleadosActivos.length || 0}</Text>
@@ -270,7 +271,7 @@ const EmployeeSummaryCards = ({ cardData, empleadosActivos, empleadosInactivos }
 
 const PeriodAnalysisCard = ({ cardData }) => (
   <View style={styles.section}>
-    <Text style={styles.sectionTitle}>ANÁLISIS DEL PERÍODO</Text>
+    <Text style={styles.sectionTitle}>RESUMEN DE ASISTENCIA EN EL PERÍODO</Text>
     <View style={styles.statsCard}>
       <View style={styles.statsItem}>
         <Text style={styles.statsValue}>{cardData.totalWorkingDays || 0}</Text>
@@ -298,7 +299,7 @@ const PeriodAnalysisCard = ({ cardData }) => (
 
 const HoursMetricsCards = ({ cardData }) => (
   <View style={styles.section}>
-    <Text style={styles.sectionTitle}>MÉTRICAS DE HORAS</Text>
+    <Text style={styles.sectionTitle}>MÉTRICAS DE TIEMPO LABORAL</Text>
     <View style={styles.statsCard}>
       <View style={styles.statsItem}>
         <Text style={styles.statsValue}>{formatHorasMinutos(cardData.totalDentro || 0)}</Text>
@@ -326,11 +327,10 @@ const HoursMetricsCards = ({ cardData }) => (
 
 const ActivityLevelBreakdown = ({ cardData }) => (
   <View style={styles.section}>
-    <Text style={styles.sectionTitle}>ANÁLISIS POR NIVEL DE ACTIVIDAD</Text>
+    <Text style={styles.sectionTitle}>DISTRIBUCIÓN DE EMPLEADOS POR NIVEL DE ACTIVIDAD</Text>
     <View style={{ marginBottom: 6 }}>
-      <Text style={[styles.text, { fontSize: 9, textAlign: 'justify' }]}>
-        La siguiente tabla presenta la distribución de empleados activos según su nivel de participación 
-        durante el período analizado, categorizando su asistencia en cuatro niveles principales.
+      <Text style={[styles.text, { fontSize: 9, textAlign: 'justify' }]}> 
+        La siguiente tabla presenta la distribución de empleados según su nivel de participación durante el período analizado, categorizando su asistencia en cinco niveles principales (incluyendo inactivos).
       </Text>
     </View>
     <View style={styles.table}>
@@ -340,33 +340,45 @@ const ActivityLevelBreakdown = ({ cardData }) => (
         <Text style={styles.tableCellCenter}>CRITERIO</Text>
         <Text style={styles.tableCellCenter}>PORCENTAJE</Text>
       </View>
+      {/* Muy Activos */}
       <View style={styles.tableRow}>
         <Text style={[styles.tableCell, { flex: 2 }]}>Muy Activos</Text>
         <Text style={styles.tableCellCenter}>{cardData.muyActivos || 0}</Text>
         <Text style={styles.tableCellCenter}>80% o más días</Text>
-        <Text style={styles.tableCellCenter}>{cardData.activeEmployees > 0 ? (((cardData.muyActivos || 0) / cardData.activeEmployees) * 100).toFixed(1) : 0}%</Text>
+        <Text style={styles.tableCellCenter}>{cardData.totalEmployees > 0 ? (((cardData.muyActivos || 0) / cardData.totalEmployees) * 100).toFixed(1) : '0.0'}%</Text>
       </View>
+      {/* Activos Regulares */}
       <View style={styles.tableRowAlt}>
         <Text style={[styles.tableCell, { flex: 2 }]}>Activos Regulares</Text>
         <Text style={styles.tableCellCenter}>{cardData.activos || 0}</Text>
         <Text style={styles.tableCellCenter}>50-79% días</Text>
-        <Text style={styles.tableCellCenter}>{cardData.activeEmployees > 0 ? (((cardData.activos || 0) / cardData.activeEmployees) * 100).toFixed(1) : 0}%</Text>
+        <Text style={styles.tableCellCenter}>{cardData.totalEmployees > 0 ? (((cardData.activos || 0) / cardData.totalEmployees) * 100).toFixed(1) : '0.0'}%</Text>
       </View>
+      {/* Poco Activos */}
       <View style={styles.tableRow}>
         <Text style={[styles.tableCell, { flex: 2 }]}>Poco Activos</Text>
         <Text style={styles.tableCellCenter}>{cardData.pocoActivos || 0}</Text>
         <Text style={styles.tableCellCenter}>20-49% días</Text>
-        <Text style={styles.tableCellCenter}>{cardData.activeEmployees > 0 ? (((cardData.pocoActivos || 0) / cardData.activeEmployees) * 100).toFixed(1) : 0}%</Text>
+        <Text style={styles.tableCellCenter}>{cardData.totalEmployees > 0 ? (((cardData.pocoActivos || 0) / cardData.totalEmployees) * 100).toFixed(1) : '0.0'}%</Text>
       </View>
+      {/* Esporádicos */}
       <View style={styles.tableRowAlt}>
         <Text style={[styles.tableCell, { flex: 2 }]}>Esporádicos</Text>
         <Text style={styles.tableCellCenter}>{cardData.esporadicos || 0}</Text>
         <Text style={styles.tableCellCenter}>Menos de 20% días</Text>
-        <Text style={styles.tableCellCenter}>{cardData.activeEmployees > 0 ? (((cardData.esporadicos || 0) / cardData.activeEmployees) * 100).toFixed(1) : 0}%</Text>
+        <Text style={styles.tableCellCenter}>{cardData.totalEmployees > 0 ? (((cardData.esporadicos || 0) / cardData.totalEmployees) * 100).toFixed(1) : '0.0'}%</Text>
       </View>
-      <View style={[styles.tableRow, { backgroundColor: '#e3f2fd', borderTop: '2px solid #2563eb' }]}>
-        <Text style={[styles.tableCell, { flex: 2, fontWeight: 'bold' }]}>TOTAL EMPLEADOS ACTIVOS</Text>
-        <Text style={[styles.tableCellCenter, { fontWeight: 'bold' }]}>{cardData.activeEmployees || 0}</Text>
+      {/* Inactivos */}
+      <View style={styles.tableRow}>
+        <Text style={[styles.tableCell, { flex: 2 }]}>Inactivos</Text>
+        <Text style={styles.tableCellCenter}>{cardData.inactivos || 0}</Text>
+        <Text style={styles.tableCellCenter}>0 días</Text>
+        <Text style={styles.tableCellCenter}>{cardData.totalEmployees > 0 ? (((cardData.inactivos || 0) / cardData.totalEmployees) * 100).toFixed(1) : '0.0'}%</Text>
+      </View>
+      {/* Total general */}
+      <View style={[styles.tableRow, { backgroundColor: '#d1fae5', borderTop: '2px solid #059669' }]}> 
+        <Text style={[styles.tableCell, { flex: 2, fontWeight: 'bold' }]}>TOTAL EMPLEADOS</Text>
+        <Text style={[styles.tableCellCenter, { fontWeight: 'bold' }]}>{cardData.totalEmployees || 0}</Text>
         <Text style={[styles.tableCellCenter, { fontWeight: 'bold' }]}>-</Text>
         <Text style={[styles.tableCellCenter, { fontWeight: 'bold' }]}>100%</Text>
       </View>
@@ -376,7 +388,7 @@ const ActivityLevelBreakdown = ({ cardData }) => (
 
 const GroupDistributionTable = ({ groupDistributionData }) => (
   <View style={styles.section}>
-    <Text style={styles.sectionTitle}>DISTRIBUCIÓN DE EMPLEADOS POR GRUPO DE TRABAJO</Text>
+    <Text style={styles.sectionTitle}>EMPLEADOS POR GRUPO DE TRABAJO</Text>
     <View style={{ marginBottom: 6 }}>
       <Text style={[styles.text, { fontSize: 9, textAlign: 'justify' }]}>
         La siguiente tabla muestra la distribución total de empleados registrados en cada grupo de trabajo, 
@@ -413,7 +425,7 @@ const GroupDistributionTable = ({ groupDistributionData }) => (
 
 const ActiveInactiveTable = ({ stackedGroupData }) => (
   <View style={styles.section}>
-    <Text style={styles.sectionTitle}>ANÁLISIS COMPARATIVO: EMPLEADOS ACTIVOS VS INACTIVOS</Text>
+    <Text style={styles.sectionTitle}>COMPARATIVO DE EMPLEADOS ACTIVOS E INACTIVOS POR GRUPO</Text>
     <View style={{ marginBottom: 6 }}>
       <Text style={[styles.text, { fontSize: 9, textAlign: 'justify' }]}>
         Este análisis compara la participación laboral por grupo, mostrando la efectividad de cada equipo 
@@ -463,7 +475,7 @@ const ActiveInactiveTable = ({ stackedGroupData }) => (
 
 const GroupHoursTable = ({ groupHoursData }) => (
   <View style={styles.section}>
-    <Text style={styles.sectionTitle}>ANÁLISIS DE TIEMPO EFECTIVO POR GRUPO</Text>
+    <Text style={styles.sectionTitle}>TIEMPO LABORAL REGISTRADO POR GRUPO</Text>
     <View style={{ marginBottom: 6 }}>
       <Text style={[styles.text, { fontSize: 9, textAlign: 'justify' }]}>
         La siguiente tabla presenta el tiempo efectivo de trabajo registrado por cada grupo, diferenciando 
@@ -542,7 +554,7 @@ const EmployeeDetailsByGroup = ({ empleadosActivos, empleadosInactivos, groupDis
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>
-        {selectedGroup ? `DETALLE NOMINAL DEL GRUPO: ${selectedGroup.toUpperCase()}` : 'DETALLE NOMINAL DE EMPLEADOS POR GRUPO'}
+        {selectedGroup ? `LISTADO DETALLADO DE EMPLEADOS DEL GRUPO: ${selectedGroup.toUpperCase()}` : 'LISTADO DETALLADO DE EMPLEADOS POR GRUPO'}
       </Text>
       <View style={{ marginBottom: 5 }}>
         <Text style={[styles.text, { fontSize: 8, textAlign: 'justify' }]}>

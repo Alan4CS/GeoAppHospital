@@ -778,7 +778,7 @@ export default function EmpleadoDashboard({
                           Calendario de actividades - {selectedEmployeeData.name}
                         </h3>
                         <button
-                          className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-60 text-sm"
+                          className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-lg hover:from-emerald-700 hover:to-emerald-800 flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-60 text-sm"
                           disabled={loadingPDF}
                           onClick={async () => {
                             setLoadingPDF(true)

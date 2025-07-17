@@ -574,6 +574,44 @@ const DayTable = ({ fecha, actividades, empleado }) => {
   );
 };
 
+
+
+// Texto de categoría de actividad para el PDF del empleado
+const ActivityLevelText = ({ dias, eventsByDay }) => {
+  let diasTrabajados = 0;
+  dias.forEach((fecha) => {
+    if ((eventsByDay[fecha] || []).length > 1) diasTrabajados++;
+  });
+  let nivel = 'Inactivo';
+  let criterio = '0 días';
+  let color = '#64748b';
+  if (diasTrabajados === 0) {
+    nivel = 'Inactivo'; criterio = '0 días'; color = '#64748b';
+  } else if (diasTrabajados / dias.length >= 0.8) {
+    nivel = 'Muy Activo'; criterio = '80% o más días'; color = '#198754';
+  } else if (diasTrabajados / dias.length >= 0.5) {
+    nivel = 'Activo'; criterio = '50-79% días'; color = '#f59e0b';
+  } else if (diasTrabajados / dias.length >= 0.2) {
+    nivel = 'Poco Activo'; criterio = '20-49% días'; color = '#ef4444';
+  } else {
+    nivel = 'Esporádico'; criterio = 'Menos de 20% días'; color = '#6366f1';
+  }
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>CATEGORIZACIÓN DE NIVEL DE ACTIVIDAD</Text>
+      <Text style={{ fontSize: 11, color: '#222', marginBottom: 6 }}>
+        El empleado se categoriza como:
+      </Text>
+      <Text style={{ fontSize: 13, fontWeight: 'bold', color, marginBottom: 4 }}>
+        {nivel.toUpperCase()}
+      </Text>
+      <Text style={{ fontSize: 10, color: '#444' }}>
+        Criterio: <Text style={{ color }}>{criterio}</Text> &nbsp;|&nbsp; Días trabajados: <Text style={{ color: '#198754' }}>{diasTrabajados}</Text> de <Text style={{ color: '#198754' }}>{dias.length}</Text>
+      </Text>
+    </View>
+  );
+};
+
 const ReportDocument = ({ empleado, startDate, endDate, eventsByDay }) => {
   // Generar todos los días del rango
   const allDays = eachDayOfInterval({ start: parseISO(startDate), end: parseISO(endDate) });
@@ -592,6 +630,7 @@ const ReportDocument = ({ empleado, startDate, endDate, eventsByDay }) => {
       <Page size="LETTER" style={styles.page}>
         <Header empleado={empleado} startDate={startDate} endDate={endDate} />
         <PeriodSummary resumen={resumen} totalDiasPeriodo={totalDiasPeriodo} />
+        <ActivityLevelText dias={dias} eventsByDay={eventsByDay} />
         {dias.length === 0 ? (
           <Text style={styles.noData}>No hay actividades registradas en el rango seleccionado.</Text>
         ) : (
