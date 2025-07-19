@@ -650,6 +650,11 @@ const MonitoreoMap = ({
         return false;
       }
       
+      // Filtro por hospital específico si está seleccionado (independiente del estado)
+      if (selectedHospital && emp.hospitalId.toString() !== selectedHospital) {
+        return false;
+      }
+      
       // Filtro por estado si está seleccionado
       if (selectedState && emp.hospital) {
         // Buscar el hospital del empleado en la lista de hospitales del estado seleccionado
@@ -671,11 +676,6 @@ const MonitoreoMap = ({
             return false;
           }
         }
-        
-        // Filtro adicional por hospital específico si está seleccionado
-        if (selectedHospital && emp.hospitalId.toString() !== selectedHospital) {
-          return false;
-        }
       }
       
       return true;
@@ -684,12 +684,30 @@ const MonitoreoMap = ({
 
   // Filtrar hospitales según los criterios seleccionados
   const filteredHospitals = useMemo(() => {
-    if (!selectedState) return [];
+    let result = [];
     
-    return hospitals.filter(hospital => 
-      hospital.estado === selectedState && 
-      (!selectedMunicipio || hospital.municipio === selectedMunicipio) &&
-      (!selectedHospital || hospital.id_hospital.toString() === selectedHospital)
+    // Si hay hospital específico seleccionado, solo mostrar ese hospital
+    if (selectedHospital) {
+      result = hospitals.filter(hospital => 
+        hospital.id_hospital.toString() === selectedHospital
+      );
+    } else if (!selectedState) {
+      // Si no hay estado seleccionado, mostrar todos los hospitales
+      result = hospitals;
+    } else {
+      // Filtrar por estado y municipio
+      result = hospitals.filter(hospital => 
+        hospital.estado === selectedState && 
+        (!selectedMunicipio || hospital.municipio === selectedMunicipio)
+      );
+    }
+    
+    // Filtrar solo hospitales con coordenadas válidas
+    return result.filter(hospital => 
+      hospital.latitud_hospital && 
+      hospital.longitud_hospital &&
+      !isNaN(hospital.latitud_hospital) &&
+      !isNaN(hospital.longitud_hospital)
     );
   }, [hospitals, selectedState, selectedMunicipio, selectedHospital]);
 
@@ -859,6 +877,28 @@ const MonitoreoMap = ({
 
   // Validar hospitales por estado y municipio
   const getHospitalsStatus = useMemo(() => {
+    // Si hay hospital específico seleccionado, solo mostrar ese hospital
+    if (selectedHospital) {
+      const specificHospital = hospitals.find(h => 
+        h.id_hospital.toString() === selectedHospital && 
+        h.latitud_hospital && 
+        h.longitud_hospital
+      );
+      
+      if (specificHospital) {
+        return { 
+          status: 'ok',
+          hospitals: [specificHospital]
+        };
+      } else {
+        return { 
+          status: 'no_coordinates',
+          message: 'El hospital seleccionado no tiene coordenadas registradas',
+          hospitals: []
+        };
+      }
+    }
+    
     if (!selectedState) {
       return { 
         status: 'ok',
@@ -917,6 +957,11 @@ const MonitoreoMap = ({
         return false;
       }
       
+      // Filtro por hospital específico si está seleccionado (independiente del estado)
+      if (selectedHospital && emp.hospitalId.toString() !== selectedHospital) {
+        return false;
+      }
+      
       // Filtro por estado si está seleccionado
       if (selectedState && emp.hospital) {
         // Buscar el hospital del empleado en la lista de hospitales del estado seleccionado
@@ -937,11 +982,6 @@ const MonitoreoMap = ({
           if (!hospitalInMunicipio) {
             return false;
           }
-        }
-        
-        // Filtro adicional por hospital específico si está seleccionado
-        if (selectedHospital && emp.hospitalId.toString() !== selectedHospital) {
-          return false;
         }
       }
       
@@ -2136,7 +2176,7 @@ const MonitoreoMap = ({
 
             {/* Optimizar clusters */}
             {showHospitals && (
-              <HospitalMarkers hospitals={getHospitalsStatus.hospitals} />
+              <HospitalMarkers hospitals={filteredHospitals} />
             )}
 
             {/* Optimizar renderizado de empleados */}
