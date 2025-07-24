@@ -1,4 +1,4 @@
-# GeoAppHospital - Backend
+# Documentación del Backend: Hospital Tracker
 
 ## Descripción General
 
