@@ -146,8 +146,8 @@ router.post("/ubicaciones", authenticateToken, async (req, res) => {
     }
 
     // Validar evento si se proporciona
-    if (evento != null && ![0, 1, 2, 3, 4].includes(evento)) {
-        return res.status(400).json({ error: "El evento debe ser 0 (salió geocerca), 1 (entró geocerca), 2 (inicio descanso), 3 (terminó descanso) o 4 (cambio de ubicación)." });
+    if (evento != null && ![0, 1, 2, 3, 4, 5].includes(evento)) {
+        return res.status(400).json({ error: "El evento debe ser 0 (salió geocerca), 1 (entró geocerca), 2 (inicio descanso), 3 (terminó descanso), 4 (cambio de ubicación) o 5 (otro evento)." });
     }
 
     // Usar la fecha_hora del cliente si se proporciona, si no usar la actual del servidor
