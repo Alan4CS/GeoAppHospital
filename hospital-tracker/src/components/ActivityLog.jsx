@@ -341,6 +341,19 @@ export default function ActivityLog() {
           );
           if (!res.ok) throw new Error("Error al obtener hospitales libres");
           const data = await res.json();
+          
+          // Obtener el hospital que el usuario actual tenía asignado
+          const currentUserActivity = activities.find(a => a.id_user === currentUserId);
+          const hospitalAnterior = currentUserActivity?.id_hospital;
+          
+          // Si había un hospital asignado anteriormente y no está en la lista de libres, agregarlo
+          if (hospitalAnterior && !data.some(h => h.id_hospital === hospitalAnterior)) {
+            data.push({
+              id_hospital: hospitalAnterior,
+              nombre_hospital: currentUserActivity?.nombre_hospital || "Hospital previamente asignado"
+            });
+          }
+          
           setHospitales(data);
         } catch (error) {
           console.error("Error al obtener hospitales libres:", error);
@@ -349,7 +362,7 @@ export default function ActivityLog() {
       };
       fetchHospitalesLibres();
     }
-  }, [updateForm.estado, updateForm.municipio, updateForm.status, estados]);
+  }, [updateForm.estado, updateForm.municipio, updateForm.status, estados, activities, currentUserId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -377,10 +390,61 @@ export default function ActivityLog() {
       return;
     }
 
+    // Lógica de cascada para limpiar selecciones
+    if (name === "estado") {
+      setUpdateForm((prev) => ({
+        ...prev,
+        [name]: value,
+        municipio: "", // Limpiar municipio cuando cambia estado
+        hospital: "",  // Limpiar hospital cuando cambia estado
+      }));
+      setMunicipios([]);
+      setHospitales([]);
+      return;
+    }
+
+    if (name === "municipio") {
+      setUpdateForm((prev) => ({
+        ...prev,
+        [name]: value,
+        hospital: "", // Limpiar hospital cuando cambia municipio
+      }));
+      setHospitales([]);
+      return;
+    }
+
     setUpdateForm((prev) => ({
       ...prev,
       [name]: value,
     }));
+  };
+
+  // Función para limpiar un campo específico
+  const clearField = (fieldName) => {
+    if (fieldName === "estado") {
+      setUpdateForm((prev) => ({
+        ...prev,
+        estado: "",
+        municipio: "",
+        hospital: "",
+      }));
+      setMunicipios([]);
+      setHospitales([]);
+    } else if (fieldName === "municipio") {
+      setUpdateForm((prev) => ({
+        ...prev,
+        municipio: "",
+        hospital: "",
+      }));
+      setHospitales([]);
+    } else if (fieldName === "hospital") {
+      // Solo limpiar el campo del formulario, no afectar la lista de hospitales
+      setUpdateForm((prev) => ({
+        ...prev,
+        hospital: "",
+      }));
+      // No limpiamos setHospitales([]) para mantener la lista disponible
+    }
   };
 
   const startEditing = async (activity) => {
@@ -666,51 +730,75 @@ export default function ActivityLog() {
                                 <label className="block text-xs font-medium text-gray-700 mb-1">
                                   Estado
                                 </label>
-                                <select
-                                  name="estado"
-                                  value={updateForm.estado}
-                                  onChange={handleChange}
-                                  className="w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-                                  required={updateForm.status === "active"}
-                                  disabled={updateForm.status === "finished"}
-                                >
-                                  <option value="">Seleccionar</option>
-                                  {estados.map((estado) => (
-                                    <option
-                                      key={estado.id_estado}
-                                      value={estado.nombre_estado}
+                                <div className="relative">
+                                  <select
+                                    name="estado"
+                                    value={updateForm.estado}
+                                    onChange={handleChange}
+                                    className="w-full px-2 py-1.5 pr-8 text-sm border rounded focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                                    required={updateForm.status === "active"}
+                                    disabled={updateForm.status === "finished"}
+                                  >
+                                    <option value="">Seleccionar</option>
+                                    {estados.map((estado) => (
+                                      <option
+                                        key={estado.id_estado}
+                                        value={estado.nombre_estado}
+                                      >
+                                        {estado.nombre_estado}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {updateForm.estado && updateForm.status !== "finished" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => clearField("estado")}
+                                      className="absolute right-1 top-1/2 transform -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                                      title="Limpiar selección"
                                     >
-                                      {estado.nombre_estado}
-                                    </option>
-                                  ))}
-                                </select>
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                </div>
                               </div>
 
                               <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-1">
                                   Municipio
                                 </label>
-                                <select
-                                  name="municipio"
-                                  value={updateForm.municipio}
-                                  onChange={handleChange}
-                                  className="w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-                                  required={updateForm.status === "active"}
-                                  disabled={
-                                    !updateForm.estado ||
-                                    updateForm.status === "finished"
-                                  }
-                                >
-                                  <option value="">Seleccionar</option>
-                                  {municipios.map((municipio) => (
-                                    <option
-                                      key={municipio.id_municipio}
-                                      value={municipio.id_municipio}
+                                <div className="relative">
+                                  <select
+                                    name="municipio"
+                                    value={updateForm.municipio}
+                                    onChange={handleChange}
+                                    className="w-full px-2 py-1.5 pr-8 text-sm border rounded focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                                    required={updateForm.status === "active"}
+                                    disabled={
+                                      !updateForm.estado ||
+                                      updateForm.status === "finished"
+                                    }
+                                  >
+                                    <option value="">Seleccionar</option>
+                                    {municipios.map((municipio) => (
+                                      <option
+                                        key={municipio.id_municipio}
+                                        value={municipio.id_municipio}
+                                      >
+                                        {municipio.nombre_municipio}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {updateForm.municipio && updateForm.status !== "finished" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => clearField("municipio")}
+                                      className="absolute right-1 top-1/2 transform -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                                      title="Limpiar selección"
                                     >
-                                      {municipio.nombre_municipio}
-                                    </option>
-                                  ))}
-                                </select>
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             </div>
 
@@ -719,78 +807,90 @@ export default function ActivityLog() {
                                 <label className="block text-xs font-medium text-gray-700 mb-1">
                                   Hospital
                                 </label>
-                                <select
-                                  name="hospital"
-                                  value={updateForm.hospital}
-                                  onChange={handleChange}
-                                  className="w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-                                  required={updateForm.status === "active"}
-                                  disabled={
-                                    !updateForm.municipio ||
-                                    updateForm.status === "finished"
-                                  }
-                                >
-                                  {/* Si no hay hospital seleccionado, muestra "Seleccionar" */}
-                                  {!updateForm.hospital && (
-                                    <option value="">Seleccionar</option>
-                                  )}
-                                  {/* Mostrar el hospital seleccionado si existe en la lista actual */}
-                                  {updateForm.hospital &&
-                                    hospitales.some(
-                                      (h) =>
-                                        h.id_hospital?.toString() ===
-                                        updateForm.hospital
-                                    ) && (
-                                      <option value={updateForm.hospital}>
-                                        {hospitales.find(
-                                          (h) =>
-                                            h.id_hospital?.toString() ===
-                                            updateForm.hospital
-                                        )?.nombre_hospital ||
-                                          activities.find(
-                                            (a) => a.id_user === currentUserId
-                                          )?.nombre_hospital ||
-                                          "Hospital asignado"}
-                                      </option>
+                                <div className="relative">
+                                  <select
+                                    name="hospital"
+                                    value={updateForm.hospital}
+                                    onChange={handleChange}
+                                    className="w-full px-2 py-1.5 pr-8 text-sm border rounded focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                                    required={updateForm.status === "active"}
+                                    disabled={
+                                      !updateForm.municipio ||
+                                      updateForm.status === "finished"
+                                    }
+                                  >
+                                    {/* Si no hay hospital seleccionado, muestra "Seleccionar" */}
+                                    {!updateForm.hospital && (
+                                      <option value="">Seleccionar</option>
                                     )}
-                                  {/* Si el hospital seleccionado NO está en la lista, pero hay un hospital en activities, mostrarlo como opción seleccionada */}
-                                  {updateForm.hospital &&
-                                    !hospitales.some(
-                                      (h) =>
-                                        h.id_hospital?.toString() ===
-                                        updateForm.hospital
-                                    ) &&
-                                    activities.find(
-                                      (a) =>
-                                        a.id_user === currentUserId &&
-                                        a.id_hospital?.toString() ===
+                                    {/* Mostrar el hospital seleccionado si existe en la lista actual */}
+                                    {updateForm.hospital &&
+                                      hospitales.some(
+                                        (h) =>
+                                          h.id_hospital?.toString() ===
                                           updateForm.hospital
-                                    ) && (
-                                      <option value={updateForm.hospital}>
-                                        {activities.find(
-                                          (a) =>
-                                            a.id_user === currentUserId &&
-                                            a.id_hospital?.toString() ===
+                                      ) && (
+                                        <option value={updateForm.hospital}>
+                                          {hospitales.find(
+                                            (h) =>
+                                              h.id_hospital?.toString() ===
                                               updateForm.hospital
-                                        )?.nombre_hospital ||
-                                          "Hospital asignado"}
-                                      </option>
-                                    )}
-                                  {hospitales
-                                    .filter(
-                                      (hospital) =>
-                                        hospital.id_hospital?.toString() !==
-                                        updateForm.hospital
-                                    )
-                                    .map((hospital) => (
-                                      <option
-                                        key={hospital.id_hospital}
-                                        value={hospital.id_hospital}
-                                      >
-                                        {hospital.nombre_hospital}
-                                      </option>
-                                    ))}
-                                </select>
+                                          )?.nombre_hospital ||
+                                            activities.find(
+                                              (a) => a.id_user === currentUserId
+                                            )?.nombre_hospital ||
+                                            "Hospital asignado"}
+                                        </option>
+                                      )}
+                                    {/* Si el hospital seleccionado NO está en la lista, pero hay un hospital en activities, mostrarlo como opción seleccionada */}
+                                    {updateForm.hospital &&
+                                      !hospitales.some(
+                                        (h) =>
+                                          h.id_hospital?.toString() ===
+                                          updateForm.hospital
+                                      ) &&
+                                      activities.find(
+                                        (a) =>
+                                          a.id_user === currentUserId &&
+                                          a.id_hospital?.toString() ===
+                                            updateForm.hospital
+                                      ) && (
+                                        <option value={updateForm.hospital}>
+                                          {activities.find(
+                                            (a) =>
+                                              a.id_user === currentUserId &&
+                                              a.id_hospital?.toString() ===
+                                                updateForm.hospital
+                                          )?.nombre_hospital ||
+                                            "Hospital asignado"}
+                                        </option>
+                                      )}
+                                    {hospitales
+                                      .filter(
+                                        (hospital) =>
+                                          hospital.id_hospital?.toString() !==
+                                          updateForm.hospital
+                                      )
+                                      .map((hospital) => (
+                                        <option
+                                          key={hospital.id_hospital}
+                                          value={hospital.id_hospital}
+                                        >
+                                          {hospital.nombre_hospital}
+                                        </option>
+                                      ))}
+                                  </select>
+                                  {updateForm.hospital && updateForm.status !== "finished" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => clearField("hospital")}
+                                      className="absolute right-1 top-1/2 transform -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                                      title="Limpiar selección"
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                </div>
                               </div>
 
                               <div>
