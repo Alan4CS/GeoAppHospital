@@ -98,7 +98,10 @@ const createEmployeeClusterIcon = cluster => {
 
 const connectedIcon = createCustomIcon("#4CAF50"); // Verde para conectados
 const outsideGeofenceIcon = createCustomIcon("#FF5722", "#FFF"); // Naranja para fuera de geocerca
-const inactiveIcon = createCustomIcon("#DC2626", "#FFF"); // Rojo para inactivos
+const inactiveIcon = createCustomIcon("#DC2626", "#FFF"); // Rojo para cuando marcó salida (tipo_registro === 0)
+const restIcon = createCustomIcon("#2196F3", "#FFF"); // Azul para en descanso
+const activeIcon = createCustomIcon("#4CAF50", "#FFF"); // Verde para activos
+const inactiveEventIcon = createCustomIcon("#FF9800", "#FFF"); // Naranja para evento inactivo
 
 // Agregar prop para modo hospital admin
 const defaultProps = {
@@ -374,6 +377,7 @@ const MonitoreoMap = ({
           hospitalId: emp.id_hospital,
           tipo_registro: emp.tipo_registro,
           dentro_geocerca: emp.dentro_geocerca,
+          evento: emp.evento, // Agregar el campo evento
           location: [emp.latitud, emp.longitud],
           lastConnection: new Date(emp.fecha_hora),
           avatar: avatar,
@@ -417,13 +421,104 @@ const MonitoreoMap = ({
     }
   }, []);
 
+  // Configuración de tiempo para considerar empleado offline (en minutos)
+  const OFFLINE_THRESHOLD_MINUTES = 120; // 2 horas por defecto
+  const WARNING_THRESHOLD_MINUTES = 60;  // 1 hora para mostrar advertencia
+
+  // Función auxiliar para convertir fecha UTC a hora local (misma lógica del popup)
+  const getLocalDateTime = useCallback((utcDate) => {
+    const date = new Date(utcDate);
+    return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+  }, []);
+
   // Función para calcular horas trabajadas (optimizada)
   const calculateHoursWorked = useCallback((lastConnection) => {
     const now = new Date();
-    const diffMs = now - lastConnection;
+    const lastConnectionLocal = getLocalDateTime(lastConnection);
+    const diffMs = now - lastConnectionLocal;
     const diffHours = diffMs / (1000 * 60 * 60);
     return Math.max(0, Math.min(24, diffHours)); // Máximo 24 horas
-  }, []);
+  }, [getLocalDateTime]);
+
+  // Función para verificar si un empleado está realmente en línea
+  const isEmployeeOnline = useCallback((employee) => {
+    const now = new Date();
+    const lastConnectionLocal = getLocalDateTime(employee.lastConnection);
+    const diffMs = now - lastConnectionLocal;
+    const diffMinutes = diffMs / (1000 * 60);
+    
+    // Si marcó salida explícitamente (tipo_registro === 0), está fuera de línea
+    if (employee.tipo_registro === 0) {
+      return false;
+    }
+    
+    // Si tiene más del tiempo configurado sin actividad, considerarlo fuera de línea
+    if (diffMinutes > OFFLINE_THRESHOLD_MINUTES) {
+      return false;
+    }
+    
+    // Si tiene tipo_registro === 1 y menos del tiempo configurado de inactividad, está en línea
+    return true;
+  }, [getLocalDateTime]);
+
+  // Función para obtener el estado detallado del empleado
+  const getEmployeeDetailedStatus = useCallback((employee) => {
+    const now = new Date();
+    const lastConnectionLocal = getLocalDateTime(employee.lastConnection);
+    const diffMs = now - lastConnectionLocal;
+    const diffMinutes = diffMs / (1000 * 60);
+    const diffHours = diffMs / (1000 * 60 * 60);
+    
+    // Si marcó salida explícitamente
+    if (employee.tipo_registro === 0) {
+      return {
+        status: 'offline',
+        reason: 'marked_exit',
+        description: 'Marcó salida',
+        color: 'text-red-700',
+        icon: 'FaExclamationTriangle',
+        minutes: diffMinutes,
+        hours: diffHours
+      };
+    }
+    
+    // Si tiene mucho tiempo sin actividad
+    if (diffMinutes > OFFLINE_THRESHOLD_MINUTES) {
+      return {
+        status: 'offline',
+        reason: 'inactive_timeout',
+        description: `Sin actividad por ${Math.floor(diffHours)}h ${Math.floor(diffMinutes % 60)}m`,
+        color: 'text-red-700',
+        icon: 'FaExclamationTriangle',
+        minutes: diffMinutes,
+        hours: diffHours
+      };
+    }
+    
+    // Si está en tiempo de advertencia
+    if (diffMinutes > WARNING_THRESHOLD_MINUTES) {
+      return {
+        status: 'warning',
+        reason: 'inactive_warning',
+        description: `Inactivo por ${Math.floor(diffMinutes)}m`,
+        color: 'text-amber-700',
+        icon: 'FaClock',
+        minutes: diffMinutes,
+        hours: diffHours
+      };
+    }
+    
+    // Si está activo
+    return {
+      status: 'online',
+      reason: 'active',
+      description: 'En línea',
+      color: 'text-emerald-700',
+      icon: 'FaUserCheck',
+      minutes: diffMinutes,
+      hours: diffHours
+    };
+  }, [getLocalDateTime]);
 
   // Función para obtener el total de empleados registrados (optimizada)
   const fetchTotalEmployees = useCallback(async () => {
@@ -711,16 +806,25 @@ const MonitoreoMap = ({
     );
   }, [hospitals, selectedState, selectedMunicipio, selectedHospital]);
 
-  // Calcular KPIs
+  // Calcular KPIs basados en lógica de tiempo real
   const connectedCount = useMemo(() => {
     if (!filteredEmployees || !Array.isArray(filteredEmployees)) return 0;
-    return filteredEmployees.filter((emp) => emp.tipo_registro === 1).length;
-  }, [filteredEmployees]);
+    return filteredEmployees.filter((emp) => isEmployeeOnline(emp)).length;
+  }, [filteredEmployees, isEmployeeOnline]);
   
   const disconnectedCount = useMemo(() => {
     if (!filteredEmployees || !Array.isArray(filteredEmployees)) return 0;
-    return filteredEmployees.filter((emp) => emp.tipo_registro === 0).length;
-  }, [filteredEmployees]);
+    return filteredEmployees.filter((emp) => !isEmployeeOnline(emp)).length;
+  }, [filteredEmployees, isEmployeeOnline]);
+
+  // KPI adicional para empleados con advertencia (inactivos pero no offline)
+  const warningCount = useMemo(() => {
+    if (!filteredEmployees || !Array.isArray(filteredEmployees)) return 0;
+    return filteredEmployees.filter((emp) => {
+      const status = getEmployeeDetailedStatus(emp);
+      return status.status === 'warning';
+    }).length;
+  }, [filteredEmployees, getEmployeeDetailedStatus]);
   
   const outsideGeofenceCount = useMemo(() => {
     if (!filteredEmployees || !Array.isArray(filteredEmployees)) return 0;
@@ -837,6 +941,26 @@ const MonitoreoMap = ({
     ];
     const index = name.charCodeAt(0) % colors.length;
     return colors[index];
+  }, []);
+
+  // Función para obtener el texto y estilo del evento
+  const getEventInfo = useCallback((evento) => {
+    switch (evento) {
+      case 0:
+        return { text: "Salió de geocerca", color: "text-orange-700", icon: "FaExclamationTriangle" };
+      case 1:
+        return { text: "Entró a geocerca", color: "text-emerald-700", icon: "FaMapMarkerAlt" };
+      case 2:
+        return { text: "Inició descanso", color: "text-blue-700", icon: "FaClock" };
+      case 3:
+        return { text: "Terminó descanso", color: "text-blue-700", icon: "FaClock" };
+      case 4:
+        return { text: "Se puso inactivo", color: "text-red-700", icon: "FaUserTimes" };
+      case 5:
+        return { text: "Se puso activo", color: "text-emerald-700", icon: "FaUserCheck" };
+      default:
+        return null;
+    }
   }, []);
 
   // Estado para controlar si está refrescando
@@ -1043,14 +1167,51 @@ const MonitoreoMap = ({
         ref={clusterGroupRef}
       >
         {employees.map((employee) => {
-          // Determinar qué icono usar basado en el estado
+          // Obtener el estado detallado del empleado
+          const employeeStatus = getEmployeeDetailedStatus(employee);
+          
+          // Determinar qué icono usar basado en prioridades
           let icon;
-          if (employee.tipo_registro === 0) {
-            icon = inactiveIcon;
-          } else if (!employee.dentro_geocerca) {
-            icon = outsideGeofenceIcon;
-          } else {
-            icon = connectedIcon;
+          
+          // PRIORIDAD 1: Si marcó salida explícitamente o está offline por inactividad
+          if (!isEmployeeOnline(employee)) {
+            icon = inactiveIcon; // Rojo para offline
+          } 
+          // PRIORIDAD 2: Verificar eventos específicos
+          else if (employee.evento !== undefined && employee.evento !== null) {
+            switch (employee.evento) {
+              case 2: // Inició descanso
+                icon = restIcon; // Azul
+                break;
+              case 3: // Terminó descanso
+                icon = activeIcon; // Verde
+                break;
+              case 4: // Se puso inactivo
+                icon = inactiveEventIcon; // Naranja
+                break;
+              case 5: // Se puso activo
+                icon = activeIcon; // Verde
+                break;
+              default:
+                // Para otros eventos, usar la lógica de estado y geocerca
+                if (employeeStatus.status === 'warning') {
+                  icon = inactiveEventIcon; // Naranja para advertencia
+                } else if (!employee.dentro_geocerca) {
+                  icon = outsideGeofenceIcon; // Naranja para fuera de geocerca
+                } else {
+                  icon = connectedIcon; // Verde para conectados
+                }
+            }
+          } 
+          // PRIORIDAD 3: Lógica basada en estado de tiempo y geocerca
+          else {
+            if (employeeStatus.status === 'warning') {
+              icon = inactiveEventIcon; // Naranja para advertencia por inactividad
+            } else if (!employee.dentro_geocerca) {
+              icon = outsideGeofenceIcon; // Naranja para fuera de geocerca
+            } else {
+              icon = connectedIcon; // Verde para conectados y activos
+            }
           }
 
           // Crear ref si no existe
@@ -1098,20 +1259,47 @@ const MonitoreoMap = ({
                   {/* Info general */}
                   <div className="popup-info">
                     <span className="popup-state"><FaHospital className="mr-1 text-blue-600 inline" />{employee.hospital}</span>
-                    <span className="popup-address"><FaClock className="mr-1 inline" />Última conexión: {format(new Date(employee.lastConnection.getTime() + employee.lastConnection.getTimezoneOffset() * 60000), "d 'de' MMMM, HH:mm", { locale: es })}</span>
+                    <span className="popup-address">
+                      <FaClock className="mr-1 inline" />
+                      Última conexión: {format(getLocalDateTime(employee.lastConnection), "d 'de' MMMM, HH:mm", { locale: es })}
+                      {(() => {
+                        const status = getEmployeeDetailedStatus(employee);
+                        const minutosTranscurridos = Math.floor(status.minutes);
+                        const horasTranscurridas = Math.floor(status.hours);
+                        
+                        if (minutosTranscurridos < 1) {
+                          return " (hace menos de 1 minuto)";
+                        } else if (minutosTranscurridos < 60) {
+                          return ` (hace ${minutosTranscurridos} minuto${minutosTranscurridos !== 1 ? 's' : ''})`;
+                        } else {
+                          const minutosRestantes = minutosTranscurridos % 60;
+                          if (minutosRestantes === 0) {
+                            return ` (hace ${horasTranscurridas} hora${horasTranscurridas !== 1 ? 's' : ''})`;
+                          } else {
+                            return ` (hace ${horasTranscurridas}h ${minutosRestantes}m)`;
+                          }
+                        }
+                      })()}
+                    </span>
                   </div>
                   {/* Estado de registro y geocerca */}
                   <div className="popup-stats">
-                    {employee.tipo_registro === 1 && (
-                      <div className="popup-stats-row text-emerald-700">
-                        <FaUserCheck className="popup-icon" /> Usuario activo
-                      </div>
-                    )}
-                    {employee.tipo_registro === 0 && (
-                      <div className="popup-stats-row text-red-700">
-                        <FaExclamationTriangle className="popup-icon" /> Usuario inactivo
-                      </div>
-                    )}
+                    {/* Estado basado en tiempo real */}
+                    {(() => {
+                      const status = getEmployeeDetailedStatus(employee);
+                      const IconComponent = status.icon === 'FaUserCheck' ? FaUserCheck :
+                                           status.icon === 'FaExclamationTriangle' ? FaExclamationTriangle :
+                                           status.icon === 'FaClock' ? FaClock :
+                                           FaUserCheck;
+                      
+                      return (
+                        <div className={`popup-stats-row ${status.color}`}>
+                          <IconComponent className="popup-icon" /> {status.description}
+                        </div>
+                      );
+                    })()}
+                    
+                    {/* Estado de geocerca */}
                     {employee.dentro_geocerca === true && (
                       <div className="popup-stats-row text-emerald-700">
                         <FaMapMarkerAlt className="popup-icon" />
@@ -1124,6 +1312,24 @@ const MonitoreoMap = ({
                         <span>Fuera de geocerca</span>
                       </div>
                     )}
+                    
+                    {/* Evento actual */}
+                    {employee.evento !== undefined && employee.evento !== null && (() => {
+                      const eventInfo = getEventInfo(employee.evento);
+                      if (!eventInfo) return null;
+                      
+                      const IconComponent = eventInfo.icon === 'FaUserCheck' ? FaUserCheck :
+                                          eventInfo.icon === 'FaUserTimes' ? FaUserTimes :
+                                          eventInfo.icon === 'FaMapMarkerAlt' ? FaMapMarkerAlt :
+                                          eventInfo.icon === 'FaClock' ? FaClock :
+                                          FaExclamationTriangle;
+                      
+                      return (
+                        <div className={`popup-stats-row ${eventInfo.color}`}>
+                          <IconComponent className="popup-icon" /> {eventInfo.text}
+                        </div>
+                      );
+                    })()}
                   </div>
                   {/* Coordenadas */}
                   <div className="popup-coords">
@@ -1348,50 +1554,50 @@ const MonitoreoMap = ({
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
-      {/* KPIs con diseño responsivo */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 px-2 sm:px-4 pt-1 pb-2 w-full">
+      {/* KPIs con diseño responsivo - Reducido para mejor ajuste */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-1 sm:gap-2 lg:gap-3 px-2 sm:px-3 pt-1 pb-2 w-full">
         {/* Empleados Activos */}
-        <div className="relative overflow-hidden rounded-lg lg:rounded-xl border p-1.5 sm:p-2 lg:p-3 shadow-sm backdrop-blur-sm 
+        <div className="relative overflow-hidden rounded-lg border p-1 sm:p-1.5 lg:p-2 shadow-sm backdrop-blur-sm 
                        transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer group
                        bg-gradient-to-br from-emerald-50 to-emerald-100/50 text-emerald-700 border-emerald-200/60">
           {/* Accent line */}
-          <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
+          <div className="absolute top-0 left-0 w-full h-0.5 bg-emerald-500"></div>
           
           {/* Background decoration */}
-          <div className="absolute top-2 right-2 lg:top-3 lg:right-3 w-8 h-8 lg:w-12 lg:h-12 bg-emerald-500 
+          <div className="absolute top-1 right-1 lg:top-2 lg:right-2 w-6 h-6 lg:w-8 lg:h-8 bg-emerald-500 
                          rounded-full opacity-5 group-hover:opacity-8 transition-opacity duration-300"></div>
           
           <div className="relative z-10">
             <div className="flex items-center justify-between">
-              <h3 className="text-[10px] sm:text-xs font-semibold tracking-wide uppercase leading-tight">Empleados Activos</h3>
-              <div className="rounded-md lg:rounded-lg p-1.5 lg:p-2 shadow-md group-hover:scale-110 
+              <h3 className="text-[9px] sm:text-[10px] font-semibold tracking-wide uppercase leading-tight">Empleados Activos</h3>
+              <div className="rounded-md p-1 lg:p-1.5 shadow-md group-hover:scale-110 
                              transition-transform duration-300 bg-emerald-500 text-white bg-opacity-50">
-                <FaUserCheck className="h-3 w-3 lg:h-4 lg:w-4" />
+                <FaUserCheck className="h-2.5 w-2.5 lg:h-3 lg:w-3" />
               </div>
             </div>
 
-            <div className="mt-1.5 lg:mt-2">
-              <p className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">{connectedCount.toLocaleString()}</p>
+            <div className="mt-1 lg:mt-1.5">
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold tracking-tight">{connectedCount.toLocaleString()}</p>
               {selectedHospital && hospitalStats[selectedHospital] && (
-                <p className="text-[10px] lg:text-xs mt-1 text-emerald-600 leading-relaxed hidden sm:block">
+                <p className="text-[9px] lg:text-[10px] mt-0.5 text-emerald-600 leading-relaxed hidden md:block">
                   {hospitalStats[selectedHospital].activos} en {hospitalStats[selectedHospital].nombre}
                 </p>
               )}
               
               {/* Lista desplegable de empleados activos - solo en pantallas grandes */}
               <details 
-                className="mt-2 hidden lg:block"
+                className="mt-1.5 hidden xl:block"
                 onToggle={() => {
                   // Usar setTimeout para permitir que el DOM se actualice
                   setTimeout(checkExpandedLists, 0);
                 }}
               >
-                <summary className="cursor-pointer text-xs text-emerald-700 hover:underline select-none font-medium">Ver empleados</summary>
+                <summary className="cursor-pointer text-[10px] text-emerald-700 hover:underline select-none font-medium">Ver empleados</summary>
                 <div className="mt-1 max-h-24 overflow-y-auto pr-1 custom-scrollbar">
-                  {filteredEmployees.filter(emp => emp.tipo_registro === 1).length === 0 ? (
+                  {filteredEmployees.filter(emp => isEmployeeOnline(emp)).length === 0 ? (
                     <div className="text-xs text-emerald-600/60 px-2 py-1">No hay empleados activos</div>
                   ) : (
-                    filteredEmployees.filter(emp => emp.tipo_registro === 1).map(emp => (
+                    filteredEmployees.filter(emp => isEmployeeOnline(emp)).map(emp => (
                       <div
                         key={emp.id}
                         className="flex items-center gap-1.5 py-1 px-1.5 hover:bg-emerald-200/30 rounded cursor-pointer transition-colors"
@@ -1414,61 +1620,138 @@ const MonitoreoMap = ({
         </div>
 
         {/* Empleados Inactivos */}
-        <div className="relative overflow-hidden rounded-lg lg:rounded-xl border p-1.5 sm:p-2 lg:p-3 shadow-sm backdrop-blur-sm 
+        <div className="relative overflow-hidden rounded-lg border p-1 sm:p-1.5 lg:p-2 shadow-sm backdrop-blur-sm 
                        transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer group
                        bg-gradient-to-br from-gray-50 to-gray-100/50 text-gray-700 border-gray-200/60">
           {/* Accent line */}
-          <div className="absolute top-0 left-0 w-full h-1 bg-gray-500"></div>
+          <div className="absolute top-0 left-0 w-full h-0.5 bg-gray-500"></div>
           
           {/* Background decoration */}
-          <div className="absolute top-2 right-2 lg:top-3 lg:right-3 w-8 h-8 lg:w-12 lg:h-12 bg-gray-500 
+          <div className="absolute top-1 right-1 lg:top-2 lg:right-2 w-6 h-6 lg:w-8 lg:h-8 bg-gray-500 
                          rounded-full opacity-5 group-hover:opacity-8 transition-opacity duration-300"></div>
           
           <div className="relative z-10">
             <div className="flex items-center justify-between">
-              <h3 className="text-[10px] sm:text-xs font-semibold tracking-wide uppercase leading-tight">Empleados Inactivos</h3>
-              <div className="rounded-md lg:rounded-lg p-1.5 lg:p-2 shadow-md group-hover:scale-110 
+              <h3 className="text-[9px] sm:text-[10px] font-semibold tracking-wide uppercase leading-tight">Empleados Inactivos</h3>
+              <div className="rounded-md p-1 lg:p-1.5 shadow-md group-hover:scale-110 
                              transition-transform duration-300 bg-gray-500 text-white bg-opacity-50">
-                <FaUserTimes className="h-3 w-3 lg:h-4 lg:w-4" />
+                <FaUserTimes className="h-2.5 w-2.5 lg:h-3 lg:w-3" />
               </div>
             </div>
 
-            <div className="mt-1.5 lg:mt-2">
-              <p className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">{disconnectedCount.toLocaleString()}</p>
+            <div className="mt-1 lg:mt-1.5">
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold tracking-tight">{disconnectedCount.toLocaleString()}</p>
               {selectedHospital && hospitalStats[selectedHospital] && (
-                <p className="text-[10px] lg:text-xs mt-1 text-gray-600 leading-relaxed hidden sm:block">
+                <p className="text-[9px] lg:text-[10px] mt-0.5 text-gray-600 leading-relaxed hidden md:block">
                   {hospitalStats[selectedHospital].inactivos} en {hospitalStats[selectedHospital].nombre}
                 </p>
               )}
               
               {/* Lista desplegable de empleados inactivos - solo en pantallas grandes */}
               <details 
-                className="mt-2 hidden lg:block"
+                className="mt-1.5 hidden xl:block"
                 onToggle={() => {
                   // Usar setTimeout para permitir que el DOM se actualice
                   setTimeout(checkExpandedLists, 0);
                 }}
               >
-                <summary className="cursor-pointer text-xs text-gray-700 hover:underline select-none font-medium">Ver empleados</summary>
+                <summary className="cursor-pointer text-[10px] text-gray-700 hover:underline select-none font-medium">Ver empleados</summary>
                 <div className="mt-1 max-h-24 overflow-y-auto pr-1 custom-scrollbar">
-                  {filteredEmployees.filter(emp => emp.tipo_registro === 0).length === 0 ? (
+                  {filteredEmployees.filter(emp => !isEmployeeOnline(emp)).length === 0 ? (
                     <div className="text-xs text-gray-600/60 px-2 py-1">No hay empleados inactivos</div>
                   ) : (
-                    filteredEmployees.filter(emp => emp.tipo_registro === 0).map(emp => (
-                      <div
-                        key={emp.id}
-                        className="flex items-center gap-1.5 py-1 px-1.5 hover:bg-gray-200/30 rounded cursor-pointer transition-colors"
-                        onClick={() => handleEmployeeClick(emp.id)}
-                      >
-                        <div className={`w-5 h-5 rounded-full ${getAvatarColor(emp.name)} text-white flex items-center justify-center font-medium text-xs`}>
-                          {emp.avatar}
+                    filteredEmployees.filter(emp => !isEmployeeOnline(emp)).map(emp => {
+                      const status = getEmployeeDetailedStatus(emp);
+                      return (
+                        <div
+                          key={emp.id}
+                          className="flex items-center gap-1.5 py-1 px-1.5 hover:bg-gray-200/30 rounded cursor-pointer transition-colors"
+                          onClick={() => handleEmployeeClick(emp.id)}
+                        >
+                          <div className={`w-5 h-5 rounded-full ${getAvatarColor(emp.name)} text-white flex items-center justify-center font-medium text-xs`}>
+                            {emp.avatar}
+                          </div>
+                          <div className="flex-1 truncate">
+                            <span className="text-xs text-gray-800">{emp.name}</span>
+                            <div className="text-[10px] text-gray-600/70">
+                              {emp.hospital} • {status.description}
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex-1 truncate">
-                          <span className="text-xs text-gray-800">{emp.name}</span>
-                          <span className="ml-1 text-[10px] text-gray-600/70">{emp.hospital}</span>
+                      );
+                    })
+                  )}
+                </div>
+              </details>
+            </div>
+          </div>
+        </div>
+
+        {/* Empleados con Advertencia (Inactivos pero no offline) */}
+        <div className="relative overflow-hidden rounded-lg border p-1 sm:p-1.5 lg:p-2 shadow-sm backdrop-blur-sm 
+                       transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer group
+                       bg-gradient-to-br from-orange-50 to-orange-100/50 text-orange-700 border-orange-200/60">
+          {/* Accent line */}
+          <div className="absolute top-0 left-0 w-full h-0.5 bg-orange-500"></div>
+          
+          {/* Background decoration */}
+          <div className="absolute top-1 right-1 lg:top-2 lg:right-2 w-6 h-6 lg:w-8 lg:h-8 bg-orange-500 
+                         rounded-full opacity-5 group-hover:opacity-8 transition-opacity duration-300"></div>
+          
+          <div className="relative z-10">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[9px] sm:text-[10px] font-semibold tracking-wide uppercase leading-tight">Con Advertencia</h3>
+              <div className="rounded-md p-1 lg:p-1.5 shadow-md group-hover:scale-110 
+                             transition-transform duration-300 bg-orange-500 text-white bg-opacity-50">
+                <FaClock className="h-2.5 w-2.5 lg:h-3 lg:w-3" />
+              </div>
+            </div>
+
+            <div className="mt-1 lg:mt-1.5">
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold tracking-tight">{warningCount.toLocaleString()}</p>
+              <p className="text-[9px] lg:text-[10px] mt-0.5 text-orange-600 leading-relaxed hidden md:block">
+                Inactivos por más de 1 hora
+              </p>
+              
+              {/* Lista desplegable de empleados con advertencia - solo en pantallas grandes */}
+              <details 
+                className="mt-1.5 hidden xl:block"
+                onToggle={() => {
+                  // Usar setTimeout para permitir que el DOM se actualice
+                  setTimeout(checkExpandedLists, 0);
+                }}
+              >
+                <summary className="cursor-pointer text-[10px] text-orange-700 hover:underline select-none font-medium">Ver empleados</summary>
+                <div className="mt-1 max-h-24 overflow-y-auto pr-1 custom-scrollbar">
+                  {filteredEmployees.filter(emp => {
+                    const status = getEmployeeDetailedStatus(emp);
+                    return status.status === 'warning';
+                  }).length === 0 ? (
+                    <div className="text-xs text-orange-600/60 px-2 py-1">No hay empleados con advertencia</div>
+                  ) : (
+                    filteredEmployees.filter(emp => {
+                      const status = getEmployeeDetailedStatus(emp);
+                      return status.status === 'warning';
+                    }).map(emp => {
+                      const status = getEmployeeDetailedStatus(emp);
+                      return (
+                        <div
+                          key={emp.id}
+                          className="flex items-center gap-1.5 py-1 px-1.5 hover:bg-orange-200/30 rounded cursor-pointer transition-colors"
+                          onClick={() => handleEmployeeClick(emp.id)}
+                        >
+                          <div className={`w-5 h-5 rounded-full ${getAvatarColor(emp.name)} text-white flex items-center justify-center font-medium text-xs`}>
+                            {emp.avatar}
+                          </div>
+                          <div className="flex-1 truncate">
+                            <span className="text-xs text-orange-800">{emp.name}</span>
+                            <div className="text-[10px] text-orange-600/70">
+                              {emp.hospital} • {status.description}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </details>
@@ -1477,42 +1760,42 @@ const MonitoreoMap = ({
         </div>
 
         {/* Fuera de Geocerca */}
-        <div className="relative overflow-hidden rounded-lg lg:rounded-xl border p-1.5 sm:p-2 lg:p-3 shadow-sm backdrop-blur-sm 
+        <div className="relative overflow-hidden rounded-lg border p-1 sm:p-1.5 lg:p-2 shadow-sm backdrop-blur-sm 
                        transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer group
                        bg-gradient-to-br from-amber-50 to-amber-100/50 text-amber-700 border-amber-200/60">
           {/* Accent line */}
-          <div className="absolute top-0 left-0 w-full h-1 bg-amber-500"></div>
+          <div className="absolute top-0 left-0 w-full h-0.5 bg-amber-500"></div>
           
           {/* Background decoration */}
-          <div className="absolute top-2 right-2 lg:top-3 lg:right-3 w-8 h-8 lg:w-12 lg:h-12 bg-amber-500 
+          <div className="absolute top-1 right-1 lg:top-2 lg:right-2 w-6 h-6 lg:w-8 lg:h-8 bg-amber-500 
                          rounded-full opacity-5 group-hover:opacity-8 transition-opacity duration-300"></div>
           
           <div className="relative z-10">
             <div className="flex items-center justify-between">
-              <h3 className="text-[10px] sm:text-xs font-semibold tracking-wide uppercase leading-tight">Fuera de Geocerca</h3>
-              <div className="rounded-md lg:rounded-lg p-1.5 lg:p-2 shadow-md group-hover:scale-110 
+              <h3 className="text-[9px] sm:text-[10px] font-semibold tracking-wide uppercase leading-tight">Fuera de Geocerca</h3>
+              <div className="rounded-md p-1 lg:p-1.5 shadow-md group-hover:scale-110 
                              transition-transform duration-300 bg-amber-500 text-white bg-opacity-50">
-                <FaExclamationTriangle className="h-3 w-3 lg:h-4 lg:w-4" />
+                <FaExclamationTriangle className="h-2.5 w-2.5 lg:h-3 lg:w-3" />
               </div>
             </div>
 
-            <div className="mt-1.5 lg:mt-2">
-              <p className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">{outsideGeofenceCount.toLocaleString()}</p>
+            <div className="mt-1 lg:mt-1.5">
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold tracking-tight">{outsideGeofenceCount.toLocaleString()}</p>
               {selectedHospital && hospitalStats[selectedHospital] && (
-                <p className="text-[10px] lg:text-xs mt-1 text-amber-600 leading-relaxed hidden sm:block">
+                <p className="text-[9px] lg:text-[10px] mt-0.5 text-amber-600 leading-relaxed hidden md:block">
                   {hospitalStats[selectedHospital].fueraGeocerca} en {hospitalStats[selectedHospital].nombre}
                 </p>
               )}
               
               {/* Lista desplegable de empleados fuera de geocerca - solo en pantallas grandes */}
               <details 
-                className="mt-2 hidden lg:block"
+                className="mt-1.5 hidden xl:block"
                 onToggle={() => {
                   // Usar setTimeout para permitir que el DOM se actualice
                   setTimeout(checkExpandedLists, 0);
                 }}
               >
-                <summary className="cursor-pointer text-xs text-amber-700 hover:underline select-none font-medium">Ver empleados</summary>
+                <summary className="cursor-pointer text-[10px] text-amber-700 hover:underline select-none font-medium">Ver empleados</summary>
                 <div className="mt-1 max-h-24 overflow-y-auto pr-1 custom-scrollbar">
                   {filteredEmployees.filter(emp => emp.dentro_geocerca === false).length === 0 ? (
                     <div className="text-xs text-amber-600/60 px-2 py-1">No hay empleados fuera de geocerca</div>
@@ -1540,33 +1823,33 @@ const MonitoreoMap = ({
         </div>
 
         {/* Hospitales */}
-        <div className="relative overflow-hidden rounded-lg lg:rounded-xl border p-1.5 sm:p-2 lg:p-3 shadow-sm backdrop-blur-sm 
+        <div className="relative overflow-hidden rounded-lg border p-1 sm:p-1.5 lg:p-2 shadow-sm backdrop-blur-sm 
                        transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer group
                        bg-gradient-to-br from-blue-50 to-blue-100/50 text-blue-700 border-blue-200/60">
           {/* Accent line */}
-          <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
+          <div className="absolute top-0 left-0 w-full h-0.5 bg-blue-500"></div>
           
           {/* Background decoration */}
-          <div className="absolute top-2 right-2 lg:top-3 lg:right-3 w-8 h-8 lg:w-12 lg:h-12 bg-blue-500 
+          <div className="absolute top-1 right-1 lg:top-2 lg:right-2 w-6 h-6 lg:w-8 lg:h-8 bg-blue-500 
                          rounded-full opacity-5 group-hover:opacity-8 transition-opacity duration-300"></div>
           
           <div className="relative z-10">
             <div className="flex items-center justify-between">
-              <h3 className="text-[10px] sm:text-xs font-semibold tracking-wide uppercase leading-tight">Hospitales</h3>
-              <div className="rounded-md lg:rounded-lg p-1.5 lg:p-2 shadow-md group-hover:scale-110 
+              <h3 className="text-[9px] sm:text-[10px] font-semibold tracking-wide uppercase leading-tight">Hospitales</h3>
+              <div className="rounded-md p-1 lg:p-1.5 shadow-md group-hover:scale-110 
                              transition-transform duration-300 bg-blue-500 text-white bg-opacity-50">
-                <FaHospital className="h-3 w-3 lg:h-4 lg:w-4" />
+                <FaHospital className="h-2.5 w-2.5 lg:h-3 lg:w-3" />
               </div>
             </div>
 
-            <div className="mt-1.5 lg:mt-2">
-              <p className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">{hospitals.length.toLocaleString()}</p>
+            <div className="mt-1 lg:mt-1.5">
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold tracking-tight">{hospitals.length.toLocaleString()}</p>
               {selectedState ? (
-                <p className="text-[10px] lg:text-xs mt-1 text-blue-600 leading-relaxed hidden sm:block">
+                <p className="text-[9px] lg:text-[10px] mt-0.5 text-blue-600 leading-relaxed hidden md:block">
                   {filteredHospitals.length} filtrados en {selectedState}
                 </p>
               ) : (
-                <p className="text-[10px] lg:text-xs mt-1 text-blue-600 leading-relaxed hidden sm:block">
+                <p className="text-[9px] lg:text-[10px] mt-0.5 text-blue-600 leading-relaxed hidden md:block">
                   Promedio: {hospitals.length > 0 ? Math.round(totalEmployees / hospitals.length) : 0} emp/hospital
                 </p>
               )}
@@ -1575,29 +1858,29 @@ const MonitoreoMap = ({
         </div>
 
         {/* Total Empleados */}
-        <div className="relative overflow-hidden rounded-lg lg:rounded-xl border p-1.5 sm:p-2 lg:p-3 shadow-sm backdrop-blur-sm 
+        <div className="relative overflow-hidden rounded-lg border p-1 sm:p-1.5 lg:p-2 shadow-sm backdrop-blur-sm 
                        transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer group
                        bg-gradient-to-br from-purple-50 to-purple-100/50 text-purple-700 border-purple-200/60">
           {/* Accent line */}
-          <div className="absolute top-0 left-0 w-full h-1 bg-purple-500"></div>
+          <div className="absolute top-0 left-0 w-full h-0.5 bg-purple-500"></div>
           
           {/* Background decoration */}
-          <div className="absolute top-2 right-2 lg:top-3 lg:right-3 w-8 h-8 lg:w-12 lg:h-12 bg-purple-500 
+          <div className="absolute top-1 right-1 lg:top-2 lg:right-2 w-6 h-6 lg:w-8 lg:h-8 bg-purple-500 
                          rounded-full opacity-5 group-hover:opacity-8 transition-opacity duration-300"></div>
           
           <div className="relative z-10">
             <div className="flex items-center justify-between">
-              <h3 className="text-[10px] sm:text-xs font-semibold tracking-wide uppercase leading-tight">Total Empleados</h3>
-              <div className="rounded-md lg:rounded-lg p-1.5 lg:p-2 shadow-md group-hover:scale-110 
+              <h3 className="text-[9px] sm:text-[10px] font-semibold tracking-wide uppercase leading-tight">Total Empleados</h3>
+              <div className="rounded-md p-1 lg:p-1.5 shadow-md group-hover:scale-110 
                              transition-transform duration-300 bg-purple-500 text-white bg-opacity-50">
-                <FaUser className="h-3 w-3 lg:h-4 lg:w-4" />
+                <FaUser className="h-2.5 w-2.5 lg:h-3 lg:w-3" />
               </div>
             </div>
 
-            <div className="mt-1.5 lg:mt-2">
-              <p className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">{totalEmployees.toLocaleString()}</p>
+            <div className="mt-1 lg:mt-1.5">
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold tracking-tight">{totalEmployees.toLocaleString()}</p>
               {selectedHospital && hospitalStats[selectedHospital] && (
-                <p className="text-[10px] lg:text-xs mt-1 text-purple-600 leading-relaxed hidden sm:block">
+                <p className="text-[9px] lg:text-[10px] mt-0.5 text-purple-600 leading-relaxed hidden md:block">
                   {hospitalStats[selectedHospital].total} en {hospitalStats[selectedHospital].nombre}
                 </p>
               )}
@@ -1608,9 +1891,9 @@ const MonitoreoMap = ({
 
       {/* Indicador de última actualización */}
       {lastUpdate && (
-        <div className="px-2 sm:px-4 pb-2">
-          <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
-            <FaClock className="text-xs" />
+        <div className="px-2 sm:px-3 pb-1">
+          <div className="flex items-center justify-center gap-2 text-[10px] text-gray-500">
+            <FaClock className="text-[10px]" />
             <span>
               Última actualización: {format(lastUpdate, "d 'de' MMMM, HH:mm:ss", { locale: es })}
             </span>
