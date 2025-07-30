@@ -67,7 +67,7 @@ function getEventIcon(evento) {
 // Función para generar eventos y intervalos basados en el resumen del día
 function generarEventosYIntervalosDelResumen(actividades) {
   if (!actividades || actividades.length === 0) return { eventos: [], intervalos: [] };
-  
+
   const eventos = [];
   const intervalos = [];
   let estadoGeocerca = null;
@@ -81,128 +81,201 @@ function generarEventosYIntervalosDelResumen(actividades) {
     return `${hrs > 0 ? hrs + 'h ' : ''}${min}min`;
   };
 
-  const pushIntervalo = (inicio, fin, tipo) => {
-    if (inicio && fin && inicio !== fin) {
-      intervalos.push({
-        inicio: new Date(inicio),
-        fin: new Date(fin),
-        dentro: tipo === 'dentro',
-        fuera: tipo === 'fuera',
-        descanso: tipo === 'descanso',
-        tipo: tipo, // Agregar el tipo explícitamente
-        duracionTexto: formatIntervalo(inicio, fin)
-      });
-    }
-  };
-
   const ordenadas = actividades.slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
-
-  for (let i = 0; i < ordenadas.length; i++) {
+  let i = 0;
+  while (i < ordenadas.length) {
     const act = ordenadas[i];
-    
+    const hora = formatHora(act.fecha_hora);
     // Entrada laboral
     if (i === 0 && act.tipo_registro === 1) {
       eventos.push({
         time: new Date(act.fecha_hora),
         tipo: 'entrada',
         descripcion: 'Entrada',
-        hora: formatHora(act.fecha_hora)
+        hora
       });
       estadoGeocerca = act.dentro_geocerca;
       horaIntervalo = act.fecha_hora;
+      i++;
       continue;
     }
-    
+
+    // Detectar hueco sospechoso (>2h)
+    if (i > 0) {
+      const prev = ordenadas[i - 1];
+      const diffMs = new Date(act.fecha_hora) - new Date(prev.fecha_hora);
+      if (diffMs > 2 * 60 * 60 * 1000) {
+        // Cerrar intervalo anterior
+        if (horaIntervalo && horaIntervalo !== prev.fecha_hora && estadoGeocerca !== null) {
+          intervalos.push({
+            inicio: new Date(horaIntervalo),
+            fin: new Date(prev.fecha_hora),
+            dentro: estadoGeocerca === true,
+            fuera: estadoGeocerca === false,
+            descanso: false,
+            sospechoso: false,
+            tipo: estadoGeocerca ? 'dentro' : 'fuera',
+            duracionTexto: formatIntervalo(horaIntervalo, prev.fecha_hora)
+          });
+        }
+        // Intervalo sospechoso
+        intervalos.push({
+          inicio: new Date(prev.fecha_hora),
+          fin: new Date(act.fecha_hora),
+          dentro: false,
+          fuera: false,
+          descanso: false,
+          sospechoso: true,
+          tipo: 'sospechoso',
+          duracionTexto: formatIntervalo(prev.fecha_hora, act.fecha_hora)
+        });
+        horaIntervalo = act.fecha_hora;
+        // No cambiar estadoGeocerca
+      }
+    }
+
     // Evento de geocerca
     if (typeof act.evento === 'number') {
       if (act.evento === 0) {
         // Salió de geocerca
         if (estadoGeocerca === true && horaIntervalo) {
-          pushIntervalo(horaIntervalo, act.fecha_hora, 'dentro');
+          intervalos.push({
+            inicio: new Date(horaIntervalo),
+            fin: new Date(act.fecha_hora),
+            dentro: true,
+            fuera: false,
+            descanso: false,
+            sospechoso: false,
+            tipo: 'dentro',
+            duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+          });
         }
         eventos.push({
           time: new Date(act.fecha_hora),
           tipo: 'geocerca',
           descripcion: 'Salió geocerca',
-          hora: formatHora(act.fecha_hora)
+          hora
         });
         estadoGeocerca = false;
         horaIntervalo = act.fecha_hora;
       } else if (act.evento === 1) {
         // Entró a la geocerca
         if (estadoGeocerca === false && horaIntervalo) {
-          pushIntervalo(horaIntervalo, act.fecha_hora, 'fuera');
+          intervalos.push({
+            inicio: new Date(horaIntervalo),
+            fin: new Date(act.fecha_hora),
+            dentro: false,
+            fuera: true,
+            descanso: false,
+            sospechoso: false,
+            tipo: 'fuera',
+            duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+          });
         }
         eventos.push({
           time: new Date(act.fecha_hora),
           tipo: 'geocerca',
           descripcion: 'Entró geocerca',
-          hora: formatHora(act.fecha_hora)
+          hora
         });
         estadoGeocerca = true;
         horaIntervalo = act.fecha_hora;
       } else if (act.evento === 2) {
-        // Inicio de descanso - PAUSAR tracking de geocerca
+        // Inicio de descanso
         if (estadoGeocerca !== null && horaIntervalo) {
-          // Crear intervalo de geocerca hasta el inicio del descanso
-          pushIntervalo(horaIntervalo, act.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
+          intervalos.push({
+            inicio: new Date(horaIntervalo),
+            fin: new Date(act.fecha_hora),
+            dentro: estadoGeocerca === true,
+            fuera: estadoGeocerca === false,
+            descanso: false,
+            sospechoso: false,
+            tipo: estadoGeocerca ? 'dentro' : 'fuera',
+            duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+          });
         }
         inicioDescanso = act.fecha_hora;
         eventos.push({
           time: new Date(act.fecha_hora),
           tipo: 'descanso',
           descripcion: 'Inicio descanso',
-          hora: formatHora(act.fecha_hora)
+          hora
         });
-        // Pausar el tracking de geocerca durante el descanso
         horaIntervalo = null;
       } else if (act.evento === 3) {
-        // Fin de descanso - REANUDAR tracking de geocerca
+        // Fin de descanso
         if (inicioDescanso) {
-          pushIntervalo(inicioDescanso, act.fecha_hora, 'descanso');
+          intervalos.push({
+            inicio: new Date(inicioDescanso),
+            fin: new Date(act.fecha_hora),
+            dentro: false,
+            fuera: false,
+            descanso: true,
+            sospechoso: false,
+            tipo: 'descanso',
+            duracionTexto: formatIntervalo(inicioDescanso, act.fecha_hora)
+          });
           inicioDescanso = null;
         }
         eventos.push({
           time: new Date(act.fecha_hora),
           tipo: 'descanso',
           descripcion: 'Fin descanso',
-          hora: formatHora(act.fecha_hora)
+          hora
         });
-        // Reanudar tracking de geocerca después del descanso
         estadoGeocerca = act.dentro_geocerca;
         horaIntervalo = act.fecha_hora;
       }
     }
-    
+
     // Si cambia el estado de geocerca sin evento explícito
     if (i > 0 && act.dentro_geocerca !== undefined && act.dentro_geocerca !== estadoGeocerca) {
       if (estadoGeocerca !== null && horaIntervalo) {
-        pushIntervalo(horaIntervalo, act.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
+        intervalos.push({
+          inicio: new Date(horaIntervalo),
+          fin: new Date(act.fecha_hora),
+          dentro: estadoGeocerca === true,
+          fuera: estadoGeocerca === false,
+          descanso: false,
+          sospechoso: false,
+          tipo: estadoGeocerca ? 'dentro' : 'fuera',
+          duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+        });
       }
       eventos.push({
         time: new Date(act.fecha_hora),
         tipo: 'geocerca',
         descripcion: act.dentro_geocerca ? 'Entró geocerca' : 'Salió geocerca',
-        hora: formatHora(act.fecha_hora)
+        hora
       });
       estadoGeocerca = act.dentro_geocerca;
       horaIntervalo = act.fecha_hora;
     }
-    
+
     // Salida laboral
     if (i === ordenadas.length - 1 && act.tipo_registro === 0) {
       if (horaIntervalo && act.fecha_hora !== horaIntervalo && estadoGeocerca !== null) {
-        pushIntervalo(horaIntervalo, act.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
+        intervalos.push({
+          inicio: new Date(horaIntervalo),
+          fin: new Date(act.fecha_hora),
+          dentro: estadoGeocerca === true,
+          fuera: estadoGeocerca === false,
+          descanso: false,
+          sospechoso: false,
+          tipo: estadoGeocerca ? 'dentro' : 'fuera',
+          duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+        });
       }
       eventos.push({
         time: new Date(act.fecha_hora),
         tipo: 'salida',
         descripcion: 'Salida',
-        hora: formatHora(act.fecha_hora)
+        hora
       });
     }
+    i++;
   }
-  
+
   return { eventos, intervalos };
 }
 
@@ -316,13 +389,15 @@ const WebTimelineComponent = ({ actividades, titulo = "Cronología del Día" }) 
               const endPos = calculateAbsolutePosition(intervalo.fin, displayStart, displayEnd);
               const width = endPos - startPos;
               
-              // Debug: verificar qué color se aplica
+              // Color para cada tipo de intervalo
               const esDescanso = intervalo.tipo === 'descanso' || intervalo.descanso;
               const esDentro = intervalo.tipo === 'dentro' || intervalo.dentro;
-              const colorClass = esDescanso ? 'bg-yellow-500 shadow-sm' : esDentro ? 'bg-green-500 shadow-sm' : 'bg-red-500 shadow-sm';
-              
-              console.log(`🎨 Intervalo ${idx}: tipo="${intervalo.tipo}", descanso=${intervalo.descanso}, dentro=${intervalo.dentro} -> ${colorClass}`);
-              
+              const esSospechoso = intervalo.tipo === 'sospechoso' || intervalo.sospechoso;
+              let colorClass = 'bg-red-500 shadow-sm';
+              if (esDescanso) colorClass = 'bg-yellow-500 shadow-sm';
+              else if (esDentro) colorClass = 'bg-green-500 shadow-sm';
+              else if (esSospechoso) colorClass = 'bg-gray-400 opacity-80';
+
               return (
                 <div
                   key={`interval-${idx}`}
@@ -413,13 +488,21 @@ const WebTimelineComponent = ({ actividades, titulo = "Cronología del Día" }) 
               >
                 {/* Texto limpio sin fondo, como PDF */}
                 <div className={`font-medium ${
-                  intervalo.tipo === 'descanso' || intervalo.descanso 
-                    ? 'text-yellow-700' 
-                    : intervalo.tipo === 'dentro' || intervalo.dentro 
-                      ? 'text-green-700' 
-                      : 'text-red-700'
+                  intervalo.tipo === 'descanso' || intervalo.descanso
+                    ? 'text-yellow-700'
+                    : intervalo.tipo === 'dentro' || intervalo.dentro
+                      ? 'text-green-700'
+                      : intervalo.tipo === 'sospechoso' || intervalo.sospechoso
+                        ? 'text-gray-700'
+                        : 'text-red-700'
                 }`}>
-                  {intervalo.tipo === 'descanso' || intervalo.descanso ? 'Descanso' : intervalo.dentro ? 'Dentro' : 'Fuera'}
+                  {intervalo.tipo === 'descanso' || intervalo.descanso
+                    ? 'Descanso'
+                    : intervalo.tipo === 'dentro' || intervalo.dentro
+                      ? 'Dentro'
+                      : intervalo.tipo === 'sospechoso' || intervalo.sospechoso
+                        ? 'Sospechoso'
+                        : 'Fuera'}
                 </div>
                 <div className="text-gray-600 mt-0.5 text-xs">
                   ({intervalo.duracionTexto})
@@ -433,28 +516,5 @@ const WebTimelineComponent = ({ actividades, titulo = "Cronología del Día" }) 
   );
 };
 
-// Datos de ejemplo para demostración
-const datosEjemplo = [
-  {
-    fecha_hora: '2024-01-15T09:09:00',
-    tipo_registro: 1,
-    dentro_geocerca: true
-  },
-  {
-    fecha_hora: '2024-01-15T10:45:00',
-    evento: 0,
-    dentro_geocerca: false
-  },
-  {
-    fecha_hora: '2024-01-15T11:08:00',
-    evento: 1,
-    dentro_geocerca: true
-  },
-  {
-    fecha_hora: '2024-01-15T11:22:00',
-    tipo_registro: 0,
-    dentro_geocerca: true
-  }
-];
 
 export default WebTimelineComponent;

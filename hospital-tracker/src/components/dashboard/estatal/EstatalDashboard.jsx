@@ -290,8 +290,12 @@ export default function EstatalDashboard() {
   }
 
   const applyChanges = () => {
-    setDateRange(tempDateRange)
-    setHasChanges(false)
+    // Usar formato compatible con SQL: yyyy-MM-dd HH:mm:ss
+    let { startDate, endDate } = tempDateRange;
+    const startDateStr = `${startDate} 00:00:00`;
+    const endDateStr = `${endDate} 23:59:59`;
+    setDateRange({ startDate: startDateStr, endDate: endDateStr });
+    setHasChanges(false);
   }
 
   const resetToOriginal = () => {
@@ -318,9 +322,9 @@ export default function EstatalDashboard() {
   const totalHospitales = metricas?.total_hospitales || 0;
   const totalPersonal = metricas?.total_empleados || 0;
   const totalSalidas = metricas?.total_salidas_geocerca || 0;
-  const totalHoras = Math.round(metricas?.total_horas_trabajadas || 0);
-  const totalHorasDescanso = Math.round(metricas?.total_horas_descanso || 0);
-  const totalHorasFuera = Math.round(metricas?.total_horas_fuera || 0);
+  const totalHoras = metricas?.total_horas_trabajadas ?? 0;
+  const totalHorasDescanso = metricas?.total_horas_descanso ?? 0;
+  const totalHorasFuera = metricas?.total_horas_fuera ?? 0;
 
   // Cargar municipios TopoJSON del sureste mexicano (mx_tj.json - versión optimizada)
   useEffect(() => {
@@ -1422,28 +1426,38 @@ export default function EstatalDashboard() {
           <div className="bg-white rounded-xl shadow-md p-6">
             <h3 className="text-lg font-bold text-gray-800 mb-2">Distribución de eventos de geocerca</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie 
-                  data={eventosData} 
-                  dataKey="cantidad" 
-                  nameKey="evento" 
-                  cx="50%" 
-                  cy="50%" 
-                  outerRadius={80} 
-                  label={{ fontSize: 11 }}
-                  labelLine={false}
-                >
-                  {eventosData.map((entry, idx) => (
-                    <Cell key={`cell-${idx}`} fill={["#ef4444", "#10b981", "#f59e42", "#6366f1"][idx % 4]} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ fontSize: '12px' }}
-                />
-                <Legend 
-                  wrapperStyle={{ fontSize: '12px' }}
-                />
-              </PieChart>
+                <PieChart>
+                  <Pie 
+                    data={eventosData.map(ev => ({
+                      ...ev,
+                      evento: {
+                        'Salió geocerca': 'Salió geocerca',
+                        'Entró geocerca': 'Entró geocerca',
+                        'Inicio descanso': 'Inicio descanso',
+                        'Termino descanso': 'Termino descanso',
+                        'Evento 4': 'Inicio inactividad',
+                        'Evento 5': 'Termino inactividad',
+                      }[ev.evento] || ev.evento
+                    }))}
+                    dataKey="cantidad" 
+                    nameKey="evento" 
+                    cx="50%" 
+                    cy="50%" 
+                    outerRadius={80} 
+                    label={{ fontSize: 11 }}
+                    labelLine={false}
+                  >
+                    {eventosData.map((entry, idx) => (
+                      <Cell key={`cell-${idx}`} fill={["#ef4444", "#10b981", "#f59e42", "#6366f1", "#fbbf24", "#6366f1"][idx % 6]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ fontSize: '12px' }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ fontSize: '12px' }}
+                  />
+                </PieChart>
             </ResponsiveContainer>
           </div>
           {/* Ranking de Hospitales por Registros de Salida */}

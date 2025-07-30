@@ -534,8 +534,8 @@ export default function GrupoDashboard({
               porcentajeActividad: (diasTrabajados / totalDiasPeriodo) * 100
             });
 
-            // Usar helper por días para horas dentro/fuera/descanso
-            const stats = calcularEstadisticasEmpleadoPorDias(registros);
+            // Insertar eventos sospechosos antes de calcular estadísticas
+            const stats = calcularEstadisticasEmpleadoPorDias(registros, 120);
             console.log(`📊 Empleado ${empleado.nombre}: Horas dentro=${stats.workedHours}, Horas fuera=${stats.outsideHours}, Horas descanso=${stats.restHours}`);
             totalDentro += stats.workedHours;
             totalFuera += stats.outsideHours;
@@ -719,8 +719,8 @@ export default function GrupoDashboard({
         todosEmpleadosGrupo.forEach(empleado => {
           const found = dataEmpleados.find(e => e.empleado.id_user === empleado.id_user);
           if (found && found.registros) {
-            // Usar la misma función que se usa en el cálculo general
-            const stats = calcularEstadisticasEmpleadoPorDias(found.registros);
+            // Insertar eventos sospechosos antes de calcular estadísticas
+            const stats = calcularEstadisticasEmpleadoPorDias(found.registros, 120);
             console.log(`👥 Empleado del grupo "${selectedGroupList}" - ${empleado.nombre}: Horas dentro=${stats.workedHours}, Horas fuera=${stats.outsideHours}, Horas descanso=${stats.restHours}`);
             totalDentroGrupo += stats.workedHours;
             totalFueraGrupo += stats.outsideHours;

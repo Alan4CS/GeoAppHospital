@@ -9,6 +9,10 @@ const BAR_HEIGHT = 8; // Aumentado de 4 a 8
 const NODE_SIZE = 12; // Aumentado ligeramente
 
 const timelineStyles = StyleSheet.create({
+  intervalSus: {
+    backgroundColor: '#adb5bd', // gris
+    opacity: 0.8,
+  },
   timelineContainer: {
     marginVertical: 0, // Eliminado margen arriba y abajo
     paddingHorizontal: TIMELINE_MARGIN,
@@ -251,7 +255,6 @@ function getEventIcon(evento) {
 // Función para generar eventos y intervalos basados en el resumen del día
 function generarEventosYIntervalosDelResumen(actividades) {
   if (!actividades || actividades.length === 0) return { eventos: [], intervalos: [] };
-  
   const eventos = [];
   const intervalos = [];
   let estadoGeocerca = null;
@@ -273,7 +276,8 @@ function generarEventosYIntervalosDelResumen(actividades) {
         dentro: tipo === 'dentro',
         fuera: tipo === 'fuera',
         descanso: tipo === 'descanso',
-        tipo: tipo, // Agregar el tipo explícitamente
+        sospechoso: tipo === 'sospechoso',
+        tipo: tipo,
         duracionTexto: formatIntervalo(inicio, fin)
       });
     }
@@ -281,9 +285,9 @@ function generarEventosYIntervalosDelResumen(actividades) {
 
   const ordenadas = actividades.slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
 
-  for (let i = 0; i < ordenadas.length; i++) {
+  let i = 0;
+  while (i < ordenadas.length) {
     const act = ordenadas[i];
-    
     // Entrada laboral
     if (i === 0 && act.tipo_registro === 1) {
       eventos.push({
@@ -294,14 +298,38 @@ function generarEventosYIntervalosDelResumen(actividades) {
       });
       estadoGeocerca = act.dentro_geocerca;
       horaIntervalo = act.fecha_hora;
+      i++;
       continue;
     }
-    
+
+    // Detectar hueco sospechoso entre este registro y el anterior (>2 horas)
+    if (i > 0) {
+      const prev = ordenadas[i - 1];
+      const diffMs = new Date(act.fecha_hora) - new Date(prev.fecha_hora);
+      if (diffMs > 2 * 60 * 60 * 1000) {
+        // Si hay un intervalo abierto (dentro/fuera de geocerca), cerrarlo justo antes del hueco
+        if (horaIntervalo && prev.fecha_hora !== horaIntervalo && estadoGeocerca !== null) {
+          pushIntervalo(horaIntervalo, prev.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
+        }
+        // Agregar el hueco sospechoso
+        pushIntervalo(prev.fecha_hora, act.fecha_hora, 'sospechoso');
+        eventos.push({
+          time: new Date(prev.fecha_hora),
+          tipo: 'sospechoso',
+          descripcion: 'Tiempo sospechoso (posible cierre de app)',
+          hora: `${formatHora(prev.fecha_hora)} - ${formatHora(act.fecha_hora)}`,
+          duracion: `(${formatIntervalo(prev.fecha_hora, act.fecha_hora)})`
+        });
+        // Reiniciar el intervalo a partir del registro actual
+        horaIntervalo = act.fecha_hora;
+      }
+    }
+
     // Evento de geocerca y descanso
     if (typeof act.evento === 'number') {
       if (act.evento === 0) {
         // Salió de geocerca
-        if (estadoGeocerca === true && horaIntervalo) {
+        if (estadoGeocerca === true && horaIntervalo && act.fecha_hora !== horaIntervalo) {
           pushIntervalo(horaIntervalo, act.fecha_hora, 'dentro');
         }
         eventos.push({
@@ -314,7 +342,7 @@ function generarEventosYIntervalosDelResumen(actividades) {
         horaIntervalo = act.fecha_hora;
       } else if (act.evento === 1) {
         // Entró a la geocerca
-        if (estadoGeocerca === false && horaIntervalo) {
+        if (estadoGeocerca === false && horaIntervalo && act.fecha_hora !== horaIntervalo) {
           pushIntervalo(horaIntervalo, act.fecha_hora, 'fuera');
         }
         eventos.push({
@@ -327,7 +355,7 @@ function generarEventosYIntervalosDelResumen(actividades) {
         horaIntervalo = act.fecha_hora;
       } else if (act.evento === 2) {
         // Inicio de descanso - PAUSAR tracking de geocerca
-        if (estadoGeocerca !== null && horaIntervalo) {
+        if (estadoGeocerca !== null && horaIntervalo && act.fecha_hora !== horaIntervalo) {
           pushIntervalo(horaIntervalo, act.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
         }
         inicioDescanso = act.fecha_hora;
@@ -354,10 +382,10 @@ function generarEventosYIntervalosDelResumen(actividades) {
         horaIntervalo = act.fecha_hora;
       }
     }
-    
+
     // Si cambia el estado de geocerca sin evento explícito
     if (i > 0 && act.dentro_geocerca !== undefined && act.dentro_geocerca !== estadoGeocerca) {
-      if (estadoGeocerca !== null && horaIntervalo) {
+      if (estadoGeocerca !== null && horaIntervalo && act.fecha_hora !== horaIntervalo) {
         pushIntervalo(horaIntervalo, act.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
       }
       eventos.push({
@@ -369,7 +397,7 @@ function generarEventosYIntervalosDelResumen(actividades) {
       estadoGeocerca = act.dentro_geocerca;
       horaIntervalo = act.fecha_hora;
     }
-    
+
     // Salida laboral
     if (i === ordenadas.length - 1 && act.tipo_registro === 0) {
       if (horaIntervalo && act.fecha_hora !== horaIntervalo && estadoGeocerca !== null) {
@@ -382,8 +410,8 @@ function generarEventosYIntervalosDelResumen(actividades) {
         hora: formatHora(act.fecha_hora)
       });
     }
+    i++;
   }
-  
   return { eventos, intervalos };
 }
 
@@ -413,6 +441,14 @@ function calculateLabelPosition(eventos, currentIndex, basePosition) {
 }
 
 const TimelineComponent = ({ actividades, titulo = "Cronologia" }) => {
+  // Formatear a 'Xh Ymin'
+  function msToHM(ms) {
+    if (!ms || ms < 0) return '0min';
+    const h = Math.floor(ms / 3600000);
+    const m = Math.round((ms % 3600000) / 60000);
+    return (h > 0 ? `${h}h ` : '') + `${m}min`;
+  }
+
   if (!actividades || actividades.length === 0) {
     return (
       <View style={timelineStyles.timelineContainer} wrap={false}>
@@ -436,13 +472,25 @@ const TimelineComponent = ({ actividades, titulo = "Cronologia" }) => {
   const timeScale = generateTimeScale(displayStart, displayEnd);
   const { eventos: eventosClave, intervalos } = generarEventosYIntervalosDelResumen(ordenadas);
 
-  // Calcular posiciones para línea conectora
-  const eventPositions = eventosClave.map(evento => 
+  // Calcular totales de tiempo usando los intervalos generados (misma lógica que la línea)
+  const totalDentroMs = intervalos.filter(i => i.dentro).reduce((acc, i) => acc + (i.fin - i.inicio), 0);
+  const totalFueraMs = intervalos.filter(i => i.fuera).reduce((acc, i) => acc + (i.fin - i.inicio), 0);
+  const totalDescansoMs = intervalos.filter(i => i.descanso).reduce((acc, i) => acc + (i.fin - i.inicio), 0);
+
+  // Filtrar eventos: NO mostrar nodos ni etiquetas para eventos 'sospechoso' (solo para la barra gris)
+  const eventosClaveFiltrados = eventosClave.filter(e => e.tipo !== 'sospechoso');
+  const eventPositions = eventosClaveFiltrados.map(evento => 
     calculateAbsolutePosition(evento.time, displayStart, displayEnd)
   );
 
   return (
     <View style={timelineStyles.timelineContainer} wrap={false}>
+      {/* Totales arriba de la línea de tiempo */}
+      <Text style={{ fontSize: 10, marginBottom: 2, textAlign: 'center' }}>
+        <Text style={{ color: '#198754', fontWeight: 'bold' }}>Total dentro:</Text> {msToHM(totalDentroMs)}{' '}
+        <Text style={{ color: '#dc3545', fontWeight: 'bold' }}>Fuera:</Text> {msToHM(totalFueraMs)}{' '}
+        <Text style={{ color: '#f59e0b', fontWeight: 'bold' }}>Descanso:</Text> {msToHM(totalDescansoMs)}
+      </Text>
       <Text style={timelineStyles.timelineTitle}>{titulo}</Text>
       <View style={timelineStyles.timelineWrapper}>          {/* Escala de tiempo superior */}
         <View style={timelineStyles.timeScale}>
@@ -478,20 +526,20 @@ const TimelineComponent = ({ actividades, titulo = "Cronologia" }) => {
             />
           )}
           
-          {/* Intervalos de tiempo dentro/fuera/descanso */}
+          {/* Intervalos de tiempo dentro/fuera/descanso/sospechoso */}
           {intervalos.map((intervalo, idx) => {
             const startPos = calculateAbsolutePosition(intervalo.inicio, displayStart, displayEnd);
             const endPos = calculateAbsolutePosition(intervalo.fin, displayStart, displayEnd);
             const width = endPos - startPos;
-            
             // Determinar el estilo según el tipo de intervalo
             let intervalStyle = timelineStyles.intervalOutside; // Por defecto fuera
             if (intervalo.tipo === 'descanso' || intervalo.descanso) {
               intervalStyle = timelineStyles.intervalBreak;
             } else if (intervalo.tipo === 'dentro' || intervalo.dentro) {
               intervalStyle = timelineStyles.intervalInside;
+            } else if (intervalo.tipo === 'sospechoso' || intervalo.sospechoso) {
+              intervalStyle = timelineStyles.intervalSus;
             }
-            
             return (
               <View
                 key={`interval-${idx}`}
@@ -507,19 +555,19 @@ const TimelineComponent = ({ actividades, titulo = "Cronologia" }) => {
             );
           })}
           
-          {/* Eventos clave - SIN LÍNEAS DUPLICADAS Y SIN SUPERPOSICIÓN */}
-          {eventosClave.map((evento, idx) => {
+          {/* Eventos clave - SIN LÍNEAS DUPLICADAS Y SIN SUPERPOSICIÓN (sin sospechosos) */}
+          {eventosClaveFiltrados.map((evento, idx) => {
             const position = calculateAbsolutePosition(evento.time, displayStart, displayEnd);
             const nodeType = getNodeType(evento);
             const eventIcon = getEventIcon(evento);
             // Guardar posición para cálculos de superposición
             evento.__position = position;
             // Calcular posición y desplazamiento de la etiqueta
-            const { isAbove, horizontalOffset } = calculateLabelPosition(eventosClave, idx, position);
+            const { isAbove, horizontalOffset } = calculateLabelPosition(eventosClaveFiltrados, idx, position);
             // Altura del conector - DESDE EL CENTRO EXACTO DEL NODO
             const nodeCenter = 20 + (BAR_HEIGHT / 2); // Centro vertical del nodo
-      const connectorHeight = 25; // igual altura para ambos
-const connectorStartY = isAbove ? nodeCenter - 25 : nodeCenter;
+            const connectorHeight = 25; // igual altura para ambos
+            const connectorStartY = isAbove ? nodeCenter - 25 : nodeCenter;
 
             // Determinar estilo de fondo según tipo de evento
             let labelBgStyle = null;
@@ -575,49 +623,43 @@ const connectorStartY = isAbove ? nodeCenter - 25 : nodeCenter;
             const endPos = calculateAbsolutePosition(intervalo.fin, displayStart, displayEnd);
             const width = endPos - startPos;
             const centerPos = startPos + (width / 2);
-            
-            let adjustedPos = centerPos; // Usar porcentajes directamente
-            const labelWidthPercent = 10; // 10% del ancho total
-
-            // Verificar solapamiento con eventos y ajustar si es necesario
+            let adjustedPos = centerPos;
+            const labelWidthPercent = 10;
             eventosClave.forEach(evento => {
-            const eventPos = evento.__position;
-            // Solo mover si el intervalo es corto y está muy cerca del evento
-            if (width < 15 && Math.abs(centerPos - eventPos) < labelWidthPercent) {
-                adjustedPos += (eventPos > centerPos ? 3 : -3); // 3% de desplazamiento
-            }
+              const eventPos = evento.__position;
+              if (width < 15 && Math.abs(centerPos - eventPos) < labelWidthPercent) {
+                adjustedPos += (eventPos > centerPos ? 3 : -3);
+              }
             });
-
-            // Limitar el movimiento entre 5% y 95%
             adjustedPos = Math.max(5, Math.min(95, adjustedPos));
-
             // Determinar texto y color según tipo de intervalo
             let labelText = 'Fuera';
             let labelColor = '#dc3545';
-            
             if (intervalo.tipo === 'descanso' || intervalo.descanso) {
               labelText = 'Descanso';
               labelColor = '#e69500';
             } else if (intervalo.tipo === 'dentro' || intervalo.dentro) {
               labelText = 'Dentro';
               labelColor = '#198754';
+            } else if (intervalo.tipo === 'sospechoso' || intervalo.sospechoso) {
+              labelText = 'Sospechoso';
+              labelColor = '#495057';
             }
-
             return (
-            <Text
+              <Text
                 key={`label-${idx}`}
                 style={[
-                timelineStyles.intervalLabel, 
-                { 
+                  timelineStyles.intervalLabel, 
+                  { 
                     left: `${adjustedPos}%`,
-                    marginLeft: -30, // Centrado respecto al punto calculado
+                    marginLeft: -30,
                     color: labelColor,
-                }
+                  }
                 ]}
-            >
+              >
                 {labelText}{"\n"}
                 ({intervalo.duracionTexto})
-            </Text>
+              </Text>
             );
         })}
         </View>
