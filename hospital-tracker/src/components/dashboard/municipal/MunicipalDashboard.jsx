@@ -1618,27 +1618,27 @@ export default function EnhancedMunicipalDashboard() {
                     <div className="grid grid-cols-2 gap-3">
                       {/* Eficiencia Promedio eliminada completamente */}
                       <div className="bg-green-50 rounded-lg p-3">
-                        <div className="text-xs text-green-600 font-medium">Horas Promedio/Hospital</div>
+                          <div className="text-xs text-green-600 font-medium">Horas Promedio/Hospital</div>
                         <div className="text-xl font-bold text-green-700">
                           {hospitals.length > 0 ? 
-                            Math.round(hospitals.reduce((sum, h) => sum + h.hoursWorked, 0) / hospitals.length) 
-                            : 0}h
+                            (hospitals.reduce((sum, h) => sum + Number(h.hoursWorked), 0) / hospitals.length).toFixed(2) 
+                            : '0.00'}h
                         </div>
                       </div>
                       <div className="bg-orange-50 rounded-lg p-3">
-                        <div className="text-xs text-orange-600 font-medium">Empleados Promedio</div>
+                      <div className="text-xs text-orange-600 font-medium">Empleados Promedio</div>
                         <div className="text-xl font-bold text-orange-700">
                           {hospitals.length > 0 ? 
-                            Math.round(hospitals.reduce((sum, h) => sum + h.employees, 0) / hospitals.length) 
-                            : 0}
+                            (hospitals.reduce((sum, h) => sum + Number(h.employees), 0) / hospitals.length).toFixed(2) 
+                            : '0.00'}
                         </div>
                       </div>
                       <div className="bg-red-50 rounded-lg p-3">
-                        <div className="text-xs text-red-600 font-medium">Salidas Promedio</div>
+                      <div className="text-xs text-red-600 font-medium">Salidas Promedio</div>
                         <div className="text-xl font-bold text-red-700">
                           {hospitals.length > 0 ? 
-                            Math.round(hospitals.reduce((sum, h) => sum + h.geofenceExits, 0) / hospitals.length) 
-                            : 0}
+                            (hospitals.reduce((sum, h) => sum + Number(h.geofenceExits), 0) / hospitals.length).toFixed(2) 
+                            : '0.00'}
                         </div>
                       </div>
                     </div>

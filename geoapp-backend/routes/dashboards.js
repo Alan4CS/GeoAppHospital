@@ -11,7 +11,7 @@ const router = express.Router();
  * 
  * Características:
  * - Calcula horas reales trabajadas dentro de geocerca
- * - Maneja descansos (eventos 2 y 3)
+ * - Maneja descan   (eventos 2 y 3)
  * - Agrupa por días para evitar duplicación
  * - Optimizado para múltiples empleados/municipios
  */
@@ -24,7 +24,7 @@ function msToHours(ms) {
 }
 
 // Calcula las horas dentro, fuera, descanso y total de salidas de un arreglo de registros
-function calcularEstadisticasEmpleado(registros = []) {
+function calcularEstadisticasEmpleado(registros = [], minutosSospechoso = 120) {
   let totalDentro = 0;
   let totalFuera = 0;
   let totalDescanso = 0;
@@ -32,30 +32,44 @@ function calcularEstadisticasEmpleado(registros = []) {
   let estadoGeocerca = null;
   let horaIntervalo = null;
   let inicioDescanso = null;
-  
+
   // Función auxiliar para normalizar fechas
   const normalizarFecha = (fecha) => {
     if (fecha instanceof Date) return fecha;
     if (typeof fecha === 'string') return new Date(fecha);
     return new Date(fecha);
   };
-  
+
+  // Límite de intervalo sospechoso configurable
+  const LIMITE_SOSPECHOSO = minutosSospechoso * 60 * 1000;
+
   const ordenadas = registros.slice().sort((a, b) => 
     normalizarFecha(a.fecha_hora) - normalizarFecha(b.fecha_hora)
   );
-  
+
   for (let i = 0; i < ordenadas.length; i++) {
     const act = ordenadas[i];
-    
+
     if (i === 0) {
       estadoGeocerca = act.dentro_geocerca;
       horaIntervalo = normalizarFecha(act.fecha_hora);
       continue;
     }
-    
+
+    // Detectar hueco sospechoso
+    const prev = ordenadas[i - 1];
+    const diffMs = normalizarFecha(act.fecha_hora) - normalizarFecha(prev.fecha_hora);
+    if (diffMs > LIMITE_SOSPECHOSO) {
+      // Saltar este intervalo, no sumar nada, reiniciar estado
+      estadoGeocerca = act.dentro_geocerca;
+      horaIntervalo = normalizarFecha(act.fecha_hora);
+      inicioDescanso = null;
+      continue;
+    }
+
     if (typeof act.evento === 'number') {
       const fechaActual = normalizarFecha(act.fecha_hora);
-      
+
       // Manejo de descansos
       if (act.evento === 2) {
         // Inicio de descanso
@@ -65,7 +79,7 @@ function calcularEstadisticasEmpleado(registros = []) {
         totalDescanso += (fechaActual - inicioDescanso);
         inicioDescanso = null;
       }
-      
+
       // Manejo de geocerca
       if (act.evento === 0 && estadoGeocerca === true && horaIntervalo) {
         totalDentro += (fechaActual - horaIntervalo);
@@ -78,7 +92,7 @@ function calcularEstadisticasEmpleado(registros = []) {
         horaIntervalo = fechaActual;
       }
     }
-    
+
     if (i === ordenadas.length - 1 && horaIntervalo && estadoGeocerca !== null) {
       const fechaFinal = normalizarFecha(act.fecha_hora);
       if (estadoGeocerca) {
@@ -88,7 +102,7 @@ function calcularEstadisticasEmpleado(registros = []) {
       }
     }
   }
-  
+
   return {
     workedHours: msToHours(totalDentro),
     outsideHours: msToHours(totalFuera),
@@ -121,8 +135,9 @@ function calcularEstadisticasEmpleadoPorDias(registros = []) {
   let totalDescanso = 0;
   let totalSalidas = 0;
   
+  const MINUTOS_SOSPECHOSO = 120;
   Object.values(actividadesPorDia).forEach(acts => {
-    const stats = calcularEstadisticasEmpleado(acts);
+    const stats = calcularEstadisticasEmpleado(acts, MINUTOS_SOSPECHOSO);
     totalTrabajadas += stats.workedHours || 0;
     totalFuera += stats.outsideHours || 0;
     totalDescanso += stats.restHours || 0;

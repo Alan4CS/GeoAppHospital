@@ -89,53 +89,81 @@ export default function EmpleadoDashboard({
   }
 
   // Fetch calendar data when employee or date range changes
+  // Utilidad para parsear fecha local desde string 'YYYY-MM-DD'
+  function parseLocalDate(str) {
+    const [y, m, d] = str.split('-');
+    return new Date(Number(y), Number(m) - 1, Number(d), 0, 0, 0, 0);
+  }
   useEffect(() => {
+    // Forzar fechas a local (no UTC) para evitar desfases
+    function parseLocalDate(str) {
+      // str: 'YYYY-MM-DD' => Date en local
+      const [y, m, d] = str.split('-');
+      return new Date(Number(y), Number(m) - 1, Number(d), 0, 0, 0, 0);
+    }
+    const localStartDate = parseLocalDate(startDate);
+    const localEndDate = parseLocalDate(endDate);
+
     if (employee && empleadosFiltrados.length > 0) {
-      // Usar los registros del empleado seleccionado que ya tenemos
-      const empleadoCompleto = empleadosFiltrados.find(emp => emp.id === employee.id)
-      
-      if (empleadoCompleto && empleadoCompleto.registros) {
-        // Agrupar registros por día usando fecha local
-        const actividadesPorDia = {}
-        
+      const empleadoCompleto = empleadosFiltrados.find(emp => emp.id === employee.id);
+      if (empleadoCompleto && Array.isArray(empleadoCompleto.registros)) {
+        // Agrupar registros por día usando fecha local robusta
+        const actividadesPorDia = {};
         empleadoCompleto.registros.forEach((registro) => {
-          const fechaStr = getLocalDateString(registro.fecha_hora) // Usar función corregida
-          if (!actividadesPorDia[fechaStr]) {
-            actividadesPorDia[fechaStr] = []
+          let fechaStr = '';
+          if (registro.fecha_hora) {
+            fechaStr = registro.fecha_hora.slice(0, 10);
+          } else if (registro.fecha) {
+            fechaStr = registro.fecha;
           }
-          actividadesPorDia[fechaStr].push({
-            ...registro,
-            nombre_actividad: getActivityDescription(registro),
-            descripcion: getActivityDescription(registro)
-          })
-        })
-        
-        // Convertir a formato de calendario con estadísticas por día
-        const calendarDataFormatted = Object.keys(actividadesPorDia).map(fecha => {
-          const actividadesDia = actividadesPorDia[fecha].sort((a, b) => 
+          if (fechaStr) {
+            if (!actividadesPorDia[fechaStr]) actividadesPorDia[fechaStr] = [];
+            actividadesPorDia[fechaStr].push({
+              ...registro,
+              nombre_actividad: getActivityDescription(registro),
+              descripcion: getActivityDescription(registro)
+            });
+          }
+        });
+
+        // Utilidad para obtener todas las fechas entre startDate y endDate (incluyendo ambos extremos)
+        function getAllDatesInRange(start, end) {
+          const dates = [];
+          let current = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 0, 0, 0, 0);
+          const endDateObj = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 0, 0, 0, 0);
+          while (current <= endDateObj) {
+            const year = current.getFullYear();
+            const month = String(current.getMonth() + 1).padStart(2, '0');
+            const day = String(current.getDate()).padStart(2, '0');
+            dates.push(`${year}-${month}-${day}`);
+            current.setDate(current.getDate() + 1);
+          }
+          return dates;
+        }
+        const allDates = getAllDatesInRange(localStartDate, localEndDate);
+
+        // Generar calendarData para todos los días del rango, aunque no tengan actividades
+        const calendarDataFormatted = allDates.map(fecha => {
+          const actividadesDia = (actividadesPorDia[fecha] || []).sort((a, b) =>
             new Date(a.fecha_hora) - new Date(b.fecha_hora)
-          )
-          const estadisticas = calcularEstadisticasDia(actividadesDia)
-          
+          );
+          const estadisticas = calcularEstadisticasDia(actividadesDia);
           return {
             fecha,
             actividades: actividadesDia,
             ...estadisticas
-          }
-        })
-        
-        setCalendarData(calendarDataFormatted)
+          };
+        });
+        setCalendarData(calendarDataFormatted);
       } else {
-        setCalendarData([])
+        setCalendarData([]);
       }
     } else {
-      setCalendarData([])
+      setCalendarData([]);
     }
-    
-    // Limpiar selección cuando cambie el empleado
-    setSelectedDay(null)
-    setHourlyData([])
-  }, [employee, empleadosFiltrados])
+    setSelectedDay(null);
+    setHourlyData([]);
+  }, [employee, empleadosFiltrados, startDate, endDate]);
 
   // Función helper para describir actividades basándose en el tipo
   const getActivityDescription = (registro) => {
@@ -169,7 +197,6 @@ export default function EmpleadoDashboard({
   // Función mejorada para generar resumen del día (igual que en PDF)
   const generarResumenDiaMejorado = (actividades) => {
     if (!actividades || actividades.length === 0) return [];
-    
     const eventos = [];
     let estadoGeocerca = null;
     let horaIntervalo = null;
@@ -182,12 +209,14 @@ export default function EmpleadoDashboard({
       return `${hrs > 0 ? hrs + 'h ' : ''}${min}min`;
     };
 
+    // Ordenar actividades cronológicamente
     const ordenadas = actividades.slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
 
-    for (let i = 0; i < ordenadas.length; i++) {
+    // Detectar huecos sospechosos y construir intervalos sin traslapes
+    let i = 0;
+    while (i < ordenadas.length) {
       const act = ordenadas[i];
       const hora = formatHora(act.fecha_hora);
-      
       // Entrada laboral
       if (i === 0 && act.tipo_registro === 1) {
         eventos.push({
@@ -198,14 +227,42 @@ export default function EmpleadoDashboard({
         });
         estadoGeocerca = act.dentro_geocerca;
         horaIntervalo = act.fecha_hora;
+        i++;
         continue;
       }
-      
+
+      // Detectar hueco sospechoso entre este registro y el anterior (>2 horas)
+      if (i > 0) {
+        const prev = ordenadas[i - 1];
+        const diffMs = new Date(act.fecha_hora) - new Date(prev.fecha_hora);
+        if (diffMs > 2 * 60 * 60 * 1000) {
+          // Si hay un intervalo abierto (dentro/fuera de geocerca), cerrarlo justo antes del hueco
+          if (horaIntervalo && prev.fecha_hora !== horaIntervalo && estadoGeocerca !== null) {
+            const duracion = formatIntervalo(horaIntervalo, prev.fecha_hora);
+            eventos.push({
+              hora: `${formatHora(horaIntervalo)} - ${formatHora(prev.fecha_hora)}`,
+              descripcion: `Tiempo ${estadoGeocerca ? 'dentro' : 'fuera'} de geocerca`,
+              tipo: estadoGeocerca ? 'tiempo_dentro' : 'tiempo_fuera',
+              duracion: `(${duracion})`
+            });
+          }
+          // Agregar el hueco sospechoso
+          eventos.push({
+            hora: `${formatHora(prev.fecha_hora)} - ${formatHora(act.fecha_hora)}`,
+            descripcion: 'Tiempo sospechoso (posible cierre de app)',
+            tipo: 'tiempo_sospechoso',
+            duracion: `(${formatIntervalo(prev.fecha_hora, act.fecha_hora)})`
+          });
+          // Reiniciar el intervalo a partir del registro actual
+          horaIntervalo = act.fecha_hora;
+        }
+      }
+
       // Eventos de geocerca y descanso
       if (typeof act.evento === 'number') {
         if (act.evento === 0) {
           // Salió de geocerca
-          if (estadoGeocerca === true && horaIntervalo) {
+          if (estadoGeocerca === true && horaIntervalo && act.fecha_hora !== horaIntervalo) {
             const duracion = formatIntervalo(horaIntervalo, act.fecha_hora);
             eventos.push({
               hora: `${formatHora(horaIntervalo)} - ${hora}`,
@@ -224,7 +281,7 @@ export default function EmpleadoDashboard({
           horaIntervalo = act.fecha_hora;
         } else if (act.evento === 1) {
           // Entró a la geocerca
-          if (estadoGeocerca === false && horaIntervalo) {
+          if (estadoGeocerca === false && horaIntervalo && act.fecha_hora !== horaIntervalo) {
             const duracion = formatIntervalo(horaIntervalo, act.fecha_hora);
             eventos.push({
               hora: `${formatHora(horaIntervalo)} - ${hora}`,
@@ -270,7 +327,7 @@ export default function EmpleadoDashboard({
           });
         }
       }
-      
+
       // Salida laboral
       if (i === ordenadas.length - 1 && act.tipo_registro === 0) {
         if (horaIntervalo && act.fecha_hora !== horaIntervalo && estadoGeocerca !== null) {
@@ -289,8 +346,8 @@ export default function EmpleadoDashboard({
           duracion: ''
         });
       }
+      i++;
     }
-    
     return eventos;
   }
 
@@ -314,6 +371,9 @@ export default function EmpleadoDashboard({
           return 'text-blue-700';
         case 'tiempo_descanso':
           return 'text-yellow-700';
+        case 'sospechoso':
+        case 'tiempo_sospechoso':
+          return 'text-red-500 font-semibold';
         default:
           return 'text-gray-700';
       }
@@ -348,19 +408,21 @@ export default function EmpleadoDashboard({
   };
 
   // Función para calcular estadísticas de un día específico (igual que WebTimelineComponent)
+  // Lógica unificada: descontar huecos sospechosos (>2h) igual que el resumen/timeline
   const calcularEstadisticasDia = (actividades) => {
     if (!actividades || actividades.length === 0) {
-      return { horasTrabajadas: 0, horasFuera: 0, horasDescanso: 0 }
+      return { horasTrabajadas: 0, horasFuera: 0, horasDescanso: 0 };
     }
 
-    // Usar la misma lógica que WebTimelineComponent para generar intervalos
     const intervalos = [];
     let estadoGeocerca = null;
     let horaIntervalo = null;
+    let inicioDescanso = null;
+    let horasDescanso = 0;
 
     const formatIntervalo = (inicio, fin) => {
       const diffMs = new Date(fin) - new Date(inicio);
-      return diffMs / (1000 * 60 * 60); // Convertir a horas
+      return diffMs / (1000 * 60 * 60); // horas decimales
     };
 
     const pushIntervalo = (inicio, fin, tipo) => {
@@ -376,76 +438,86 @@ export default function EmpleadoDashboard({
 
     const ordenadas = actividades.slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
 
-    // Calcular horas de descanso
-    let horasDescanso = 0;
-    let inicioDescanso = null;
-
-    for (let i = 0; i < ordenadas.length; i++) {
+    let i = 0;
+    while (i < ordenadas.length) {
       const act = ordenadas[i];
-      
       // Entrada laboral
       if (i === 0 && act.tipo_registro === 1) {
         estadoGeocerca = act.dentro_geocerca;
         horaIntervalo = act.fecha_hora;
+        i++;
         continue;
       }
-      
+
+      // Detectar hueco sospechoso (>2h)
+      if (i > 0) {
+        const prev = ordenadas[i - 1];
+        const diffMs = new Date(act.fecha_hora) - new Date(prev.fecha_hora);
+        if (diffMs > 2 * 60 * 60 * 1000) {
+          // Cerrar intervalo antes del hueco
+          if (horaIntervalo && prev.fecha_hora !== horaIntervalo && estadoGeocerca !== null) {
+            pushIntervalo(horaIntervalo, prev.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
+          }
+          // No sumar el hueco sospechoso
+          horaIntervalo = act.fecha_hora;
+        }
+      }
+
       // Manejar descansos
       if (act.evento === 2) {
-        // Inicio de descanso
         inicioDescanso = act.fecha_hora;
       } else if (act.evento === 3 && inicioDescanso) {
-        // Fin de descanso
         horasDescanso += formatIntervalo(inicioDescanso, act.fecha_hora);
         inicioDescanso = null;
       }
-      
-      // Evento de geocerca
+
+      // Eventos de geocerca
       if (typeof act.evento === 'number') {
         if (act.evento === 0) {
           // Salió de geocerca
-          if (estadoGeocerca === true && horaIntervalo) {
+          if (estadoGeocerca === true && horaIntervalo && act.fecha_hora !== horaIntervalo) {
             pushIntervalo(horaIntervalo, act.fecha_hora, 'dentro');
-            estadoGeocerca = false;
-            horaIntervalo = act.fecha_hora;
           }
+          estadoGeocerca = false;
+          horaIntervalo = act.fecha_hora;
         } else if (act.evento === 1) {
           // Entró a la geocerca
-          if (estadoGeocerca === false && horaIntervalo) {
+          if (estadoGeocerca === false && horaIntervalo && act.fecha_hora !== horaIntervalo) {
             pushIntervalo(horaIntervalo, act.fecha_hora, 'fuera');
-            estadoGeocerca = true;
-            horaIntervalo = act.fecha_hora;
           }
+          estadoGeocerca = true;
+          horaIntervalo = act.fecha_hora;
         }
       }
-      
+
       // Si cambia el estado de geocerca sin evento explícito
       if (i > 0 && act.dentro_geocerca !== undefined && act.dentro_geocerca !== estadoGeocerca) {
-        if (estadoGeocerca !== null && horaIntervalo) {
+        if (estadoGeocerca !== null && horaIntervalo && act.fecha_hora !== horaIntervalo) {
           pushIntervalo(horaIntervalo, act.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
         }
         estadoGeocerca = act.dentro_geocerca;
         horaIntervalo = act.fecha_hora;
       }
-      
+
       // Salida laboral
       if (i === ordenadas.length - 1 && act.tipo_registro === 0) {
         if (horaIntervalo && act.fecha_hora !== horaIntervalo && estadoGeocerca !== null) {
           pushIntervalo(horaIntervalo, act.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
         }
       }
+      i++;
     }
 
-    // Calcular totales de horas
+    // Sumar solo intervalos válidos (sin huecos sospechosos)
     const horasTrabajadas = intervalos.filter(i => i.dentro).reduce((total, i) => total + i.duracion, 0);
     const horasFuera = intervalos.filter(i => !i.dentro).reduce((total, i) => total + i.duracion, 0);
 
     return {
-      horasTrabajadas: Math.round(horasTrabajadas * 100) / 100, // Redondear a 2 decimales
+      horasTrabajadas: Math.round(horasTrabajadas * 100) / 100,
       horasFuera: Math.round(horasFuera * 100) / 100,
       horasDescanso: Math.round(horasDescanso * 100) / 100
-    }
-  }
+    };
+  };
 
   // Nueva función: sumar estadísticas por empleado usando lógica diaria
   function calcularEstadisticasEmpleadoPorDias(registros = []) {
@@ -645,7 +717,7 @@ export default function EmpleadoDashboard({
           {isValidRange && tempDateRange.startDate && tempDateRange.endDate ? (
             <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3 flex items-center">
               <Check className="h-4 w-4 text-emerald-500 mr-2" />
-              Mostrando {daysDifference + 1} días ({format(new Date(tempDateRange.startDate), "dd/MM/yyyy")} - {format(new Date(tempDateRange.endDate), "dd/MM/yyyy")})
+              Mostrando {daysDifference + 1} días ({format(parseLocalDate(tempDateRange.startDate), "dd/MM/yyyy")} - {format(parseLocalDate(tempDateRange.endDate), "dd/MM/yyyy")})
             </div>
           ) : !isValidRange && tempDateRange.startDate && tempDateRange.endDate ? (
             <div className="bg-red-50 border border-red-100 rounded-lg p-3 flex items-center">
@@ -948,16 +1020,23 @@ export default function EmpleadoDashboard({
                                 {/* Fila de días de la semana */}
                                 <div className="grid grid-cols-7 gap-2">
                                   {week.map((date) => {
-                                    const isInRange = date >= new Date(startDate) && date <= new Date(endDate)
-                                    const isToday = isSameDay(date, new Date())
-                                    const isCurrentMonth = date.getMonth() === currentMonth.getMonth()
+                                    // Usar fechas locales para comparar el rango
+                                    function parseLocalDate(str) {
+                                      const [y, m, d] = str.split('-');
+                                      return new Date(Number(y), Number(m) - 1, Number(d), 0, 0, 0, 0);
+                                    }
+                                    const localStartDate = parseLocalDate(startDate);
+                                    const localEndDate = parseLocalDate(endDate);
+                                    const isInRange = date >= localStartDate && date <= localEndDate;
+                                    const isToday = isSameDay(date, new Date());
+                                    const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
                                     const dayActivities = calendarData.find(cal => {
-                                      const calendarDateStr = cal.fecha // YYYY-MM-DD
-                                      const currentDateStr = getLocalDateString(date.toISOString())
-                                      return calendarDateStr === currentDateStr
-                                    })?.actividades || []
-                                    const isSelected = selectedDay && isSameDay(date, selectedDay)
-                                    
+                                      const calendarDateStr = cal.fecha; // YYYY-MM-DD
+                                      const currentDateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                                      return calendarDateStr === currentDateStr;
+                                    })?.actividades || [];
+                                    const isSelected = selectedDay && isSameDay(date, selectedDay);
+                                  
                                     return (
                                       <div
                                         key={date}
