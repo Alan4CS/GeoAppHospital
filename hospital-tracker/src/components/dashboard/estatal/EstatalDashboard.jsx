@@ -1428,17 +1428,22 @@ export default function EstatalDashboard() {
             <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie 
-                    data={eventosData.map(ev => ({
-                      ...ev,
-                      evento: {
-                        'Salió geocerca': 'Salió geocerca',
-                        'Entró geocerca': 'Entró geocerca',
-                        'Inicio descanso': 'Inicio descanso',
-                        'Termino descanso': 'Termino descanso',
-                        'Evento 4': 'Inicio inactividad',
-                        'Evento 5': 'Termino inactividad',
-                      }[ev.evento] || ev.evento
-                    }))}
+                    data={eventosData
+                      .filter(ev => {
+                        const eventoNormalizado = ev.evento;
+                        return eventoNormalizado === 'Salió geocerca' || 
+                               eventoNormalizado === 'Inicio descanso' || 
+                               eventoNormalizado === 'Evento 4';
+                      })
+                      .map(ev => ({
+                        ...ev,
+                        evento: {
+                          'Salió geocerca': 'Salió geocerca',
+                          'Inicio descanso': 'Inicio descanso',
+                          'Evento 4': 'Inicio inactividad',
+                        }[ev.evento] || ev.evento
+                      }))
+                    }
                     dataKey="cantidad" 
                     nameKey="evento" 
                     cx="50%" 
@@ -1447,9 +1452,17 @@ export default function EstatalDashboard() {
                     label={{ fontSize: 11 }}
                     labelLine={false}
                   >
-                    {eventosData.map((entry, idx) => (
-                      <Cell key={`cell-${idx}`} fill={["#ef4444", "#10b981", "#f59e42", "#6366f1", "#fbbf24", "#6366f1"][idx % 6]} />
-                    ))}
+                    {eventosData
+                      .filter(ev => {
+                        const eventoNormalizado = ev.evento;
+                        return eventoNormalizado === 'Salió geocerca' || 
+                               eventoNormalizado === 'Inicio descanso' || 
+                               eventoNormalizado === 'Evento 4';
+                      })
+                      .map((entry, idx) => (
+                        <Cell key={`cell-${idx}`} fill={["#ef4444", "#10b981", "#f59e42"][idx % 3]} />
+                      ))
+                    }
                   </Pie>
                   <Tooltip 
                     contentStyle={{ fontSize: '12px' }}
