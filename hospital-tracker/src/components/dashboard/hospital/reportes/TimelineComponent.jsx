@@ -100,6 +100,11 @@ const timelineStyles = StyleSheet.create({
     backgroundColor: '#28a745',
     boxShadow: '0 1px 3px rgba(40, 167, 69, 0.3)',
   },
+  intervalInsideInactive: {
+    backgroundColor: '#86efac', // Verde claro para inactivo (equivalente a bg-green-300)
+    opacity: 0.7,
+    boxShadow: '0 1px 3px rgba(40, 167, 69, 0.2)',
+  },
   intervalOutside: {
     backgroundColor: '#dc3545',
     boxShadow: '0 1px 3px rgba(220, 53, 69, 0.3)',
@@ -136,6 +141,14 @@ const timelineStyles = StyleSheet.create({
     backgroundColor: '#17a2b8',
     border: '3px solid #d1ecf1',
   },
+  eventNodeActive: {
+    backgroundColor: '#198754',
+    border: '3px solid #d4edda',
+  },
+  eventNodeInactive: {
+    backgroundColor: '#6c757d',
+    border: '3px solid #e9ecef',
+  },
   // Conectores verticales - UNA SOLA LÍNEA POR EVENTO
   eventConnector: {
     position: 'absolute',
@@ -145,20 +158,24 @@ const timelineStyles = StyleSheet.create({
     marginLeft: -1,
     borderRadius: 1,
   },
-  // Etiquetas de eventos - SOLO TEXTO PLANO, SIN SUPERPOSICIÓN
   eventLabel: {
-  position: 'absolute',
-  fontSize: 9,
-  color: '#2c3e50',
-  fontWeight: 600,
-  textAlign: 'center',
-  width: 100,
-  marginLeft: -50,
-  lineHeight: 1.2,
-  paddingVertical: 3,
-  paddingHorizontal: 6,
-  // Sin fondo, sin borde, sin borderRadius
-},
+    position: 'absolute',
+    fontSize: 7,
+    color: '#444',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    padding: 2,
+    borderRadius: 3,
+    border: '1px solid #ddd',
+    minWidth: 40,
+  },
+  eventLabelAbove: {
+    top: -25,
+  },
+  eventLabelBelow: {
+    top: 35,
+  },
 
   // Etiquetas de eventos arriba/abajo según posición
   eventLabelAbove: {
@@ -236,6 +253,8 @@ function getNodeType(evento) {
     case 'salida': return 'exit';
     case 'descanso': return 'break';
     case 'geocerca': return 'geofence';
+    case 'activo': return 'active';
+    case 'inactivo': return 'inactive';
     default: return 'default';
   }
 }
@@ -248,18 +267,22 @@ function getEventIcon(evento) {
     case 'geocerca': 
       return evento.descripcion.includes('Entró') ? '' : '';
     case 'descanso': return '';
+    case 'activo': return '⚡';
+    case 'inactivo': return '😴';
     default: return '';
   }
 }
 
-// Función para generar eventos y intervalos basados en el resumen del día
+// Función para generar eventos y intervalos basados en el resumen del día (del WebTimelineComponent)
 function generarEventosYIntervalosDelResumen(actividades) {
   if (!actividades || actividades.length === 0) return { eventos: [], intervalos: [] };
+
   const eventos = [];
   const intervalos = [];
   let estadoGeocerca = null;
   let horaIntervalo = null;
   let inicioDescanso = null;
+  let estadoActividad = true; // true = activo, false = inactivo (solo cuando está dentro)
 
   const formatIntervalo = (inicio, fin) => {
     const diffMs = new Date(fin) - new Date(inicio);
@@ -268,150 +291,260 @@ function generarEventosYIntervalosDelResumen(actividades) {
     return `${hrs > 0 ? hrs + 'h ' : ''}${min}min`;
   };
 
-  const pushIntervalo = (inicio, fin, tipo) => {
-    if (inicio && fin && inicio !== fin) {
-      intervalos.push({
-        inicio: new Date(inicio),
-        fin: new Date(fin),
-        dentro: tipo === 'dentro',
-        fuera: tipo === 'fuera',
-        descanso: tipo === 'descanso',
-        sospechoso: tipo === 'sospechoso',
-        tipo: tipo,
-        duracionTexto: formatIntervalo(inicio, fin)
-      });
-    }
-  };
-
   const ordenadas = actividades.slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
-
   let i = 0;
   while (i < ordenadas.length) {
     const act = ordenadas[i];
+    const hora = formatHora(act.fecha_hora);
+    
     // Entrada laboral
     if (i === 0 && act.tipo_registro === 1) {
       eventos.push({
         time: new Date(act.fecha_hora),
         tipo: 'entrada',
         descripcion: 'Entrada',
-        hora: formatHora(act.fecha_hora)
+        hora
       });
       estadoGeocerca = act.dentro_geocerca;
       horaIntervalo = act.fecha_hora;
+      estadoActividad = true; // Asumir activo al entrar
       i++;
       continue;
     }
 
-    // Detectar hueco sospechoso entre este registro y el anterior (>2 horas)
+    // Detectar hueco sospechoso (>2h) - MANTENER LÓGICA EXISTENTE
     if (i > 0) {
       const prev = ordenadas[i - 1];
       const diffMs = new Date(act.fecha_hora) - new Date(prev.fecha_hora);
       if (diffMs > 2 * 60 * 60 * 1000) {
-        // Si hay un intervalo abierto (dentro/fuera de geocerca), cerrarlo justo antes del hueco
-        if (horaIntervalo && prev.fecha_hora !== horaIntervalo && estadoGeocerca !== null) {
-          pushIntervalo(horaIntervalo, prev.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
+        // Cerrar intervalo anterior
+        if (horaIntervalo && horaIntervalo !== prev.fecha_hora && estadoGeocerca !== null) {
+          intervalos.push({
+            inicio: new Date(horaIntervalo),
+            fin: new Date(prev.fecha_hora),
+            dentro: estadoGeocerca === true,
+            fuera: estadoGeocerca === false,
+            descanso: false,
+            sospechoso: false,
+            activo: estadoActividad, // Nuevo campo para estado de actividad
+            tipo: estadoGeocerca ? (estadoActividad ? 'dentro-activo' : 'dentro-inactivo') : 'fuera',
+            duracionTexto: formatIntervalo(horaIntervalo, prev.fecha_hora)
+          });
         }
-        // Agregar el hueco sospechoso
-        pushIntervalo(prev.fecha_hora, act.fecha_hora, 'sospechoso');
-        eventos.push({
-          time: new Date(prev.fecha_hora),
+        // Intervalo sospechoso
+        intervalos.push({
+          inicio: new Date(prev.fecha_hora),
+          fin: new Date(act.fecha_hora),
+          dentro: false,
+          fuera: false,
+          descanso: false,
+          sospechoso: true,
+          activo: true,
           tipo: 'sospechoso',
-          descripcion: 'Tiempo sospechoso (posible cierre de app)',
-          hora: `${formatHora(prev.fecha_hora)} - ${formatHora(act.fecha_hora)}`,
-          duracion: `(${formatIntervalo(prev.fecha_hora, act.fecha_hora)})`
+          duracionTexto: formatIntervalo(prev.fecha_hora, act.fecha_hora)
         });
-        // Reiniciar el intervalo a partir del registro actual
         horaIntervalo = act.fecha_hora;
+        // No cambiar estadoGeocerca ni estadoActividad
       }
     }
 
-    // Evento de geocerca y descanso
     if (typeof act.evento === 'number') {
-      if (act.evento === 0) {
-        // Salió de geocerca
-        if (estadoGeocerca === true && horaIntervalo && act.fecha_hora !== horaIntervalo) {
-          pushIntervalo(horaIntervalo, act.fecha_hora, 'dentro');
+      // PRIORIDAD MÁXIMA: Manejo de descansos
+      if (act.evento === 2) {
+        // Si no estaba en descanso, iniciar descanso
+        if (inicioDescanso === null) {
+          // Cerrar intervalo anterior antes del descanso
+          if (estadoGeocerca !== null && horaIntervalo) {
+            intervalos.push({
+              inicio: new Date(horaIntervalo),
+              fin: new Date(act.fecha_hora),
+              dentro: estadoGeocerca === true,
+              fuera: estadoGeocerca === false,
+              descanso: false,
+              sospechoso: false,
+              activo: estadoActividad,
+              tipo: estadoGeocerca ? (estadoActividad ? 'dentro-activo' : 'dentro-inactivo') : 'fuera',
+              duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+            });
+          }
+          inicioDescanso = act.fecha_hora;
+          eventos.push({
+            time: new Date(act.fecha_hora),
+            tipo: 'descanso',
+            descripcion: 'Inicio descanso',
+            hora
+          });
+          horaIntervalo = null;
         }
-        eventos.push({
-          time: new Date(act.fecha_hora),
-          tipo: 'geocerca',
-          descripcion: 'Salió geocerca',
-          hora: formatHora(act.fecha_hora)
-        });
-        estadoGeocerca = false;
-        horaIntervalo = act.fecha_hora;
-      } else if (act.evento === 1) {
-        // Entró a la geocerca
-        if (estadoGeocerca === false && horaIntervalo && act.fecha_hora !== horaIntervalo) {
-          pushIntervalo(horaIntervalo, act.fecha_hora, 'fuera');
-        }
-        eventos.push({
-          time: new Date(act.fecha_hora),
-          tipo: 'geocerca',
-          descripcion: 'Entró geocerca',
-          hora: formatHora(act.fecha_hora)
-        });
-        estadoGeocerca = true;
-        horaIntervalo = act.fecha_hora;
-      } else if (act.evento === 2) {
-        // Inicio de descanso - PAUSAR tracking de geocerca
-        if (estadoGeocerca !== null && horaIntervalo && act.fecha_hora !== horaIntervalo) {
-          pushIntervalo(horaIntervalo, act.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
-        }
-        inicioDescanso = act.fecha_hora;
-        eventos.push({
-          time: new Date(act.fecha_hora),
-          tipo: 'descanso',
-          descripcion: 'Inicio descanso',
-          hora: formatHora(act.fecha_hora)
-        });
-        horaIntervalo = null;
+        // Durante el descanso, ignorar todos los otros eventos
+        i++;
+        continue;
       } else if (act.evento === 3) {
-        // Fin de descanso - REANUDAR tracking de geocerca
+        // Fin de descanso
         if (inicioDescanso) {
-          pushIntervalo(inicioDescanso, act.fecha_hora, 'descanso');
+          intervalos.push({
+            inicio: new Date(inicioDescanso),
+            fin: new Date(act.fecha_hora),
+            dentro: false,
+            fuera: false,
+            descanso: true,
+            sospechoso: false,
+            activo: true,
+            tipo: 'descanso',
+            duracionTexto: formatIntervalo(inicioDescanso, act.fecha_hora)
+          });
           inicioDescanso = null;
         }
         eventos.push({
           time: new Date(act.fecha_hora),
           tipo: 'descanso',
           descripcion: 'Fin descanso',
-          hora: formatHora(act.fecha_hora)
+          hora
         });
         estadoGeocerca = act.dentro_geocerca;
         horaIntervalo = act.fecha_hora;
+        estadoActividad = true; // Asumir activo al salir del descanso
+        i++;
+        continue;
+      }
+
+      // Si está en descanso, ignorar todos los otros eventos
+      if (inicioDescanso !== null) {
+        i++;
+        continue;
+      }
+
+      // Manejo de eventos de actividad (solo si NO está en descanso)
+      if (act.evento === 4 || act.evento === 5) {
+        const nuevoEstadoActividad = act.evento === 5; // 5 = activo, 4 = inactivo
+        
+        // Solo procesar si está dentro de geocerca y cambia el estado de actividad
+        if (estadoGeocerca === true && nuevoEstadoActividad !== estadoActividad) {
+          // Cerrar intervalo anterior con el estado de actividad anterior
+          if (horaIntervalo) {
+            intervalos.push({
+              inicio: new Date(horaIntervalo),
+              fin: new Date(act.fecha_hora),
+              dentro: true,
+              fuera: false,
+              descanso: false,
+              sospechoso: false,
+              activo: estadoActividad,
+              tipo: estadoActividad ? 'dentro-activo' : 'dentro-inactivo',
+              duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+            });
+          }
+          // Actualizar estado y reiniciar intervalo
+          estadoActividad = nuevoEstadoActividad;
+          horaIntervalo = act.fecha_hora;
+        }
+        i++;
+        continue;
+      }
+
+      // Manejo de geocerca (solo si NO está en descanso)
+      if (act.evento === 0) {
+        // Salió de geocerca
+        if (estadoGeocerca === true && horaIntervalo) {
+          intervalos.push({
+            inicio: new Date(horaIntervalo),
+            fin: new Date(act.fecha_hora),
+            dentro: true,
+            fuera: false,
+            descanso: false,
+            sospechoso: false,
+            activo: estadoActividad,
+            tipo: estadoActividad ? 'dentro-activo' : 'dentro-inactivo',
+            duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+          });
+        }
+        eventos.push({
+          time: new Date(act.fecha_hora),
+          tipo: 'geocerca',
+          descripcion: 'Salió geocerca',
+          hora
+        });
+        estadoGeocerca = false;
+        horaIntervalo = act.fecha_hora;
+        estadoActividad = true; // Reset a activo cuando sale
+      } else if (act.evento === 1) {
+        // Entró a la geocerca
+        if (estadoGeocerca === false && horaIntervalo) {
+          intervalos.push({
+            inicio: new Date(horaIntervalo),
+            fin: new Date(act.fecha_hora),
+            dentro: false,
+            fuera: true,
+            descanso: false,
+            sospechoso: false,
+            activo: true,
+            tipo: 'fuera',
+            duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+          });
+        }
+        eventos.push({
+          time: new Date(act.fecha_hora),
+          tipo: 'geocerca',
+          descripcion: 'Entró geocerca',
+          hora
+        });
+        estadoGeocerca = true;
+        horaIntervalo = act.fecha_hora;
+        estadoActividad = true; // Asumir activo al entrar
       }
     }
 
     // Si cambia el estado de geocerca sin evento explícito
-    if (i > 0 && act.dentro_geocerca !== undefined && act.dentro_geocerca !== estadoGeocerca) {
-      if (estadoGeocerca !== null && horaIntervalo && act.fecha_hora !== horaIntervalo) {
-        pushIntervalo(horaIntervalo, act.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
+    if (i > 0 && act.dentro_geocerca !== undefined && act.dentro_geocerca !== estadoGeocerca && inicioDescanso === null) {
+      if (estadoGeocerca !== null && horaIntervalo) {
+        intervalos.push({
+          inicio: new Date(horaIntervalo),
+          fin: new Date(act.fecha_hora),
+          dentro: estadoGeocerca === true,
+          fuera: estadoGeocerca === false,
+          descanso: false,
+          sospechoso: false,
+          activo: estadoActividad,
+          tipo: estadoGeocerca ? (estadoActividad ? 'dentro-activo' : 'dentro-inactivo') : 'fuera',
+          duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+        });
       }
       eventos.push({
         time: new Date(act.fecha_hora),
         tipo: 'geocerca',
         descripcion: act.dentro_geocerca ? 'Entró geocerca' : 'Salió geocerca',
-        hora: formatHora(act.fecha_hora)
+        hora
       });
       estadoGeocerca = act.dentro_geocerca;
       horaIntervalo = act.fecha_hora;
+      if (act.dentro_geocerca) estadoActividad = true; // Asumir activo al entrar
     }
 
     // Salida laboral
     if (i === ordenadas.length - 1 && act.tipo_registro === 0) {
-      if (horaIntervalo && act.fecha_hora !== horaIntervalo && estadoGeocerca !== null) {
-        pushIntervalo(horaIntervalo, act.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
+      if (horaIntervalo && act.fecha_hora !== horaIntervalo && estadoGeocerca !== null && inicioDescanso === null) {
+        intervalos.push({
+          inicio: new Date(horaIntervalo),
+          fin: new Date(act.fecha_hora),
+          dentro: estadoGeocerca === true,
+          fuera: estadoGeocerca === false,
+          descanso: false,
+          sospechoso: false,
+          activo: estadoActividad,
+          tipo: estadoGeocerca ? (estadoActividad ? 'dentro-activo' : 'dentro-inactivo') : 'fuera',
+          duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+        });
       }
       eventos.push({
         time: new Date(act.fecha_hora),
         tipo: 'salida',
         descripcion: 'Salida',
-        hora: formatHora(act.fecha_hora)
+        hora
       });
     }
     i++;
   }
+  
   return { eventos, intervalos };
 }
 
@@ -471,27 +604,39 @@ const TimelineComponent = ({ actividades, titulo = "Cronologia" }) => {
   
   const timeScale = generateTimeScale(displayStart, displayEnd);
   const { eventos: eventosClave, intervalos } = generarEventosYIntervalosDelResumen(ordenadas);
+  
+  // Calcular totales por tipo (igual que en WebTimelineComponent)
+  let totalDentro = 0;
+  let totalFuera = 0;
+  let totalDescanso = 0;
+  
+  intervalos.forEach(intervalo => {
+    const duracion = intervalo.fin - intervalo.inicio;
+    if (intervalo.descanso || intervalo.tipo === 'descanso') {
+      totalDescanso += duracion;
+    } else if (intervalo.dentro || intervalo.tipo === 'dentro-activo' || intervalo.tipo === 'dentro-inactivo' || intervalo.tipo === 'dentro') {
+      totalDentro += duracion;
+    } else if (intervalo.fuera || intervalo.tipo === 'fuera') {
+      totalFuera += duracion;
+    }
+  });
 
-  // Calcular totales de tiempo usando los intervalos generados (misma lógica que la línea)
-  const totalDentroMs = intervalos.filter(i => i.dentro).reduce((acc, i) => acc + (i.fin - i.inicio), 0);
-  const totalFueraMs = intervalos.filter(i => i.fuera).reduce((acc, i) => acc + (i.fin - i.inicio), 0);
-  const totalDescansoMs = intervalos.filter(i => i.descanso).reduce((acc, i) => acc + (i.fin - i.inicio), 0);
-
-  // Filtrar eventos: NO mostrar nodos ni etiquetas para eventos 'sospechoso' (solo para la barra gris)
-  const eventosClaveFiltrados = eventosClave.filter(e => e.tipo !== 'sospechoso');
-  const eventPositions = eventosClaveFiltrados.map(evento => 
-    calculateAbsolutePosition(evento.time, displayStart, displayEnd)
+  // Solo mostrar eventos principales (entrada, salida, entrada/salida geocerca, descansos)
+  const eventosClaveFiltrados = eventosClave.filter(e => 
+    ['entrada', 'salida', 'geocerca', 'descanso'].includes(e.tipo)
   );
 
   return (
     <View style={timelineStyles.timelineContainer} wrap={false}>
-      {/* Totales arriba de la línea de tiempo */}
-      <Text style={{ fontSize: 10, marginBottom: 2, textAlign: 'center' }}>
-        <Text style={{ color: '#198754', fontWeight: 'bold' }}>Total dentro:</Text> {msToHM(totalDentroMs)}{' '}
-        <Text style={{ color: '#dc3545', fontWeight: 'bold' }}>Fuera:</Text> {msToHM(totalFueraMs)}{' '}
-        <Text style={{ color: '#f59e0b', fontWeight: 'bold' }}>Descanso:</Text> {msToHM(totalDescansoMs)}
-      </Text>
       <Text style={timelineStyles.timelineTitle}>{titulo}</Text>
+      
+      {/* Totales arriba de la línea de tiempo - igual que WebTimelineComponent */}
+      <Text style={{ fontSize: 10, marginBottom: 8, textAlign: 'center' }}>
+        <Text style={{ color: '#198754', fontWeight: 'bold' }}>Total dentro:</Text> {msToHM(totalDentro)}{' '}
+        <Text style={{ color: '#dc3545', fontWeight: 'bold' }}>Fuera:</Text> {msToHM(totalFuera)}{' '}
+        <Text style={{ color: '#f59e0b', fontWeight: 'bold' }}>Descanso:</Text> {msToHM(totalDescanso)}
+      </Text>
+      
       <View style={timelineStyles.timelineWrapper}>          {/* Escala de tiempo superior */}
         <View style={timelineStyles.timeScale}>
           {timeScale.map((time, idx) => {
@@ -513,157 +658,78 @@ const TimelineComponent = ({ actividades, titulo = "Cronologia" }) => {
           {/* Barra base */}
           <View style={timelineStyles.timelineBar} />
           
-          {/* Línea conectora horizontal entre nodos */}
-          {eventPositions.length > 1 && (
-            <View
-              style={[
-                timelineStyles.nodeConnectorLine,
-                {
-                  left: `${eventPositions[0]}%`,
-                  width: `${eventPositions[eventPositions.length - 1] - eventPositions[0]}%`,
-                },
-              ]}
-            />
-          )}
-          
-          {/* Intervalos de tiempo dentro/fuera/descanso/sospechoso */}
+          {/* Intervalos de tiempo */}
           {intervalos.map((intervalo, idx) => {
             const startPos = calculateAbsolutePosition(intervalo.inicio, displayStart, displayEnd);
             const endPos = calculateAbsolutePosition(intervalo.fin, displayStart, displayEnd);
-            const width = endPos - startPos;
-            // Determinar el estilo según el tipo de intervalo
+            const width = Math.max(0.5, endPos - startPos); // Ancho mínimo de 0.5%
+            
+            // Determinar estilo según el tipo de intervalo (WebTimelineComponent logic)
             let intervalStyle = timelineStyles.intervalOutside; // Por defecto fuera
-            if (intervalo.tipo === 'descanso' || intervalo.descanso) {
+            if (intervalo.descanso || intervalo.tipo === 'descanso') {
               intervalStyle = timelineStyles.intervalBreak;
-            } else if (intervalo.tipo === 'dentro' || intervalo.dentro) {
+            } else if (intervalo.tipo === 'dentro-activo') {
               intervalStyle = timelineStyles.intervalInside;
-            } else if (intervalo.tipo === 'sospechoso' || intervalo.sospechoso) {
+            } else if (intervalo.tipo === 'dentro-inactivo') {
+              intervalStyle = timelineStyles.intervalInsideInactive;
+            } else if (intervalo.dentro || intervalo.tipo === 'dentro') {
+              intervalStyle = timelineStyles.intervalInside;
+            } else if (intervalo.sospechoso || intervalo.tipo === 'sospechoso') {
               intervalStyle = timelineStyles.intervalSus;
             }
+            
             return (
               <View
-                key={`interval-${idx}`}
+                key={idx}
                 style={[
                   timelineStyles.timeInterval,
                   intervalStyle,
                   {
                     left: `${startPos}%`,
                     width: `${width}%`,
-                  },
+                  }
                 ]}
               />
             );
           })}
           
-          {/* Eventos clave - SIN LÍNEAS DUPLICADAS Y SIN SUPERPOSICIÓN (sin sospechosos) */}
+          {/* Nodos de eventos */}
           {eventosClaveFiltrados.map((evento, idx) => {
             const position = calculateAbsolutePosition(evento.time, displayStart, displayEnd);
             const nodeType = getNodeType(evento);
-            const eventIcon = getEventIcon(evento);
-            // Guardar posición para cálculos de superposición
-            evento.__position = position;
-            // Calcular posición y desplazamiento de la etiqueta
-            const { isAbove, horizontalOffset } = calculateLabelPosition(eventosClaveFiltrados, idx, position);
-            // Altura del conector - DESDE EL CENTRO EXACTO DEL NODO
-            const nodeCenter = 20 + (BAR_HEIGHT / 2); // Centro vertical del nodo
-            const connectorHeight = 25; // igual altura para ambos
-            const connectorStartY = isAbove ? nodeCenter - 25 : nodeCenter;
-
-            // Determinar estilo de fondo según tipo de evento
-            let labelBgStyle = null;
-            if (nodeType === 'entry') labelBgStyle = timelineStyles.eventLabelEntry;
-            else if (nodeType === 'exit') labelBgStyle = timelineStyles.eventLabelExit;
-            else if (nodeType === 'geofence') labelBgStyle = timelineStyles.eventLabelGeofence;
-            else if (nodeType === 'break') labelBgStyle = timelineStyles.eventLabelBreak;
+            
+            let nodeStyle = timelineStyles.eventNode;
+            if (nodeType === 'entry') nodeStyle = [timelineStyles.eventNode, timelineStyles.eventNodeEntry];
+            if (nodeType === 'exit') nodeStyle = [timelineStyles.eventNode, timelineStyles.eventNodeExit];
+            if (nodeType === 'break') nodeStyle = [timelineStyles.eventNode, timelineStyles.eventNodeBreak];
+            if (nodeType === 'geofence') nodeStyle = [timelineStyles.eventNode, timelineStyles.eventNodeGeofence];
+            
+            const isAbove = idx % 2 === 0;
+            
             return (
-              <View key={`event-${idx}`}>
-                {/* Conector vertical - DESDE EL CENTRO EXACTO DEL NODO */}
-                <View style={[
-                  timelineStyles.eventConnector,
-                  { 
-                    left: `${position}%`, 
-                    height: connectorHeight,
-                    top: connectorStartY,
-                  },
-                ]} />
-                {/* Nodo del evento */}
+              <View key={idx}>
+                {/* Nodo */}
                 <View
                   style={[
-                    timelineStyles.eventNode,
-                    nodeType === 'entry' && timelineStyles.eventNodeEntry,
-                    nodeType === 'exit' && timelineStyles.eventNodeExit,
-                    nodeType === 'break' && timelineStyles.eventNodeBreak,
-                    nodeType === 'geofence' && timelineStyles.eventNodeGeofence,
-                    { left: `${position}%` },
+                    nodeStyle,
+                    { left: `${position}%` }
                   ]}
                 />
-                {/* Etiqueta del evento - CON DESPLAZAMIENTO PARA EVITAR SUPERPOSICIÓN */}
+                {/* Etiqueta */}
                 <Text
                   style={[
                     timelineStyles.eventLabel,
-                    labelBgStyle,
                     isAbove ? timelineStyles.eventLabelAbove : timelineStyles.eventLabelBelow,
-                    { 
-                      left: `${position + horizontalOffset}%`, // Usar porcentajes para el offset
-                      marginLeft: -50, // Mantener centrado base
-                    },
+                    { left: `${position}%`, marginLeft: -20 }
                   ]}
                 >
-                  {`${eventIcon}${evento.descripcion}\n(${evento.hora})`}
+                  {evento.descripcion}
+                  {'\n'}({evento.hora})
                 </Text>
               </View>
             );
           })}
         </View>
-        
-        {/* Etiquetas de intervalos - CENTRADAS EXACTAMENTE */}
-        <View style={timelineStyles.intervalLabelsContainer}>
-        {intervalos.map((intervalo, idx) => {
-            const startPos = calculateAbsolutePosition(intervalo.inicio, displayStart, displayEnd);
-            const endPos = calculateAbsolutePosition(intervalo.fin, displayStart, displayEnd);
-            const width = endPos - startPos;
-            const centerPos = startPos + (width / 2);
-            let adjustedPos = centerPos;
-            const labelWidthPercent = 10;
-            eventosClave.forEach(evento => {
-              const eventPos = evento.__position;
-              if (width < 15 && Math.abs(centerPos - eventPos) < labelWidthPercent) {
-                adjustedPos += (eventPos > centerPos ? 3 : -3);
-              }
-            });
-            adjustedPos = Math.max(5, Math.min(95, adjustedPos));
-            // Determinar texto y color según tipo de intervalo
-            let labelText = 'Fuera';
-            let labelColor = '#dc3545';
-            if (intervalo.tipo === 'descanso' || intervalo.descanso) {
-              labelText = 'Descanso';
-              labelColor = '#e69500';
-            } else if (intervalo.tipo === 'dentro' || intervalo.dentro) {
-              labelText = 'Dentro';
-              labelColor = '#198754';
-            } else if (intervalo.tipo === 'sospechoso' || intervalo.sospechoso) {
-              labelText = 'Sospechoso';
-              labelColor = '#495057';
-            }
-            return (
-              <Text
-                key={`label-${idx}`}
-                style={[
-                  timelineStyles.intervalLabel, 
-                  { 
-                    left: `${adjustedPos}%`,
-                    marginLeft: -30,
-                    color: labelColor,
-                  }
-                ]}
-              >
-                {labelText}{"\n"}
-                ({intervalo.duracionTexto})
-              </Text>
-            );
-        })}
-        </View>
-
       </View>
     </View>
   );

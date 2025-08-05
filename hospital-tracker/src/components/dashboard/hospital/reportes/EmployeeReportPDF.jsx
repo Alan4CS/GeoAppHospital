@@ -3,7 +3,7 @@ import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer';
 import { format, eachDayOfInterval, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import TimelineComponent from './TimelineComponent';
-import { calcularEstadisticasEmpleadoPorDias } from '../employeeStatsHelper';
+import { calcularEstadisticasEmpleadoPorDias, calcularEstadisticasEmpleado } from '../employeeStatsHelper';
 
 const styles = StyleSheet.create({
   page: {
@@ -112,6 +112,11 @@ const styles = StyleSheet.create({
     color: '#6c757d',
     fontStyle: 'italic',
   },
+  // Estilos específicos para desglose de actividad
+  summaryDesglose: {
+    paddingLeft: 20, // Indentación para el desglose
+    backgroundColor: '#f8f9fa', // Fondo más sutil
+  },
   // Estilos para diferentes tipos de eventos
   eventEntry: {
     color: '#28a745',
@@ -203,24 +208,38 @@ function agrupaPorDia(actividades) {
 }
 
 function calculaResumen(actividadesPorDia) {
-  let totalHoras = 0;
-  let diasTrabajados = 0;
-  Object.values(actividadesPorDia).forEach((acts) => {
-    if (acts.length > 1) {
-      const ordenadas = acts.slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
-      const primera = ordenadas[0];
-      const ultima = ordenadas[ordenadas.length - 1];
-      const inicio = new Date(primera.fecha_hora);
-      const fin = new Date(ultima.fecha_hora);
-      let horas = (fin - inicio) / (1000 * 60 * 60);
-      if (horas < 0) horas = 0;
-      totalHoras += horas;
-      diasTrabajados++;
+  // Convertir objeto a array plano de registros para el helper
+  const todosLosRegistros = [];
+  Object.values(actividadesPorDia).forEach((actividades) => {
+    if (Array.isArray(actividades)) {
+      todosLosRegistros.push(...actividades);
     }
   });
+  
+  // Usar el helper para cálculos consistentes
+  const estadisticasPorDia = calcularEstadisticasEmpleadoPorDias(todosLosRegistros);
+  
+  let totalHoras = 0;
+  let diasTrabajados = 0;
+  
+  // Usar las propiedades correctas del helper
+  if (estadisticasPorDia && estadisticasPorDia.workedHours && !isNaN(estadisticasPorDia.workedHours) && estadisticasPorDia.workedHours > 0) {
+    totalHoras = estadisticasPorDia.workedHours;
+    diasTrabajados = Object.keys(actividadesPorDia).filter(fecha => 
+      actividadesPorDia[fecha] && actividadesPorDia[fecha].length > 0
+    ).length;
+  }
+  
   const promedioDiario = diasTrabajados > 0 ? totalHoras / diasTrabajados : 0;
   const rendimiento = diasTrabajados > 0 ? (totalHoras / (diasTrabajados * 9)) * 100 : 0;
-  return { totalHoras, diasTrabajados, promedioDiario, rendimiento };
+  
+  // Validar que los resultados no sean NaN
+  return { 
+    totalHoras: isNaN(totalHoras) ? 0 : totalHoras, 
+    diasTrabajados: isNaN(diasTrabajados) ? 0 : diasTrabajados, 
+    promedioDiario: isNaN(promedioDiario) ? 0 : promedioDiario, 
+    rendimiento: isNaN(rendimiento) ? 0 : rendimiento 
+  };
 }
 
 const Header = ({ empleado, startDate, endDate }) => (
@@ -276,121 +295,259 @@ const PeriodSummary = ({ resumen, totalDiasPeriodo }) => (
   </View>
 );
 
-// Componente mejorado para información del empleado
-const EmployeeInfo = ({ empleado, actividades }) => {
-  // Lógica unificada: usar la misma generación de intervalos que TimelineComponent.jsx
-  if (!actividades || actividades.length === 0) return null;
+// Función para generar intervalos consistente con TimelineComponent
+function generarEventosYIntervalosDelResumenPDF(actividades) {
+  if (!actividades || actividades.length === 0) return { eventos: [], intervalos: [] };
+
+  const eventos = [];
   const intervalos = [];
   let estadoGeocerca = null;
   let horaIntervalo = null;
   let inicioDescanso = null;
+  let estadoActividad = true; // true = activo, false = inactivo (solo cuando está dentro)
 
   const formatIntervalo = (inicio, fin) => {
     const diffMs = new Date(fin) - new Date(inicio);
-    return diffMs; // en milisegundos
+    const min = Math.floor(diffMs / 60000) % 60;
+    const hrs = Math.floor(diffMs / 3600000);
+    return `${hrs > 0 ? hrs + 'h ' : ''}${min}min`;
   };
 
-  const pushIntervalo = (inicio, fin, tipo) => {
-    if (inicio && fin && inicio !== fin) {
-      intervalos.push({
-        inicio: new Date(inicio),
-        fin: new Date(fin),
-        dentro: tipo === 'dentro',
-        fuera: tipo === 'fuera',
-        descanso: tipo === 'descanso',
-        sospechoso: tipo === 'sospechoso',
-        tipo: tipo,
-        duracion: formatIntervalo(inicio, fin)
-      });
-    }
-  };
-
-  const ordenadas = (actividades || []).slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
+  const ordenadas = actividades.slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
   let i = 0;
   while (i < ordenadas.length) {
     const act = ordenadas[i];
+    
     // Entrada laboral
     if (i === 0 && act.tipo_registro === 1) {
       estadoGeocerca = act.dentro_geocerca;
       horaIntervalo = act.fecha_hora;
+      estadoActividad = true; // Asumir activo al entrar
       i++;
       continue;
     }
 
-    // Detectar hueco sospechoso entre este registro y el anterior (>2 horas)
+    // Detectar hueco sospechoso (>2h)
     if (i > 0) {
       const prev = ordenadas[i - 1];
       const diffMs = new Date(act.fecha_hora) - new Date(prev.fecha_hora);
       if (diffMs > 2 * 60 * 60 * 1000) {
-        // Si hay un intervalo abierto (dentro/fuera de geocerca), cerrarlo justo antes del hueco
-        if (horaIntervalo && prev.fecha_hora !== horaIntervalo && estadoGeocerca !== null) {
-          pushIntervalo(horaIntervalo, prev.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
+        // Cerrar intervalo anterior
+        if (horaIntervalo && horaIntervalo !== prev.fecha_hora && estadoGeocerca !== null) {
+          intervalos.push({
+            inicio: new Date(horaIntervalo),
+            fin: new Date(prev.fecha_hora),
+            dentro: estadoGeocerca === true,
+            fuera: estadoGeocerca === false,
+            descanso: false,
+            sospechoso: false,
+            activo: estadoActividad,
+            tipo: estadoGeocerca ? (estadoActividad ? 'dentro-activo' : 'dentro-inactivo') : 'fuera',
+            duracionTexto: formatIntervalo(horaIntervalo, prev.fecha_hora)
+          });
         }
-        // Agregar el hueco sospechoso
-        pushIntervalo(prev.fecha_hora, act.fecha_hora, 'sospechoso');
-        // Reiniciar el intervalo a partir del registro actual
+        // Intervalo sospechoso
+        intervalos.push({
+          inicio: new Date(prev.fecha_hora),
+          fin: new Date(act.fecha_hora),
+          dentro: false,
+          fuera: false,
+          descanso: false,
+          sospechoso: true,
+          activo: true,
+          tipo: 'sospechoso',
+          duracionTexto: formatIntervalo(prev.fecha_hora, act.fecha_hora)
+        });
         horaIntervalo = act.fecha_hora;
       }
     }
 
-    // Evento de geocerca y descanso
     if (typeof act.evento === 'number') {
-      if (act.evento === 0) {
-        // Salió de geocerca
-        if (estadoGeocerca === true && horaIntervalo && act.fecha_hora !== horaIntervalo) {
-          pushIntervalo(horaIntervalo, act.fecha_hora, 'dentro');
+      // Manejo de descansos
+      if (act.evento === 2) {
+        if (inicioDescanso === null) {
+          // Cerrar intervalo anterior antes del descanso
+          if (estadoGeocerca !== null && horaIntervalo) {
+            intervalos.push({
+              inicio: new Date(horaIntervalo),
+              fin: new Date(act.fecha_hora),
+              dentro: estadoGeocerca === true,
+              fuera: estadoGeocerca === false,
+              descanso: false,
+              sospechoso: false,
+              activo: estadoActividad,
+              tipo: estadoGeocerca ? (estadoActividad ? 'dentro-activo' : 'dentro-inactivo') : 'fuera',
+              duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+            });
+          }
+          inicioDescanso = act.fecha_hora;
+          horaIntervalo = null;
         }
-        estadoGeocerca = false;
-        horaIntervalo = act.fecha_hora;
-      } else if (act.evento === 1) {
-        // Entró a la geocerca
-        if (estadoGeocerca === false && horaIntervalo && act.fecha_hora !== horaIntervalo) {
-          pushIntervalo(horaIntervalo, act.fecha_hora, 'fuera');
-        }
-        estadoGeocerca = true;
-        horaIntervalo = act.fecha_hora;
-      } else if (act.evento === 2) {
-        // Inicio de descanso - PAUSAR tracking de geocerca
-        if (estadoGeocerca !== null && horaIntervalo && act.fecha_hora !== horaIntervalo) {
-          pushIntervalo(horaIntervalo, act.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
-        }
-        inicioDescanso = act.fecha_hora;
-        horaIntervalo = null;
+        i++;
+        continue;
       } else if (act.evento === 3) {
-        // Fin de descanso - REANUDAR tracking de geocerca
+        // Fin de descanso
         if (inicioDescanso) {
-          pushIntervalo(inicioDescanso, act.fecha_hora, 'descanso');
+          intervalos.push({
+            inicio: new Date(inicioDescanso),
+            fin: new Date(act.fecha_hora),
+            dentro: false,
+            fuera: false,
+            descanso: true,
+            sospechoso: false,
+            activo: true,
+            tipo: 'descanso',
+            duracionTexto: formatIntervalo(inicioDescanso, act.fecha_hora)
+          });
           inicioDescanso = null;
         }
         estadoGeocerca = act.dentro_geocerca;
         horaIntervalo = act.fecha_hora;
+        estadoActividad = true;
+        i++;
+        continue;
+      }
+
+      // Si está en descanso, ignorar otros eventos
+      if (inicioDescanso !== null) {
+        i++;
+        continue;
+      }
+
+      // Manejo de eventos de actividad
+      if (act.evento === 4 || act.evento === 5) {
+        const nuevoEstadoActividad = act.evento === 5;
+        
+        if (estadoGeocerca === true && nuevoEstadoActividad !== estadoActividad) {
+          if (horaIntervalo) {
+            intervalos.push({
+              inicio: new Date(horaIntervalo),
+              fin: new Date(act.fecha_hora),
+              dentro: true,
+              fuera: false,
+              descanso: false,
+              sospechoso: false,
+              activo: estadoActividad,
+              tipo: estadoActividad ? 'dentro-activo' : 'dentro-inactivo',
+              duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+            });
+          }
+          estadoActividad = nuevoEstadoActividad;
+          horaIntervalo = act.fecha_hora;
+        }
+        i++;
+        continue;
+      }
+
+      // Manejo de geocerca
+      if (act.evento === 0) {
+        // Salió de geocerca
+        if (estadoGeocerca === true && horaIntervalo) {
+          intervalos.push({
+            inicio: new Date(horaIntervalo),
+            fin: new Date(act.fecha_hora),
+            dentro: true,
+            fuera: false,
+            descanso: false,
+            sospechoso: false,
+            activo: estadoActividad,
+            tipo: estadoActividad ? 'dentro-activo' : 'dentro-inactivo',
+            duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+          });
+        }
+        estadoGeocerca = false;
+        horaIntervalo = act.fecha_hora;
+        estadoActividad = true;
+      } else if (act.evento === 1) {
+        // Entró a la geocerca
+        if (estadoGeocerca === false && horaIntervalo) {
+          intervalos.push({
+            inicio: new Date(horaIntervalo),
+            fin: new Date(act.fecha_hora),
+            dentro: false,
+            fuera: true,
+            descanso: false,
+            sospechoso: false,
+            activo: true,
+            tipo: 'fuera',
+            duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+          });
+        }
+        estadoGeocerca = true;
+        horaIntervalo = act.fecha_hora;
+        estadoActividad = true;
       }
     }
 
     // Si cambia el estado de geocerca sin evento explícito
-    if (i > 0 && act.dentro_geocerca !== undefined && act.dentro_geocerca !== estadoGeocerca) {
-      if (estadoGeocerca !== null && horaIntervalo && act.fecha_hora !== horaIntervalo) {
-        pushIntervalo(horaIntervalo, act.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
+    if (i > 0 && act.dentro_geocerca !== undefined && act.dentro_geocerca !== estadoGeocerca && inicioDescanso === null) {
+      if (estadoGeocerca !== null && horaIntervalo) {
+        intervalos.push({
+          inicio: new Date(horaIntervalo),
+          fin: new Date(act.fecha_hora),
+          dentro: estadoGeocerca === true,
+          fuera: estadoGeocerca === false,
+          descanso: false,
+          sospechoso: false,
+          activo: estadoActividad,
+          tipo: estadoGeocerca ? (estadoActividad ? 'dentro-activo' : 'dentro-inactivo') : 'fuera',
+          duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+        });
       }
       estadoGeocerca = act.dentro_geocerca;
       horaIntervalo = act.fecha_hora;
+      if (act.dentro_geocerca) estadoActividad = true;
     }
 
     // Salida laboral
     if (i === ordenadas.length - 1 && act.tipo_registro === 0) {
-      if (horaIntervalo && act.fecha_hora !== horaIntervalo && estadoGeocerca !== null) {
-        pushIntervalo(horaIntervalo, act.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
+      if (horaIntervalo && act.fecha_hora !== horaIntervalo && estadoGeocerca !== null && inicioDescanso === null) {
+        intervalos.push({
+          inicio: new Date(horaIntervalo),
+          fin: new Date(act.fecha_hora),
+          dentro: estadoGeocerca === true,
+          fuera: estadoGeocerca === false,
+          descanso: false,
+          sospechoso: false,
+          activo: estadoActividad,
+          tipo: estadoGeocerca ? (estadoActividad ? 'dentro-activo' : 'dentro-inactivo') : 'fuera',
+          duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+        });
       }
     }
     i++;
   }
+  
+  return { eventos, intervalos };
+}
 
-  // Calcular totales en milisegundos
-  const totalDentroMs = intervalos.filter(i => i.dentro).reduce((acc, i) => acc + i.duracion, 0);
-  const totalFueraMs = intervalos.filter(i => i.fuera).reduce((acc, i) => acc + i.duracion, 0);
-  const totalDescansoMs = intervalos.filter(i => i.descanso).reduce((acc, i) => acc + i.duracion, 0);
-
+// Componente mejorado para información del empleado
+const EmployeeInfo = ({ empleado, actividades }) => {
+  if (!actividades || actividades.length === 0) return null;
+  
+  // Usar la misma lógica que TimelineComponent para consistencia
+  const { intervalos } = generarEventosYIntervalosDelResumenPDF(actividades);
+  
+  // Calcular totales por tipo (igual que en TimelineComponent)
+  let totalDentro = 0;
+  let totalFuera = 0;
+  let totalDescanso = 0;
+  
+  intervalos.forEach(intervalo => {
+    const duracion = intervalo.fin - intervalo.inicio;
+    if (intervalo.descanso || intervalo.tipo === 'descanso') {
+      totalDescanso += duracion;
+    } else if (intervalo.dentro || intervalo.tipo === 'dentro-activo' || intervalo.tipo === 'dentro-inactivo' || intervalo.tipo === 'dentro') {
+      totalDentro += duracion;
+    } else if (intervalo.fuera || intervalo.tipo === 'fuera') {
+      totalFuera += duracion;
+    }
+  });
+  
   const msToHM = (ms) => {
+    // Validar que ms sea un número válido
+    if (!ms || isNaN(ms) || ms < 0) return '0min';
+    
     const min = Math.floor(ms / 60000) % 60;
     const hrs = Math.floor(ms / 3600000);
     return `${hrs > 0 ? hrs + 'h ' : ''}${min}min`;
@@ -424,36 +581,137 @@ const EmployeeInfo = ({ empleado, actividades }) => {
         <Text style={{ fontSize: 10, color: '#198754' }}>{getHorario(empleado)}</Text>
         {/* Totales dentro/fuera/descanso */}
         <Text style={{ fontSize: 10, color: '#198754', marginLeft: 18 }}>
-          <Text style={{ fontWeight: 'bold', color: '#198754' }}>Total dentro:</Text> {msToHM(totalDentroMs)}   
-          <Text style={{ fontWeight: 'bold', color: '#dc3545', marginLeft: 8 }}>Fuera:</Text> {msToHM(totalFueraMs)}   
-          <Text style={{ fontWeight: 'bold', color: '#f59e0b', marginLeft: 8 }}>Descanso:</Text> {msToHM(totalDescansoMs)}
+          <Text style={{ fontWeight: 'bold', color: '#198754' }}>Total dentro:</Text> {msToHM(totalDentro)}   
+          <Text style={{ fontWeight: 'bold', color: '#dc3545', marginLeft: 8 }}>Fuera:</Text> {msToHM(totalFuera)}   
+          <Text style={{ fontWeight: 'bold', color: '#f59e0b', marginLeft: 8 }}>Descanso:</Text> {msToHM(totalDescanso)}
         </Text>
       </View>
     </View>
   );
 };
 
-// Función mejorada para generar resumen del día con mejor formato
+// Función mejorada para generar resumen del día con agrupación jerárquica
 function generarResumenDiaMejorado(actividades) {
   if (!actividades || actividades.length === 0) return [];
+  
   const eventos = [];
-  let estadoGeocerca = null;
-  let horaIntervalo = null;
-  let inicioDescanso = null;
-
+  const ordenadas = actividades.slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
+  
   const formatIntervalo = (inicio, fin) => {
-    const diffMs = new Date(fin) - new Date(inicio);
+    // Validar que las fechas sean válidas
+    const fechaInicio = new Date(inicio);
+    const fechaFin = new Date(fin);
+    
+    if (isNaN(fechaInicio.getTime()) || isNaN(fechaFin.getTime())) {
+      return '0min';
+    }
+    
+    const diffMs = fechaFin - fechaInicio;
+    
+    // Validar que la diferencia sea positiva
+    if (diffMs < 0) return '0min';
+    
     const min = Math.floor(diffMs / 60000) % 60;
     const hrs = Math.floor(diffMs / 3600000);
     return `${hrs > 0 ? hrs + 'h ' : ''}${min}min`;
   };
 
-  const ordenadas = actividades.slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
+  // Variables de estado
+  let estadoGeocerca = null;
+  let horaInicioGeocerca = null;
+  let inicioDescanso = null;
+  
+  // Para rastrear actividad dentro de cada período de geocerca
+  let actividadEnPeriodo = []; // Array de {inicio, fin, activo}
+  let estadoActividad = null;
+  let inicioEstadoActividad = null;
+
+  const cerrarPeriodoActividad = (horaFin) => {
+    if (inicioEstadoActividad && estadoActividad !== null) {
+      actividadEnPeriodo.push({
+        inicio: inicioEstadoActividad,
+        fin: horaFin,
+        activo: estadoActividad
+      });
+      inicioEstadoActividad = null;
+      estadoActividad = null;
+    }
+  };
+
+  const calcularTiemposActividad = () => {
+    let tiempoActivo = 0;
+    let tiempoInactivo = 0;
+    
+    actividadEnPeriodo.forEach(periodo => {
+      const fechaInicio = new Date(periodo.inicio);
+      const fechaFin = new Date(periodo.fin);
+      
+      // Validar fechas válidas
+      if (!isNaN(fechaInicio.getTime()) && !isNaN(fechaFin.getTime())) {
+        const duracionMs = fechaFin - fechaInicio;
+        
+        // Solo agregar si la duración es positiva
+        if (duracionMs > 0) {
+          if (periodo.activo) {
+            tiempoActivo += duracionMs;
+          } else {
+            tiempoInactivo += duracionMs;
+          }
+        }
+      }
+    });
+    
+    return { tiempoActivo, tiempoInactivo };
+  };
+
+  const cerrarPeriodoGeocerca = (horaFin, motivo = '') => {
+    if (horaInicioGeocerca && estadoGeocerca === true) {
+      cerrarPeriodoActividad(horaFin); // Cerrar cualquier actividad pendiente
+      
+      const duracionTotal = formatIntervalo(horaInicioGeocerca, horaFin);
+      const { tiempoActivo, tiempoInactivo } = calcularTiemposActividad();
+      
+      // Agregar el período principal de geocerca
+      eventos.push({
+        hora: `${formatHora(horaInicioGeocerca)} - ${formatHora(horaFin)}`,
+        descripcion: `Tiempo dentro de geocerca`,
+        tipo: 'tiempo_dentro',
+        duracion: `(${duracionTotal})`
+      });
+      
+      // Agregar desglose de actividad solo si hay registros de actividad
+      if (tiempoActivo > 0 || tiempoInactivo > 0) {
+        if (tiempoActivo > 0) {
+          const duracionActivo = formatIntervalo(new Date(0), new Date(tiempoActivo));
+          eventos.push({
+            hora: '',
+            descripcion: `    - Tiempo activo`,
+            tipo: 'desglose_activo',
+            duracion: `(${duracionActivo})`
+          });
+        }
+        if (tiempoInactivo > 0) {
+          const duracionInactivo = formatIntervalo(new Date(0), new Date(tiempoInactivo));
+          eventos.push({
+            hora: '',
+            descripcion: `    - Tiempo inactivo`,
+            tipo: 'desglose_inactivo',
+            duracion: `(${duracionInactivo})`
+          });
+        }
+      }
+      
+      // Limpiar para el siguiente período
+      actividadEnPeriodo = [];
+      horaInicioGeocerca = null;
+    }
+  };
 
   let i = 0;
   while (i < ordenadas.length) {
     const act = ordenadas[i];
     const hora = formatHora(act.fecha_hora);
+    
     // Entrada laboral
     if (i === 0 && act.tipo_registro === 1) {
       eventos.push({
@@ -463,7 +721,9 @@ function generarResumenDiaMejorado(actividades) {
         duracion: ''
       });
       estadoGeocerca = act.dentro_geocerca;
-      horaIntervalo = act.fecha_hora;
+      if (estadoGeocerca) {
+        horaInicioGeocerca = act.fecha_hora;
+      }
       i++;
       continue;
     }
@@ -473,16 +733,9 @@ function generarResumenDiaMejorado(actividades) {
       const prev = ordenadas[i - 1];
       const diffMs = new Date(act.fecha_hora) - new Date(prev.fecha_hora);
       if (diffMs > 2 * 60 * 60 * 1000) {
-        // Si hay un intervalo abierto (dentro/fuera de geocerca), cerrarlo justo antes del hueco
-        if (horaIntervalo && prev.fecha_hora !== horaIntervalo && estadoGeocerca !== null) {
-          const duracion = formatIntervalo(horaIntervalo, prev.fecha_hora);
-          eventos.push({
-            hora: `${formatHora(horaIntervalo)} - ${formatHora(prev.fecha_hora)}`,
-            descripcion: `Tiempo ${estadoGeocerca ? 'dentro' : 'fuera'} de geocerca`,
-            tipo: estadoGeocerca ? 'tiempo_dentro' : 'tiempo_fuera',
-            duracion: `(${duracion})`
-          });
-        }
+        // Cerrar período de geocerca si estaba abierto
+        cerrarPeriodoGeocerca(prev.fecha_hora);
+        
         // Agregar el hueco sospechoso
         eventos.push({
           hora: `${formatHora(prev.fecha_hora)} - ${formatHora(act.fecha_hora)}`,
@@ -490,8 +743,12 @@ function generarResumenDiaMejorado(actividades) {
           tipo: 'tiempo_sospechoso',
           duracion: `(${formatIntervalo(prev.fecha_hora, act.fecha_hora)})`
         });
-        // Reiniciar el intervalo a partir del registro actual
-        horaIntervalo = act.fecha_hora;
+        
+        // Reiniciar estado
+        estadoGeocerca = act.dentro_geocerca;
+        if (estadoGeocerca) {
+          horaInicioGeocerca = act.fecha_hora;
+        }
       }
     }
 
@@ -499,15 +756,8 @@ function generarResumenDiaMejorado(actividades) {
     if (typeof act.evento === 'number') {
       if (act.evento === 0) {
         // Salió de geocerca
-        if (estadoGeocerca === true && horaIntervalo && act.fecha_hora !== horaIntervalo) {
-          const duracion = formatIntervalo(horaIntervalo, act.fecha_hora);
-          eventos.push({
-            hora: `${formatHora(horaIntervalo)} - ${hora}`,
-            descripcion: `Tiempo dentro de geocerca`,
-            tipo: 'tiempo_dentro',
-            duracion: `(${duracion})`
-          });
-        }
+        cerrarPeriodoGeocerca(act.fecha_hora);
+        
         eventos.push({
           hora,
           descripcion: 'Salió de geocerca',
@@ -515,18 +765,8 @@ function generarResumenDiaMejorado(actividades) {
           duracion: ''
         });
         estadoGeocerca = false;
-        horaIntervalo = act.fecha_hora;
       } else if (act.evento === 1) {
         // Entró a la geocerca
-        if (estadoGeocerca === false && horaIntervalo && act.fecha_hora !== horaIntervalo) {
-          const duracion = formatIntervalo(horaIntervalo, act.fecha_hora);
-          eventos.push({
-            hora: `${formatHora(horaIntervalo)} - ${hora}`,
-            descripcion: `Tiempo fuera de geocerca`,
-            tipo: 'tiempo_fuera',
-            duracion: `(${duracion})`
-          });
-        }
         eventos.push({
           hora,
           descripcion: 'Entró a geocerca',
@@ -534,14 +774,16 @@ function generarResumenDiaMejorado(actividades) {
           duracion: ''
         });
         estadoGeocerca = true;
-        horaIntervalo = act.fecha_hora;
+        horaInicioGeocerca = act.fecha_hora;
       } else if (act.evento === 2) {
+        cerrarPeriodoActividad(act.fecha_hora); // Cerrar actividad antes del descanso
         eventos.push({
           hora,
           descripcion: 'Inicio de descanso',
           tipo: 'descanso_inicio',
           duracion: ''
         });
+        inicioDescanso = act.fecha_hora;
       } else if (act.evento === 3) {
         eventos.push({
           hora,
@@ -549,20 +791,30 @@ function generarResumenDiaMejorado(actividades) {
           tipo: 'descanso_fin',
           duracion: ''
         });
+        inicioDescanso = null;
+      } else if (act.evento === 4 || act.evento === 5) {
+        // Estados de actividad - solo rastrear si está dentro de geocerca
+        if (estadoGeocerca === true) {
+          const nuevoEstadoActividad = act.evento === 5; // 5 = activo, 4 = inactivo
+          
+          if (estadoActividad !== nuevoEstadoActividad) {
+            // Cambió el estado, cerrar el anterior
+            cerrarPeriodoActividad(act.fecha_hora);
+            
+            // Iniciar nuevo período de actividad
+            estadoActividad = nuevoEstadoActividad;
+            inicioEstadoActividad = act.fecha_hora;
+          }
+          // Si es el mismo estado, continúa el período actual
+        }
       }
     }
 
     // Salida laboral
     if (i === ordenadas.length - 1 && act.tipo_registro === 0) {
-      if (horaIntervalo && act.fecha_hora !== horaIntervalo && estadoGeocerca !== null) {
-        const duracion = formatIntervalo(horaIntervalo, act.fecha_hora);
-        eventos.push({
-          hora: `${formatHora(horaIntervalo)} - ${hora}`,
-          descripcion: `Tiempo ${estadoGeocerca ? 'dentro' : 'fuera'} de geocerca`,
-          tipo: estadoGeocerca ? 'tiempo_dentro' : 'tiempo_fuera',
-          duracion: `(${duracion})`
-        });
-      }
+      // Cerrar cualquier período de geocerca pendiente
+      cerrarPeriodoGeocerca(act.fecha_hora);
+      
       eventos.push({
         hora,
         descripcion: 'Marcó salida laboral',
@@ -572,6 +824,13 @@ function generarResumenDiaMejorado(actividades) {
     }
     i++;
   }
+  
+  // Cerrar cualquier período pendiente al final del día
+  if (horaInicioGeocerca && ordenadas.length > 0) {
+    const ultimaActividad = ordenadas[ordenadas.length - 1];
+    cerrarPeriodoGeocerca(ultimaActividad.fecha_hora);
+  }
+  
   return eventos;
 }
 
@@ -593,6 +852,10 @@ const DaySummary = ({ eventos }) => {
       case 'tiempo_dentro':
       case 'tiempo_fuera':
         return styles.eventGeofence;
+      case 'desglose_activo':
+        return { color: '#16a34a', fontSize: 8, fontWeight: 'bold' }; // Verde más intenso y bold para tiempo activo
+      case 'desglose_inactivo':
+        return { color: '#dc2626', fontSize: 8, fontWeight: 'bold' }; // Rojo para tiempo inactivo, más visible
       default:
         return {};
     }
@@ -740,10 +1003,9 @@ const ReportDocument = ({ empleado, startDate, endDate, eventsByDay }) => {
 
 export async function generarReporteEmpleadoPDF({ empleado, startDate, endDate, eventsByDay }) {
   try {
-    const MyDocument = () => (
+    const blob = await pdf(
       <ReportDocument empleado={empleado} startDate={startDate} endDate={endDate} eventsByDay={eventsByDay} />
-    );
-    const blob = await pdf(<MyDocument />).toBlob();
+    ).toBlob();
     const filename = `reporte_de_asistencia_${getEmpleadoNombre(empleado).replace(/ /g, '_')}_${format(parseISO(startDate), 'yyyy-MM-dd')}.pdf`;
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

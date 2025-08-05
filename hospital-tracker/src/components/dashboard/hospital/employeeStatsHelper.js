@@ -1,6 +1,17 @@
 // Funciones para calcular horas trabajadas, fuera, justificadas y total de salidas para un empleado
-// Inserta eventos de "actividad sospechosa" si hay huecos mayores a 10 minutos entre registros
-// No marca salida ni entrada, solo inserta un evento especial (evento: 99)
+// Maneja eventos de geocerca, descansos, inactividad/actividad y salidas/entradas laborales
+// Eventos soportados:
+// 0 - Salió de geocerca (acción puntual)
+// 1 - Entró a geocerca (acción puntual) 
+// 2 - En descanso (todos los registros durante el descanso tienen este evento)
+// 3 - Terminó descanso (marca el fin del período de descanso)
+// 4 - Inactividad (mientras trabaja)
+// 5 - Activo (mientras trabaja)
+// Tipo_registro:
+// 0 - Salida laboral (marcó salida del trabajo)
+// 1 - Entrada laboral (marcó entrada al trabajo)
+// Durante el descanso (evento=2) se ignoran geocerca y actividad/inactividad.
+// Durante salida laboral (tipo_registro=0) se detiene el cálculo hasta la próxima entrada.
 // Elimina insertarEventosSospechosos. Ahora el filtrado de huecos sospechosos se hace en el cálculo de horas.
 
 // Convierte milisegundos a horas con 2 decimales
@@ -32,34 +43,96 @@ export function calcularEstadisticasEmpleado(registros = [], minutosSospechoso =
     // Detectar hueco sospechoso
     const prev = ordenadas[i - 1];
     const diffMs = new Date(act.fecha_hora) - new Date(prev.fecha_hora);
-    if (diffMs > minutosSospechoso * 60 * 1000) {
+    
+    // Solo considerar sospechoso si NO hay un cambio de tipo_registro que justifique el gap
+    // Si el registro anterior fue salida (tipo_registro=0) o el actual es entrada después de salida,
+    // entonces el gap es legítimo y no sospechoso
+    const esSalidaLegitima = prev.tipo_registro === 0 || 
+                            (prev.tipo_registro === 0 && act.tipo_registro === 1);
+    
+    if (diffMs > minutosSospechoso * 60 * 1000 && !esSalidaLegitima) {
       // Saltar este intervalo, no sumar nada
       estadoGeocerca = act.dentro_geocerca;
       horaIntervalo = act.fecha_hora;
       continue;
     }
 
+    // Manejo de tipo_registro: 0=salida laboral, 1=entrada laboral
+    if (typeof act.tipo_registro === 'number') {
+      if (act.tipo_registro === 0) {
+        // Salida laboral - contabilizar tiempo hasta este punto si estaba trabajando
+        if (estadoGeocerca === true && horaIntervalo) {
+          totalDentro += (new Date(act.fecha_hora) - new Date(horaIntervalo));
+        } else if (estadoGeocerca === false && horaIntervalo) {
+          totalFuera += (new Date(act.fecha_hora) - new Date(horaIntervalo));
+        }
+        // Parar el cálculo hasta que marque entrada nuevamente
+        estadoGeocerca = null;
+        horaIntervalo = null;
+        continue;
+      } else if (act.tipo_registro === 1) {
+        // Entrada laboral - reiniciar el cálculo
+        estadoGeocerca = act.dentro_geocerca;
+        horaIntervalo = act.fecha_hora;
+        continue;
+      }
+    }
+
     if (typeof act.evento === 'number') {
-      // Manejo de descansos
+      // Manejo de descansos - PRIORIDAD MÁXIMA
       if (act.evento === 2) {
-        // Inicio de descanso
-        inicioDescanso = act.fecha_hora;
-      } else if (act.evento === 3 && inicioDescanso) {
-        // Fin de descanso
-        totalDescanso += (new Date(act.fecha_hora) - new Date(inicioDescanso));
-        inicioDescanso = null;
+        // Durante el descanso - contabilizar tiempo trabajado hasta este punto SOLO la primera vez
+        if (inicioDescanso === null) {
+          // Primera vez que se detecta descanso
+          if (estadoGeocerca === true && horaIntervalo) {
+            totalDentro += (new Date(act.fecha_hora) - new Date(horaIntervalo));
+          } else if (estadoGeocerca === false && horaIntervalo) {
+            totalFuera += (new Date(act.fecha_hora) - new Date(horaIntervalo));
+          }
+          inicioDescanso = act.fecha_hora;
+          horaIntervalo = null; // Parar el cálculo durante descanso
+        }
+        // Durante el descanso, ignorar todos los otros eventos (geocerca, actividad)
+        continue;
+      } else if (act.evento === 3) {
+        // Fin de descanso - contabilizar tiempo de descanso y reiniciar trabajo
+        if (inicioDescanso) {
+          totalDescanso += (new Date(act.fecha_hora) - new Date(inicioDescanso));
+          inicioDescanso = null;
+        }
+        // Reiniciar el cálculo de trabajo
+        estadoGeocerca = act.dentro_geocerca;
+        horaIntervalo = act.fecha_hora;
+        continue;
       }
 
-      // Manejo de geocerca
-      if (act.evento === 0 && estadoGeocerca === true && horaIntervalo) {
-        totalDentro += (new Date(act.fecha_hora) - new Date(horaIntervalo));
-        estadoGeocerca = false;
-        horaIntervalo = act.fecha_hora;
-        totalSalidas++;
-      } else if (act.evento === 1 && estadoGeocerca === false && horaIntervalo) {
-        totalFuera += (new Date(act.fecha_hora) - new Date(horaIntervalo));
-        estadoGeocerca = true;
-        horaIntervalo = act.fecha_hora;
+      // Si está en descanso, ignorar todos los otros eventos
+      if (inicioDescanso !== null) {
+        continue;
+      }
+
+      // Manejo de geocerca (solo si NO está en descanso Y está trabajando)
+      if (estadoGeocerca !== null) {
+        if (act.evento === 0 && estadoGeocerca === true && horaIntervalo) {
+          totalDentro += (new Date(act.fecha_hora) - new Date(horaIntervalo));
+          estadoGeocerca = false;
+          horaIntervalo = act.fecha_hora;
+          totalSalidas++;
+        } else if (act.evento === 1 && estadoGeocerca === false && horaIntervalo) {
+          totalFuera += (new Date(act.fecha_hora) - new Date(horaIntervalo));
+          estadoGeocerca = true;
+          horaIntervalo = act.fecha_hora;
+        }
+      }
+
+      // Manejo de eventos de actividad (4: Inactividad, 5: Activo)
+      // Solo se procesan si NO está en descanso Y está trabajando
+      if (act.evento === 4) {
+        // Empleado se puso inactivo - no afecta cálculo de horas
+        // Solo actualiza el estado de actividad
+      } else if (act.evento === 5) {
+        // Empleado se puso activo - no afecta cálculo de horas
+        // Solo actualiza el estado de actividad
       }
     }
 

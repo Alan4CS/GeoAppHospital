@@ -6,7 +6,7 @@ import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, 
 import { es } from "date-fns/locale"
 import { ResponsiveContainer, BarChart as RechartsBarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from "recharts"
 import { generarReporteEmpleadoPDF } from "./reportes/EmployeeReportPDF"
-import { calcularEstadisticasEmpleado } from "./employeeStatsHelper"
+import { calcularEstadisticasEmpleado, calcularEstadisticasEmpleadoPorDias } from "./employeeStatsHelper"
 import WebTimelineComponent from "./WebTimelineComponent"
 
 export default function EmpleadoDashboard({
@@ -171,8 +171,10 @@ export default function EmpleadoDashboard({
     if (registro.tipo_registro === 0) return 'Salida del trabajo'
     if (registro.evento === 0) return 'Salió de geocerca'
     if (registro.evento === 1) return 'Entró a geocerca'
-    if (registro.evento === 2) return 'Inicio de descanso'
+    if (registro.evento === 2) return 'En descanso'
     if (registro.evento === 3) return 'Fin de descanso'
+    if (registro.evento === 4) return 'Se puso inactivo'
+    if (registro.evento === 5) return 'Se puso activo'
     return 'Actividad registrada'
   }
 
@@ -232,10 +234,16 @@ export default function EmpleadoDashboard({
       }
 
       // Detectar hueco sospechoso entre este registro y el anterior (>2 horas)
+      // PERO solo si NO hay una salida laboral que justifique el gap
       if (i > 0) {
         const prev = ordenadas[i - 1];
         const diffMs = new Date(act.fecha_hora) - new Date(prev.fecha_hora);
-        if (diffMs > 2 * 60 * 60 * 1000) {
+        
+        // Verificar si el gap está justificado por salida laboral
+        const esSalidaLegitima = prev.tipo_registro === 0 || 
+                                (prev.tipo_registro === 0 && act.tipo_registro === 1);
+        
+        if (diffMs > 2 * 60 * 60 * 1000 && !esSalidaLegitima) {
           // Si hay un intervalo abierto (dentro/fuera de geocerca), cerrarlo justo antes del hueco
           if (horaIntervalo && prev.fecha_hora !== horaIntervalo && estadoGeocerca !== null) {
             const duracion = formatIntervalo(horaIntervalo, prev.fecha_hora);
@@ -246,7 +254,7 @@ export default function EmpleadoDashboard({
               duracion: `(${duracion})`
             });
           }
-          // Agregar el hueco sospechoso
+          // Agregar el hueco sospechoso SOLO si no está justificado por salida laboral
           eventos.push({
             hora: `${formatHora(prev.fecha_hora)} - ${formatHora(act.fecha_hora)}`,
             descripcion: 'Tiempo sospechoso (posible cierre de app)',
@@ -299,14 +307,18 @@ export default function EmpleadoDashboard({
           estadoGeocerca = true;
           horaIntervalo = act.fecha_hora;
         } else if (act.evento === 2) {
-          // Inicio de descanso
-          inicioDescanso = act.fecha_hora;
-          eventos.push({
-            hora,
-            descripcion: 'Inicio de descanso',
-            tipo: 'descanso_inicio',
-            duracion: ''
-          });
+          // Durante el descanso - solo mostrar inicio la primera vez
+          if (inicioDescanso === null) {
+            // Primera vez que se detecta descanso
+            inicioDescanso = act.fecha_hora;
+            eventos.push({
+              hora,
+              descripcion: 'Inicio de descanso',
+              tipo: 'descanso_inicio',
+              duracion: ''
+            });
+          }
+          // Ignorar los demás eventos=2 (sigue en descanso)
         } else if (act.evento === 3) {
           // Fin de descanso - AGREGAR EL INTERVALO
           if (inicioDescanso) {
@@ -328,8 +340,8 @@ export default function EmpleadoDashboard({
         }
       }
 
-      // Salida laboral
-      if (i === ordenadas.length - 1 && act.tipo_registro === 0) {
+      // Salida laboral - puede estar en cualquier posición, no solo al final
+      if (act.tipo_registro === 0) {
         if (horaIntervalo && act.fecha_hora !== horaIntervalo && estadoGeocerca !== null) {
           const duracion = formatIntervalo(horaIntervalo, act.fecha_hora);
           eventos.push({
@@ -345,7 +357,37 @@ export default function EmpleadoDashboard({
           tipo: 'salida',
           duracion: ''
         });
+        // Reiniciar estado después de salida laboral
+        estadoGeocerca = null;
+        horaIntervalo = null;
       }
+
+      // Entrada laboral (que no sea la primera del día)
+      // Solo mostrar si viene después de una salida laboral, no todas las entradas
+      if (i > 0 && act.tipo_registro === 1) {
+        // Verificar si la entrada anterior fue una salida laboral
+        let hayEntradaAnterior = false;
+        for (let j = i - 1; j >= 0; j--) {
+          if (ordenadas[j].tipo_registro === 0) {
+            // Hay una salida anterior, esta entrada es legítima para mostrar
+            eventos.push({
+              hora,
+              descripcion: 'Marcó entrada laboral',
+              tipo: 'entrada',
+              duracion: ''
+            });
+            break;
+          } else if (ordenadas[j].tipo_registro === 1) {
+            // Ya hay una entrada anterior, no mostrar esta
+            hayEntradaAnterior = true;
+            break;
+          }
+        }
+        // Reiniciar estado después de entrada laboral (siempre, se muestre o no)
+        estadoGeocerca = act.dentro_geocerca;
+        horaIntervalo = act.fecha_hora;
+      }
+
       i++;
     }
     return eventos;
@@ -407,142 +449,277 @@ export default function EmpleadoDashboard({
     );
   };
 
-  // Función para calcular estadísticas de un día específico (igual que WebTimelineComponent)
-  // Lógica unificada: descontar huecos sospechosos (>2h) igual que el resumen/timeline
-  const calcularEstadisticasDia = (actividades) => {
-    if (!actividades || actividades.length === 0) {
-      return { horasTrabajadas: 0, horasFuera: 0, horasDescanso: 0 };
-    }
+  // Función para generar intervalos consistente con TimelineComponent y PDF
+  const generarEventosYIntervalosDelResumen = (actividades) => {
+    if (!actividades || actividades.length === 0) return { eventos: [], intervalos: [] };
 
+    const eventos = [];
     const intervalos = [];
     let estadoGeocerca = null;
     let horaIntervalo = null;
     let inicioDescanso = null;
-    let horasDescanso = 0;
+    let estadoActividad = true; // true = activo, false = inactivo (solo cuando está dentro)
 
     const formatIntervalo = (inicio, fin) => {
       const diffMs = new Date(fin) - new Date(inicio);
-      return diffMs / (1000 * 60 * 60); // horas decimales
-    };
-
-    const pushIntervalo = (inicio, fin, tipo) => {
-      if (inicio && fin && inicio !== fin) {
-        intervalos.push({
-          inicio: new Date(inicio),
-          fin: new Date(fin),
-          dentro: tipo === 'dentro',
-          duracion: formatIntervalo(inicio, fin)
-        });
-      }
+      const min = Math.floor(diffMs / 60000) % 60;
+      const hrs = Math.floor(diffMs / 3600000);
+      return `${hrs > 0 ? hrs + 'h ' : ''}${min}min`;
     };
 
     const ordenadas = actividades.slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
-
     let i = 0;
     while (i < ordenadas.length) {
       const act = ordenadas[i];
+      
       // Entrada laboral
       if (i === 0 && act.tipo_registro === 1) {
         estadoGeocerca = act.dentro_geocerca;
         horaIntervalo = act.fecha_hora;
+        estadoActividad = true; // Asumir activo al entrar
         i++;
         continue;
       }
 
       // Detectar hueco sospechoso (>2h)
+      // PERO solo si NO hay una salida laboral que justifique el gap
       if (i > 0) {
         const prev = ordenadas[i - 1];
         const diffMs = new Date(act.fecha_hora) - new Date(prev.fecha_hora);
-        if (diffMs > 2 * 60 * 60 * 1000) {
-          // Cerrar intervalo antes del hueco
-          if (horaIntervalo && prev.fecha_hora !== horaIntervalo && estadoGeocerca !== null) {
-            pushIntervalo(horaIntervalo, prev.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
+        
+        // Verificar si el gap está justificado por salida laboral
+        const esSalidaLegitima = prev.tipo_registro === 0 || 
+                                (prev.tipo_registro === 0 && act.tipo_registro === 1);
+        
+        if (diffMs > 2 * 60 * 60 * 1000 && !esSalidaLegitima) {
+          // Cerrar intervalo anterior
+          if (horaIntervalo && horaIntervalo !== prev.fecha_hora && estadoGeocerca !== null) {
+            intervalos.push({
+              inicio: new Date(horaIntervalo),
+              fin: new Date(prev.fecha_hora),
+              dentro: estadoGeocerca === true,
+              fuera: estadoGeocerca === false,
+              descanso: false,
+              sospechoso: false,
+              activo: estadoActividad,
+              tipo: estadoGeocerca ? (estadoActividad ? 'dentro-activo' : 'dentro-inactivo') : 'fuera',
+              duracionTexto: formatIntervalo(horaIntervalo, prev.fecha_hora)
+            });
           }
-          // No sumar el hueco sospechoso
+          // Intervalo sospechoso SOLO si no está justificado por salida laboral
+          intervalos.push({
+            inicio: new Date(prev.fecha_hora),
+            fin: new Date(act.fecha_hora),
+            dentro: false,
+            fuera: false,
+            descanso: false,
+            sospechoso: true,
+            activo: true,
+            tipo: 'sospechoso',
+            duracionTexto: formatIntervalo(prev.fecha_hora, act.fecha_hora)
+          });
           horaIntervalo = act.fecha_hora;
         }
       }
 
-      // Manejar descansos
-      if (act.evento === 2) {
-        inicioDescanso = act.fecha_hora;
-      } else if (act.evento === 3 && inicioDescanso) {
-        horasDescanso += formatIntervalo(inicioDescanso, act.fecha_hora);
-        inicioDescanso = null;
-      }
-
-      // Eventos de geocerca
       if (typeof act.evento === 'number') {
+        // Manejo de descansos
+        if (act.evento === 2) {
+          // Durante el descanso - solo inicializar la primera vez
+          if (inicioDescanso === null) {
+            // Cerrar intervalo anterior antes del descanso
+            if (estadoGeocerca !== null && horaIntervalo) {
+              intervalos.push({
+                inicio: new Date(horaIntervalo),
+                fin: new Date(act.fecha_hora),
+                dentro: estadoGeocerca === true,
+                fuera: estadoGeocerca === false,
+                descanso: false,
+                sospechoso: false,
+                activo: estadoActividad,
+                tipo: estadoGeocerca ? (estadoActividad ? 'dentro-activo' : 'dentro-inactivo') : 'fuera',
+                duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+              });
+            }
+            inicioDescanso = act.fecha_hora;
+            horaIntervalo = null;
+          }
+          // Ignorar los demás eventos=2 (sigue en descanso)
+          i++;
+          continue;
+        } else if (act.evento === 3) {
+          // Fin de descanso
+          if (inicioDescanso) {
+            intervalos.push({
+              inicio: new Date(inicioDescanso),
+              fin: new Date(act.fecha_hora),
+              dentro: false,
+              fuera: false,
+              descanso: true,
+              sospechoso: false,
+              activo: true,
+              tipo: 'descanso',
+              duracionTexto: formatIntervalo(inicioDescanso, act.fecha_hora)
+            });
+            inicioDescanso = null;
+          }
+          estadoGeocerca = act.dentro_geocerca;
+          horaIntervalo = act.fecha_hora;
+          estadoActividad = true;
+          i++;
+          continue;
+        }
+
+        // Si está en descanso, ignorar otros eventos
+        if (inicioDescanso !== null) {
+          i++;
+          continue;
+        }
+
+        // Manejo de eventos de actividad
+        if (act.evento === 4 || act.evento === 5) {
+          const nuevoEstadoActividad = act.evento === 5;
+          
+          if (estadoGeocerca === true && nuevoEstadoActividad !== estadoActividad) {
+            if (horaIntervalo) {
+              intervalos.push({
+                inicio: new Date(horaIntervalo),
+                fin: new Date(act.fecha_hora),
+                dentro: true,
+                fuera: false,
+                descanso: false,
+                sospechoso: false,
+                activo: estadoActividad,
+                tipo: estadoActividad ? 'dentro-activo' : 'dentro-inactivo',
+                duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+              });
+            }
+            estadoActividad = nuevoEstadoActividad;
+            horaIntervalo = act.fecha_hora;
+          }
+          i++;
+          continue;
+        }
+
+        // Manejo de geocerca
         if (act.evento === 0) {
           // Salió de geocerca
-          if (estadoGeocerca === true && horaIntervalo && act.fecha_hora !== horaIntervalo) {
-            pushIntervalo(horaIntervalo, act.fecha_hora, 'dentro');
+          if (estadoGeocerca === true && horaIntervalo) {
+            intervalos.push({
+              inicio: new Date(horaIntervalo),
+              fin: new Date(act.fecha_hora),
+              dentro: true,
+              fuera: false,
+              descanso: false,
+              sospechoso: false,
+              activo: estadoActividad,
+              tipo: estadoActividad ? 'dentro-activo' : 'dentro-inactivo',
+              duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+            });
           }
           estadoGeocerca = false;
           horaIntervalo = act.fecha_hora;
+          estadoActividad = true;
         } else if (act.evento === 1) {
           // Entró a la geocerca
-          if (estadoGeocerca === false && horaIntervalo && act.fecha_hora !== horaIntervalo) {
-            pushIntervalo(horaIntervalo, act.fecha_hora, 'fuera');
+          if (estadoGeocerca === false && horaIntervalo) {
+            intervalos.push({
+              inicio: new Date(horaIntervalo),
+              fin: new Date(act.fecha_hora),
+              dentro: false,
+              fuera: true,
+              descanso: false,
+              sospechoso: false,
+              activo: true,
+              tipo: 'fuera',
+              duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+            });
           }
           estadoGeocerca = true;
           horaIntervalo = act.fecha_hora;
+          estadoActividad = true;
         }
       }
 
       // Si cambia el estado de geocerca sin evento explícito
-      if (i > 0 && act.dentro_geocerca !== undefined && act.dentro_geocerca !== estadoGeocerca) {
-        if (estadoGeocerca !== null && horaIntervalo && act.fecha_hora !== horaIntervalo) {
-          pushIntervalo(horaIntervalo, act.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
+      if (i > 0 && act.dentro_geocerca !== undefined && act.dentro_geocerca !== estadoGeocerca && inicioDescanso === null) {
+        if (estadoGeocerca !== null && horaIntervalo) {
+          intervalos.push({
+            inicio: new Date(horaIntervalo),
+            fin: new Date(act.fecha_hora),
+            dentro: estadoGeocerca === true,
+            fuera: estadoGeocerca === false,
+            descanso: false,
+            sospechoso: false,
+            activo: estadoActividad,
+            tipo: estadoGeocerca ? (estadoActividad ? 'dentro-activo' : 'dentro-inactivo') : 'fuera',
+            duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+          });
         }
         estadoGeocerca = act.dentro_geocerca;
         horaIntervalo = act.fecha_hora;
+        if (act.dentro_geocerca) estadoActividad = true;
       }
 
       // Salida laboral
       if (i === ordenadas.length - 1 && act.tipo_registro === 0) {
-        if (horaIntervalo && act.fecha_hora !== horaIntervalo && estadoGeocerca !== null) {
-          pushIntervalo(horaIntervalo, act.fecha_hora, estadoGeocerca ? 'dentro' : 'fuera');
+        if (horaIntervalo && act.fecha_hora !== horaIntervalo && estadoGeocerca !== null && inicioDescanso === null) {
+          intervalos.push({
+            inicio: new Date(horaIntervalo),
+            fin: new Date(act.fecha_hora),
+            dentro: estadoGeocerca === true,
+            fuera: estadoGeocerca === false,
+            descanso: false,
+            sospechoso: false,
+            activo: estadoActividad,
+            tipo: estadoGeocerca ? (estadoActividad ? 'dentro-activo' : 'dentro-inactivo') : 'fuera',
+            duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+          });
         }
       }
       i++;
     }
+    
+    return { eventos, intervalos };
+  };
 
-    // Sumar solo intervalos válidos (sin huecos sospechosos)
-    const horasTrabajadas = intervalos.filter(i => i.dentro).reduce((total, i) => total + i.duracion, 0);
-    const horasFuera = intervalos.filter(i => !i.dentro).reduce((total, i) => total + i.duracion, 0);
+  // Función para calcular estadísticas de un día específico usando lógica consistente con PDF y Timeline
+  const calcularEstadisticasDia = (actividades) => {
+    if (!actividades || actividades.length === 0) {
+      return { horasTrabajadas: 0, horasFuera: 0, horasDescanso: 0 };
+    }
 
+    // Usar la misma lógica que TimelineComponent y PDF
+    const { intervalos } = generarEventosYIntervalosDelResumen(actividades);
+    
+    // Calcular totales por tipo (igual que en TimelineComponent)
+    let totalDentro = 0;
+    let totalFuera = 0;
+    let totalDescanso = 0;
+    
+    intervalos.forEach(intervalo => {
+      const duracion = intervalo.fin - intervalo.inicio;
+      if (intervalo.descanso || intervalo.tipo === 'descanso') {
+        totalDescanso += duracion;
+      } else if (intervalo.dentro || intervalo.tipo === 'dentro-activo' || intervalo.tipo === 'dentro-inactivo' || intervalo.tipo === 'dentro') {
+        totalDentro += duracion;
+      } else if (intervalo.fuera || intervalo.tipo === 'fuera') {
+        totalFuera += duracion;
+      }
+    });
+
+    // Convertir milisegundos a horas decimales para mantener compatibilidad
     return {
-      horasTrabajadas: Math.round(horasTrabajadas * 100) / 100,
-      horasFuera: Math.round(horasFuera * 100) / 100,
-      horasDescanso: Math.round(horasDescanso * 100) / 100
+      horasTrabajadas: totalDentro / (1000 * 60 * 60), // ms a horas
+      horasFuera: totalFuera / (1000 * 60 * 60),
+      horasDescanso: totalDescanso / (1000 * 60 * 60)
     };
   };
 
-  // Nueva función: sumar estadísticas por empleado usando lógica diaria
-  function calcularEstadisticasEmpleadoPorDias(registros = []) {
-    // Agrupar registros por día local
-    const actividadesPorDia = {};
-    registros.forEach((registro) => {
-      const fecha = getLocalDateString(registro.fecha_hora);
-      if (!actividadesPorDia[fecha]) actividadesPorDia[fecha] = [];
-      actividadesPorDia[fecha].push(registro);
-    });
-    let totalTrabajadas = 0;
-    let totalFuera = 0;
-    let totalDescanso = 0;
-    Object.values(actividadesPorDia).forEach(acts => {
-      const stats = calcularEstadisticasDia(acts);
-      totalTrabajadas += stats.horasTrabajadas || 0;
-      totalFuera += stats.horasFuera || 0;
-      totalDescanso += stats.horasDescanso || 0;
-    });
-    return {
-      workedHours: totalTrabajadas,
-      outsideHours: totalFuera,
-      restHours: totalDescanso,
-    };
-  }
+  // Usar la función del helper actualizada para sumar estadísticas por empleado
+  const calcularEstadisticasEmpleadoLocal = (registros = []) => {
+    return calcularEstadisticasEmpleadoPorDias(registros, 120); // 120 minutos sospechoso
+  };
 
   // Resetear currentMonth cuando cambien las fechas - abrir en el mes de la fecha inicial
   useEffect(() => {
@@ -570,8 +747,8 @@ export default function EmpleadoDashboard({
   }, [selectedGrupo, empleados]);
 
   const employeeHoursData = empleadosFiltrados.map(emp => {
-    // Usar la nueva función para sumar correctamente por días
-    const stats = calcularEstadisticasEmpleadoPorDias(emp.registros || []);
+    // Usar la función actualizada del helper
+    const stats = calcularEstadisticasEmpleadoLocal(emp.registros || []);
     return {
       name: emp.name?.split(" ")[0] || emp.name,
       horasTrabajadas: stats.workedHours,
@@ -784,8 +961,8 @@ export default function EmpleadoDashboard({
                         </thead>
                         <tbody>
                           {empleadosFiltrados.map((emp, idx) => {
-                            // Calcular estadísticas correctas para cada empleado
-                            const stats = calcularEstadisticasEmpleadoPorDias(emp.registros || []);
+                            // Calcular estadísticas correctas usando helper actualizado
+                            const stats = calcularEstadisticasEmpleadoLocal(emp.registros || []);
                             return (
                               <tr key={emp.id} className={
                                 `transition-colors border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50`
