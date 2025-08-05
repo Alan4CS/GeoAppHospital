@@ -462,6 +462,32 @@ router.get("/superadmin-hospitals-by-municipio", async (req, res) => {
   }
 });
 
+
+// GET /api/superadmin/check-user-exists - Verificar si un usuario ya existe
+router.get("/check-user-exists", async (req, res) => {
+  const { username } = req.query;
+
+  try {
+    if (!username) {
+      return res.status(400).json({ error: "Username es requerido" });
+    }
+
+    // Verificar si el usuario ya existe en user_credentials
+    const result = await pool.query(
+      `SELECT COUNT(*) as count FROM user_credentials WHERE "user" = $1`,
+      [username]
+    );
+
+    const exists = parseInt(result.rows[0].count) > 0;
+
+    res.json({ exists });
+  } catch (error) {
+    console.error("❌ Error al verificar usuario:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
+
 // GET /api/superadmin/hospitales-by-municipio?id_municipio=123
 router.get("/hospitales-by-municipio", async (req, res) => {
   const { id_municipio } = req.query;
