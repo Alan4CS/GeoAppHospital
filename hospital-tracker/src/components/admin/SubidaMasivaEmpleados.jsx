@@ -17,7 +17,156 @@ export default function CsvUploader({ onCancelar }) {
   const [processedRows, setProcessedRows] = useState({ total: 0, current: 0 });
   const [processingErrors, setProcessingErrors] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isGeneratingCredentials, setIsGeneratingCredentials] = useState(false);
   const [notificacion, setNotificacion] = useState(null);
+
+  // Verificar si un usuario ya existe en la base de datos
+  const checkUserExists = async (username) => {
+    try {
+      const response = await fetch(
+        `https://geoapphospital-b0yr.onrender.com/api/superadmin/check-user-exists?username=${encodeURIComponent(username)}`
+      );
+      if (!response.ok) {
+        throw new Error("Error al verificar el usuario");
+      }
+      const data = await response.json();
+      return data.exists;
+    } catch (error) {
+      console.error("Error al verificar usuario:", error);
+      throw new Error("No se pudo verificar la disponibilidad del usuario");
+    }
+  };
+
+  // Generar credenciales de usuario únicas (mejorada para importación masiva)
+  const generateUniqueCredentials = async (nombres, apPaterno, apMaterno, existingUsers = new Set()) => {
+    let user;
+    let attempts = 0;
+    const maxAttempts = 25; // Aumentado para importación masiva
+
+    // Limpiar y preparar datos
+    const nombresClean = nombres.trim().toLowerCase().replace(/\s+/g, "");
+    const apPaternoClean = apPaterno.trim().toLowerCase().replace(/\s+/g, "");
+    const apMaternoClean = apMaterno.trim().toLowerCase().replace(/\s+/g, "");
+
+    // Diferentes estrategias para generar nombres de usuario
+    const generateUserStrategies = [
+      // Estrategia 1: Primera letra nombre + apellido paterno
+      () => nombresClean.charAt(0) + apPaternoClean,
+      
+      // Estrategia 2: Primeras 2 letras nombre + apellido paterno
+      () => nombresClean.substring(0, 2) + apPaternoClean,
+      
+      // Estrategia 3: Primera letra nombre + primeras 4 letras apellido paterno
+      () => nombresClean.charAt(0) + apPaternoClean.substring(0, 4),
+      
+      // Estrategia 4: Primeras 3 letras nombre + primera letra apellido paterno
+      () => nombresClean.substring(0, 3) + apPaternoClean.charAt(0),
+      
+      // Estrategia 5: Primera letra nombre + apellido paterno + primera letra apellido materno
+      () => nombresClean.charAt(0) + apPaternoClean + apMaternoClean.charAt(0),
+      
+      // Estrategia 6: Primeras 3 letras nombre + primeras 3 letras apellido paterno
+      () => nombresClean.substring(0, 3) + apPaternoClean.substring(0, 3),
+      
+      // Estrategia 7: Apellido paterno + primera letra nombre
+      () => apPaternoClean + nombresClean.charAt(0),
+      
+      // Estrategia 8: Primeras 4 letras apellido paterno + primeras 2 letras nombre
+      () => apPaternoClean.substring(0, 4) + nombresClean.substring(0, 2),
+      
+      // Estrategia 9: Iniciales + parte del apellido
+      () => nombresClean.charAt(0) + apPaternoClean.charAt(0) + apMaternoClean.charAt(0) + apPaternoClean.substring(1, 4),
+      
+      // Estrategia 10: Nombre completo (si es corto)
+      () => nombresClean.length <= 8 ? nombresClean : nombresClean.substring(0, 8),
+      
+      // Estrategia 11: Apellido completo (si es corto)
+      () => apPaternoClean.length <= 8 ? apPaternoClean : apPaternoClean.substring(0, 8),
+      
+      // Estrategia 12: Combinación con apellido materno
+      () => nombresClean.charAt(0) + apPaternoClean.substring(0, 3) + apMaternoClean.substring(0, 2),
+    ];
+
+    // Intentar generar un usuario único
+    do {
+      if (attempts < generateUserStrategies.length) {
+        // Usar estrategias sin números primero
+        user = generateUserStrategies[attempts]();
+      } else {
+        // Después usar estrategias con números
+        const strategyIndex = attempts % generateUserStrategies.length;
+        const baseUser = generateUserStrategies[strategyIndex]();
+        
+        if (attempts < 20) {
+          // Agregar números secuenciales
+          const numberSuffix = attempts - generateUserStrategies.length + 1;
+          user = baseUser + numberSuffix;
+        } else {
+          // Agregar números aleatorios de 2-4 dígitos
+          const randomNumber = Math.floor(Math.random() * 9999) + 1;
+          user = baseUser + randomNumber;
+        }
+      }
+      
+      // Asegurar que el usuario no sea muy corto ni muy largo
+      if (user.length < 3) {
+        user = user + Math.floor(Math.random() * 99) + 1;
+      }
+      if (user.length > 15) {
+        user = user.substring(0, 15);
+      }
+      
+      console.log(`🔄 [${nombres}] Intento ${attempts + 1}: Probando usuario "${user}"`);
+      
+      // Verificar que no esté en el conjunto local de usuarios ya generados
+      if (existingUsers.has(user)) {
+        console.log(`❌ [${nombres}] Usuario ya generado en este lote: "${user}"`);
+        attempts++;
+        continue;
+      }
+      
+      // Verificar en la base de datos
+      const exists = await checkUserExists(user);
+      if (!exists) {
+        console.log(`✅ [${nombres}] Usuario disponible: "${user}"`);
+        existingUsers.add(user); // Agregarlo al conjunto local
+        break;
+      } else {
+        console.log(`❌ [${nombres}] Usuario ya existe en BD: "${user}"`);
+      }
+      
+      attempts++;
+    } while (attempts < maxAttempts);
+
+    if (attempts >= maxAttempts) {
+      throw new Error(`No se pudo generar un nombre de usuario único para ${nombres} ${apPaterno} después de ${maxAttempts} intentos. Intenta con un nombre diferente.`);
+    }
+
+    // Generar contraseña más robusta
+    const upperCase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const lowerCase = "abcdefghijklmnopqrstuvwxyz";
+    const numbers = "0123456789";
+    const symbols = "!@#$%&*";
+    
+    // Asegurar que la contraseña tenga al menos un carácter de cada tipo
+    let pass = "";
+    pass += upperCase.charAt(Math.floor(Math.random() * upperCase.length));
+    pass += lowerCase.charAt(Math.floor(Math.random() * lowerCase.length));
+    pass += numbers.charAt(Math.floor(Math.random() * numbers.length));
+    pass += symbols.charAt(Math.floor(Math.random() * symbols.length));
+    
+    // Completar los 6 caracteres restantes
+    const allChars = upperCase + lowerCase + numbers + symbols;
+    for (let i = 4; i < 10; i++) {
+      pass += allChars.charAt(Math.floor(Math.random() * allChars.length));
+    }
+    
+    // Mezclar la contraseña
+    pass = pass.split('').sort(() => Math.random() - 0.5).join('');
+
+    console.log(`🎉 [${nombres}] Credenciales generadas - Usuario: "${user}", Contraseña: "${pass}"`);
+    return { user, pass };
+  };
 
   // Validación de campos del CSV
   const validateCsvRow = (row) => {
@@ -178,12 +327,14 @@ export default function CsvUploader({ onCancelar }) {
   const processEmployees = async () => {
     if (csvData.length <= 1) return;
     setIsProcessing(true);
+    setIsGeneratingCredentials(true);
     setProcessingErrors([]);
     setProcessedRows({ total: csvData.length - 1, current: 0 });
 
     const errors = [];
     const data = csvData.slice(1); // Skip headers
     const validatedData = [];
+    const existingUsers = new Set(); // Para evitar duplicados en el mismo lote
 
     // Validar encabezados esperados para plantilla con nombres
     const headers = csvData[0].map((h) => h.trim().toUpperCase());
@@ -207,13 +358,17 @@ export default function CsvUploader({ onCancelar }) {
         "El archivo no tiene los encabezados correctos. Descargue la plantilla para ver el formato requerido."
       ]);
       setIsProcessing(false);
+      setIsGeneratingCredentials(false);
       return;
     }
 
-    // Primera fase: Validación de todos los registros
+    console.log("🚀 Iniciando generación de credenciales para", data.length, "empleados...");
+
+    // Primera fase: Validación y generación de credenciales únicas
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       setProcessedRows((prev) => ({ ...prev, current: i + 1 }));
+      
       // Validar campos obligatorios
       const [estado, municipio, hospital, grupo, nombre, ap_paterno, ap_materno, curp, telefono, correo] = row.map((cell) => cell?.trim?.() || "");
       const rowErrors = [];
@@ -230,45 +385,62 @@ export default function CsvUploader({ onCancelar }) {
       else if (!/^\d{10}$/.test(telefono)) rowErrors.push("Teléfono debe tener 10 dígitos");
       if (!correo) rowErrors.push("Correo electrónico es requerido");
       else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(correo)) rowErrors.push("Correo electrónico inválido");
+      
       if (rowErrors.length > 0) {
         errors.push(`Fila ${i + 2}: ${rowErrors.join(", ")}`);
         continue;
       }
-      // Generar usuario y contraseña
-      const user = nombre.charAt(0).toLowerCase() + ap_paterno.toLowerCase().replace(/\s+/g, "");
-      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-      let pass = "";
-      for (let j = 0; j < 10; j++) pass += chars.charAt(Math.floor(Math.random() * chars.length));      console.log("Procesando fila:", {
-        estado, municipio, hospital, grupo,
-        nombre, ap_paterno, ap_materno, curp,
-        telefono, correo
-      });
-      
-      validatedData.push({
-        estado,
-        municipio,
-        hospital,
-        grupo,
-        nombre,
-        ap_paterno,
-        ap_materno,
-        CURP: curp.toUpperCase(),
-        correo_electronico: correo,
-        telefono,
-        user,
-        pass,
-        role_name: "empleado"
-      });
+
+      try {
+        console.log(`🔐 Generando credenciales para: ${nombre} ${ap_paterno}`);
+        
+        // Generar credenciales únicas usando la nueva función
+        const { user, pass } = await generateUniqueCredentials(nombre, ap_paterno, ap_materno, existingUsers);
+        
+        console.log("Procesando fila:", {
+          estado, municipio, hospital, grupo,
+          nombre, ap_paterno, ap_materno, curp,
+          telefono, correo, user
+        });
+        
+        validatedData.push({
+          estado,
+          municipio,
+          hospital,
+          grupo,
+          nombre,
+          ap_paterno,
+          ap_materno,
+          CURP: curp.toUpperCase(),
+          correo_electronico: correo,
+          telefono,
+          user,
+          pass,
+          role_name: "empleado"
+        });
+        
+      } catch (credentialError) {
+        console.error(`❌ Error generando credenciales para ${nombre} ${ap_paterno}:`, credentialError);
+        errors.push(`Fila ${i + 2} - ${nombre} ${ap_paterno}: ${credentialError.message}`);
+      }
     }
+
+    setIsGeneratingCredentials(false);
+
     if (errors.length > 0) {
       setProcessingErrors(errors);
       setIsProcessing(false);
       return;
     }
+
+    console.log("✅ Credenciales generadas exitosamente para", validatedData.length, "empleados");
+    console.log("🚀 Iniciando creación de empleados en el backend...");
+
     // Segunda fase: Crear empleados usando endpoint con nombres
     for (let i = 0; i < validatedData.length; i++) {
       const empleadoData = validatedData[i];
       setProcessedRows((prev) => ({ ...prev, current: i + 1 }));
+      
       try {
         console.log(`📤 Enviando datos para ${empleadoData.nombre}:`, {
           estado: empleadoData.estado,
@@ -277,6 +449,7 @@ export default function CsvUploader({ onCancelar }) {
           grupo: empleadoData.grupo,
           nombre: empleadoData.nombre,
           CURP: empleadoData.CURP,
+          user: empleadoData.user,
           role_name: empleadoData.role_name
         });
 
@@ -288,7 +461,7 @@ export default function CsvUploader({ onCancelar }) {
             body: JSON.stringify(empleadoData)
           }
         );
-
+        
         const responseData = await response.json();
         
         if (!response.ok) {
@@ -311,6 +484,7 @@ export default function CsvUploader({ onCancelar }) {
         errors.push(`Fila ${i + 2} - ${empleadoData.nombre} ${empleadoData.ap_paterno}: ${error.message}`);
       }
     }
+
     setIsProcessing(false);
     if (errors.length > 0) {
       setProcessingErrors(errors);
@@ -321,13 +495,11 @@ export default function CsvUploader({ onCancelar }) {
       setNotificacion({
         tipo: "exito",
         titulo: "¡Proceso completado!",
-        mensaje: "Todos los empleados fueron procesados exitosamente. Puedes cargar más empleados o cerrar el formulario.",
+        mensaje: `Todos los ${validatedData.length} empleados fueron procesados exitosamente con usuarios únicos. Puedes cargar más empleados o cerrar el formulario.`,
         duracion: 8000
       });
     }
-  };
-
-  // Descargar glosario de hospitales en Excel
+  };  // Descargar glosario de hospitales en Excel
   const descargarGlosarioHospitales = async () => {
     try {
       const res = await fetch("https://geoapphospital-b0yr.onrender.com/api/groups/get-groups");
@@ -661,12 +833,21 @@ export default function CsvUploader({ onCancelar }) {
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-blue-800">
-                    Procesando empleados...
+                    {isGeneratingCredentials 
+                      ? "🔐 Generando usuarios únicos..." 
+                      : "👥 Creando empleados en el sistema..."}
                   </span>
                   <span className="text-sm text-blue-600">
                     {processedRows.current} de {processedRows.total}
                   </span>
                 </div>
+                
+                {isGeneratingCredentials && (
+                  <div className="text-xs text-blue-700 mb-2">
+                    Verificando que cada usuario sea único en la base de datos...
+                  </div>
+                )}
+                
                 <div className="w-full bg-blue-200 rounded-full h-2">
                   <div
                     className="bg-blue-600 h-2 rounded-full transition-all duration-300"
@@ -677,6 +858,12 @@ export default function CsvUploader({ onCancelar }) {
                     }}
                   />
                 </div>
+                
+                <div className="text-xs text-blue-600 mt-2">
+                  {isGeneratingCredentials 
+                    ? "Este proceso puede tomar unos minutos para asegurar usuarios únicos..." 
+                    : "Enviando datos al servidor y configurando credenciales..."}
+                </div>
               </div>
             )}
 
@@ -685,7 +872,8 @@ export default function CsvUploader({ onCancelar }) {
               <button
                 type="button"
                 onClick={onCancelar}
-                className="flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                disabled={isProcessing}
+                className="flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <X className="h-4 w-4 mr-2" />
                 Cancelar
@@ -697,7 +885,19 @@ export default function CsvUploader({ onCancelar }) {
                   className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm text-sm font-medium hover:bg-blue-700"
                 >
                   <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Procesar {csvData.length - 1} Empleados
+                  Procesar {csvData.length - 1} Empleados con Usuarios Únicos
+                </button>
+              )}
+              {isProcessing && (
+                <button
+                  type="button"
+                  disabled
+                  className="flex items-center px-4 py-2 bg-blue-400 text-white rounded-md shadow-sm text-sm font-medium cursor-not-allowed"
+                >
+                  <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  {isGeneratingCredentials 
+                    ? "Generando usuarios únicos..." 
+                    : "Creando empleados..."}
                 </button>
               )}
             </div>

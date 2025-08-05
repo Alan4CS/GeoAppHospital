@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ClipboardCheck, Key, Save, User, X, Building2, MapPin, Hospital,
+import { ClipboardCheck, Key, Save, User, X, Building2, MapPin, Hospital, Copy, Eye, EyeOff
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
@@ -28,6 +28,8 @@ export default function AdminForm({
   const [hospitalesFiltrados, setHospitalesFiltrados] = useState([]);
   const [grupos, setGrupos] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [generatedCredentials, setGeneratedCredentials] = useState(null);
   const { userId } = useAuth();
 
   // 🔽 justo aquí puedes agregar los nuevos useEffect
@@ -184,6 +186,233 @@ export default function AdminForm({
       setGrupos([]);
     }
   }, [adminForm.hospital]);
+
+  // Función para verificar si un usuario ya existe
+  const checkUserExists = async (username) => {
+    try {
+      const response = await fetch(
+        `https://geoapphospital-b0yr.onrender.com/api/superadmin/check-user-exists?username=${encodeURIComponent(username)}`,
+        {
+          method: 'GET',
+          credentials: 'include'
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error('Error al verificar usuario');
+      }
+      
+      const data = await response.json();
+      return data.exists;
+    } catch (error) {
+      console.error('Error al verificar usuario:', error);
+      return false; // En caso de error, asumimos que no existe para no bloquear
+    }
+  };
+
+  // Función para generar credenciales únicas
+  const generateCredentials = async (nombres, apPaterno, apMaterno) => {
+    const strategies = [
+      // 1. Estrategia original: primera letra + apellido paterno
+      () => nombres.trim().charAt(0).toLowerCase() + apPaterno.trim().toLowerCase().replace(/\s+/g, ""),
+      
+      // 2. Primera letra nombre + primera letra apellido paterno + apellido materno
+      () => nombres.trim().charAt(0).toLowerCase() + 
+            apPaterno.trim().charAt(0).toLowerCase() + 
+            apMaterno.trim().toLowerCase().replace(/\s+/g, ""),
+      
+      // 3. Dos primeras letras del nombre + apellido paterno
+      () => nombres.trim().substring(0, 2).toLowerCase() + 
+            apPaterno.trim().toLowerCase().replace(/\s+/g, ""),
+      
+      // 4. Nombre completo + primera letra apellido paterno
+      () => nombres.trim().toLowerCase().replace(/\s+/g, "") + 
+            apPaterno.trim().charAt(0).toLowerCase(),
+      
+      // 5. Primera letra nombre + apellido paterno + número aleatorio
+      () => nombres.trim().charAt(0).toLowerCase() + 
+            apPaterno.trim().toLowerCase().replace(/\s+/g, "") + 
+            Math.floor(Math.random() * 100),
+      
+      // 6. Iniciales + número aleatorio de 3 dígitos
+      () => nombres.trim().charAt(0).toLowerCase() + 
+            apPaterno.trim().charAt(0).toLowerCase() + 
+            apMaterno.trim().charAt(0).toLowerCase() + 
+            Math.floor(Math.random() * 1000),
+      
+      // 7. Apellido paterno + primera letra del nombre + número
+      () => apPaterno.trim().toLowerCase().replace(/\s+/g, "") + 
+            nombres.trim().charAt(0).toLowerCase() + 
+            Math.floor(Math.random() * 1000),
+      
+      // 8. Primeras 3 letras nombre + primeras 3 letras apellido
+      () => nombres.trim().substring(0, 3).toLowerCase() + 
+            apPaterno.trim().substring(0, 3).toLowerCase(),
+      
+      // 9. Usuario tipo admin + timestamp
+      () => "admin" + Date.now().toString().slice(-6),
+      
+      // 10. Combinación con guión bajo
+      () => nombres.trim().charAt(0).toLowerCase() + "_" + 
+            apPaterno.trim().toLowerCase().replace(/\s+/g, "") + 
+            Math.floor(Math.random() * 100)
+    ];
+
+    for (const strategy of strategies) {
+      const username = strategy();
+      const exists = await checkUserExists(username);
+      
+      if (!exists) {
+        // Generar contraseña robusta
+        const password = generateSecurePassword();
+        return { username, password };
+      }
+    }
+
+    // Si todas las estrategias fallan, generar un usuario único con timestamp
+    const fallbackUsername = "admin_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+    const password = generateSecurePassword();
+    return { username: fallbackUsername, password };
+  };
+
+  // Función para generar contraseña segura
+  const generateSecurePassword = () => {
+    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const numbers = '0123456789';
+    const symbols = '!@#$%&*';
+    
+    // Asegurar al menos un carácter de cada tipo
+    let password = '';
+    password += lowercase[Math.floor(Math.random() * lowercase.length)];
+    password += uppercase[Math.floor(Math.random() * uppercase.length)];
+    password += numbers[Math.floor(Math.random() * numbers.length)];
+    password += symbols[Math.floor(Math.random() * symbols.length)];
+    
+    // Completar hasta 12 caracteres con caracteres aleatorios
+    const allChars = lowercase + uppercase + numbers + symbols;
+    for (let i = 4; i < 12; i++) {
+      password += allChars[Math.floor(Math.random() * allChars.length)];
+    }
+    
+    // Mezclar la contraseña
+    return password.split('').sort(() => Math.random() - 0.5).join('');
+  };
+
+  // Componente Modal de Credenciales
+  const CredentialsModal = ({ credentials, onClose }) => {
+    const [showPassword, setShowPassword] = useState(false);
+    const [copiedField, setCopiedField] = useState(null);
+
+    const copyToClipboard = async (text, field) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopiedField(field);
+        setTimeout(() => setCopiedField(null), 2000);
+      } catch (err) {
+        console.error('Error al copiar al portapapeles:', err);
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Credenciales del Administrador
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          
+          <div className="space-y-4">
+            {/* Usuario */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Usuario
+              </label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={credentials.username}
+                  readOnly
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
+                />
+                <button
+                  onClick={() => copyToClipboard(credentials.username, 'username')}
+                  className="p-2 text-blue-600 hover:text-blue-800"
+                  title="Copiar usuario"
+                >
+                  <Copy className="h-4 w-4" />
+                </button>
+              </div>
+              {copiedField === 'username' && (
+                <p className="text-xs text-green-600 mt-1">¡Usuario copiado!</p>
+              )}
+            </div>
+
+            {/* Contraseña */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Contraseña
+              </label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={credentials.password}
+                  readOnly
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
+                />
+                <button
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="p-2 text-gray-600 hover:text-gray-800"
+                  title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+                <button
+                  onClick={() => copyToClipboard(credentials.password, 'password')}
+                  className="p-2 text-blue-600 hover:text-blue-800"
+                  title="Copiar contraseña"
+                >
+                  <Copy className="h-4 w-4" />
+                </button>
+              </div>
+              {copiedField === 'password' && (
+                <p className="text-xs text-green-600 mt-1">¡Contraseña copiada!</p>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-md p-3">
+            <p className="text-sm text-yellow-800">
+              <strong>Importante:</strong> Guarda estas credenciales en un lugar seguro. 
+              Esta información no se mostrará nuevamente.
+            </p>
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Función para cerrar el modal de credenciales
+  const handleCloseCredentialsModal = () => {
+    setShowCredentialsModal(false);
+    setGeneratedCredentials(null);
+  };
 
   const validateField = (name, value) => {
     let error = "";
@@ -384,36 +613,27 @@ export default function AdminForm({
       return;
     }
 
-    const user =
-      adminForm.nombres.trim().charAt(0).toLowerCase() +
-      adminForm.ap_paterno.trim().toLowerCase().replace(/\s+/g, "");
-
-    const generarPassword = () => {
-      const chars =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-      let password = "";
-      for (let i = 0; i < 10; i++) {
-        password += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      return password;
-    };
-
-    const pass = generarPassword();
-
-    // Preparar los datos básicos del administrador
-    const adminData = {
-      nombre: adminForm.nombres,
-      ap_paterno: adminForm.ap_paterno,
-      ap_materno: adminForm.ap_materno,
-      CURP: adminForm.CURP,
-      telefono: adminForm.telefono,
-      user,
-      pass,
-      role_name: adminForm.tipoAdmin,
-      grupos: adminForm.grupos,
-    };
-
     try {
+      // Generar credenciales únicas
+      const credentials = await generateCredentials(
+        adminForm.nombres,
+        adminForm.ap_paterno,
+        adminForm.ap_materno
+      );
+
+      // Preparar los datos básicos del administrador
+      const adminData = {
+        nombre: adminForm.nombres,
+        ap_paterno: adminForm.ap_paterno,
+        ap_materno: adminForm.ap_materno,
+        CURP: adminForm.CURP,
+        telefono: adminForm.telefono,
+        user: credentials.username,
+        pass: credentials.password,
+        role_name: adminForm.tipoAdmin,
+        grupos: adminForm.grupos,
+      };
+
       // Si es superadmin, incluir el id_user_creador
       if (adminForm.tipoAdmin === "superadmin") {
         adminData.id_user_creador = typeof userId === 'string' ? parseInt(userId, 10) : userId;
@@ -458,6 +678,10 @@ export default function AdminForm({
       // Llamar a onGuardar con los datos formateados correctamente
       if (onGuardar) {
         await onGuardar(adminData);
+        
+        // Mostrar modal con credenciales generadas
+        setGeneratedCredentials(credentials);
+        setShowCredentialsModal(true);
       }
     } catch (error) {
       console.error("Error al crear administrador:", error);
@@ -482,7 +706,16 @@ export default function AdminForm({
     }
   };
   return (
-    <div className="bg-white rounded-xl shadow-md overflow-hidden">
+    <>
+      {/* Modal de credenciales */}
+      {showCredentialsModal && (
+        <CredentialsModal 
+          credentials={generatedCredentials}
+          onClose={handleCloseCredentialsModal}
+        />
+      )}
+      
+      <div className="bg-white rounded-xl shadow-md overflow-hidden">
       <div className="p-6 border-b border-gray-200">
         <h2 className="text-xl font-semibold text-gray-800 flex items-center">
           <User className="h-5 w-5 mr-2 text-blue-600" />
@@ -737,16 +970,16 @@ export default function AdminForm({
             Información de acceso
           </h3>
           <p className="text-sm text-gray-600 mb-2">
-            Se generará automáticamente un nombre de usuario y contraseña para
+            Se generará automáticamente un nombre de usuario único y una contraseña segura para
             el administrador.
           </p>
           <ul className="text-xs text-gray-500 space-y-1">
             <li>
-              • Usuario: Primera letra del nombre + apellido paterno (sin
-              espacios)
+              • Usuario: Se verificará unicidad en la base de datos usando múltiples estrategias
             </li>
-            <li>• Contraseña: Generada aleatoriamente (10 caracteres)</li>
+            <li>• Contraseña: Generada aleatoriamente (12 caracteres con mayúsculas, minúsculas, números y símbolos)</li>
             <li>• Rol: {getTipoAdminLabel()}</li>
+            <li>• Se mostrará un modal para copiar las credenciales generadas</li>
           </ul>
         </div>
 
@@ -775,5 +1008,6 @@ export default function AdminForm({
         </div>
       </form>
     </div>
+    </>
   );
 }

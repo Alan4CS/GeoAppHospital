@@ -13,6 +13,9 @@ import {
   Mail,
   CheckCircle2,
   AlertCircle,
+  Copy,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import sendCredentialsEmail from '../../helpers/emailHelper';
 import { useAuth } from "../../context/AuthContext";
@@ -37,9 +40,12 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
   const [touched, setTouched] = useState({});
   const [grupos, setGrupos] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGeneratingCredentials, setIsGeneratingCredentials] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [notificacion, setNotificacion] = useState(null);
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [generatedCredentials, setGeneratedCredentials] = useState(null);
   const { currentLocation, locationVersion, updateLocation } = useLocation();
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const { userId } = useAuth();
@@ -211,18 +217,136 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
     setErrors((prev) => ({ ...prev, [name]: error }));
   };
 
-  // Generar credenciales de usuario
-  const generateCredentials = () => {
-    const user =
-      form.nombres.trim().charAt(0).toLowerCase() +
-      form.ap_paterno.trim().toLowerCase().replace(/\s+/g, "");
+  // Verificar si un usuario ya existe en la base de datos
+  const checkUserExists = async (username) => {
+    try {
+      const response = await fetch(
+        `https://geoapphospital-b0yr.onrender.com/api/superadmin/check-user-exists?username=${encodeURIComponent(username)}`
+      );
+      if (!response.ok) {
+        throw new Error("Error al verificar el usuario");
+      }
+      const data = await response.json();
+      return data.exists;
+    } catch (error) {
+      console.error("Error al verificar usuario:", error);
+      throw new Error("No se pudo verificar la disponibilidad del usuario");
+    }
+  };
 
-    const chars =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    const pass = Array.from({ length: 10 }, () =>
-      chars.charAt(Math.floor(Math.random() * chars.length))
-    ).join("");
+  // Generar credenciales de usuario únicas
+  const generateCredentials = async () => {
+    let user;
+    let attempts = 0;
+    const maxAttempts = 20;
 
+    // Limpiar y preparar datos
+    const nombres = form.nombres.trim().toLowerCase().replace(/\s+/g, "");
+    const apPaterno = form.ap_paterno.trim().toLowerCase().replace(/\s+/g, "");
+    const apMaterno = form.ap_materno.trim().toLowerCase().replace(/\s+/g, "");
+
+    // Diferentes estrategias para generar nombres de usuario
+    const generateUserStrategies = [
+      // Estrategia 1: Primera letra nombre + apellido paterno
+      () => nombres.charAt(0) + apPaterno,
+      
+      // Estrategia 2: Primeras 2 letras nombre + apellido paterno
+      () => nombres.substring(0, 2) + apPaterno,
+      
+      // Estrategia 3: Primera letra nombre + primeras 3 letras apellido paterno
+      () => nombres.charAt(0) + apPaterno.substring(0, 3),
+      
+      // Estrategia 4: Nombre completo + primera letra apellido paterno
+      () => nombres + apPaterno.charAt(0),
+      
+      // Estrategia 5: Primera letra nombre + apellido paterno + primera letra apellido materno
+      () => nombres.charAt(0) + apPaterno + apMaterno.charAt(0),
+      
+      // Estrategia 6: Primeras 3 letras nombre + primeras 3 letras apellido paterno
+      () => nombres.substring(0, 3) + apPaterno.substring(0, 3),
+      
+      // Estrategia 7: Apellido paterno + primera letra nombre
+      () => apPaterno + nombres.charAt(0),
+      
+      // Estrategia 8: Primeras 4 letras apellido paterno + primeras 2 letras nombre
+      () => apPaterno.substring(0, 4) + nombres.substring(0, 2),
+      
+      // Estrategia 9: Primera letra nombre + primera letra apellido paterno + primera letra apellido materno
+      () => nombres.charAt(0) + apPaterno.charAt(0) + apMaterno.charAt(0),
+      
+      // Estrategia 10: Nombre completo (si es corto)
+      () => nombres.length <= 8 ? nombres : nombres.substring(0, 8),
+    ];
+
+    // Intentar generar un usuario único
+    do {
+      if (attempts < generateUserStrategies.length) {
+        // Usar estrategias sin números primero
+        user = generateUserStrategies[attempts]();
+      } else {
+        // Después usar estrategias con números aleatorios
+        const strategyIndex = attempts % generateUserStrategies.length;
+        const baseUser = generateUserStrategies[strategyIndex]();
+        
+        if (attempts < 15) {
+          // Agregar números secuenciales
+          const numberSuffix = attempts - generateUserStrategies.length + 1;
+          user = baseUser + numberSuffix;
+        } else {
+          // Agregar números aleatorios de 2-3 dígitos
+          const randomNumber = Math.floor(Math.random() * 999) + 1;
+          user = baseUser + randomNumber;
+        }
+      }
+      
+      // Asegurar que el usuario no sea muy corto ni muy largo
+      if (user.length < 3) {
+        user = user + Math.floor(Math.random() * 99) + 1;
+      }
+      if (user.length > 15) {
+        user = user.substring(0, 15);
+      }
+      
+      console.log(`🔄 Intento ${attempts + 1}: Probando usuario "${user}"`);
+      
+      const exists = await checkUserExists(user);
+      if (!exists) {
+        console.log(`✅ Usuario disponible: "${user}"`);
+        break;
+      } else {
+        console.log(`❌ Usuario ya existe: "${user}"`);
+      }
+      
+      attempts++;
+    } while (attempts < maxAttempts);
+
+    if (attempts >= maxAttempts) {
+      throw new Error("No se pudo generar un nombre de usuario único después de múltiples intentos. Por favor, intenta con un nombre diferente.");
+    }
+
+    // Generar contraseña más robusta
+    const upperCase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const lowerCase = "abcdefghijklmnopqrstuvwxyz";
+    const numbers = "0123456789";
+    const symbols = "!@#$%&*";
+    
+    // Asegurar que la contraseña tenga al menos un carácter de cada tipo
+    let pass = "";
+    pass += upperCase.charAt(Math.floor(Math.random() * upperCase.length));
+    pass += lowerCase.charAt(Math.floor(Math.random() * lowerCase.length));
+    pass += numbers.charAt(Math.floor(Math.random() * numbers.length));
+    pass += symbols.charAt(Math.floor(Math.random() * symbols.length));
+    
+    // Completar los 6 caracteres restantes
+    const allChars = upperCase + lowerCase + numbers + symbols;
+    for (let i = 4; i < 10; i++) {
+      pass += allChars.charAt(Math.floor(Math.random() * allChars.length));
+    }
+    
+    // Mezclar la contraseña
+    pass = pass.split('').sort(() => Math.random() - 0.5).join('');
+
+    console.log(`🎉 Credenciales generadas - Usuario: "${user}", Contraseña: "${pass}"`);
     return { user, pass };
   };
 
@@ -319,6 +443,160 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
     );
   };
 
+  // Función para cerrar el modal de credenciales
+  const handleCloseCredentialsModal = () => {
+    setShowCredentialsModal(false);
+    setGeneratedCredentials(null);
+    
+    // Mostrar notificación de éxito después de cerrar el modal
+    setNotificacion({
+      tipo: "exito",
+      titulo: "¡Empleado creado exitosamente!",
+      mensaje: "El empleado ha sido registrado y se han enviado sus credenciales por email. Puedes crear otro empleado.",
+      duracion: 5000,
+    });
+  };
+
+  // Componente Modal para mostrar credenciales
+  const CredentialsModal = ({ credentials, onClose }) => {
+    const [showPassword, setShowPassword] = useState(false);
+    const [copied, setCopied] = useState({ user: false, pass: false });
+
+    const copyToClipboard = async (text, type) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopied({ ...copied, [type]: true });
+        setTimeout(() => setCopied({ ...copied, [type]: false }), 2000);
+      } catch (err) {
+        console.error('Error al copiar al portapapeles:', err);
+      }
+    };
+
+    if (!credentials) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000]">
+        <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                <Key className="h-5 w-5 mr-2 text-green-600" />
+                Credenciales Generadas
+              </h3>
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600 focus:outline-none"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+          
+          <div className="p-6">
+            <div className="space-y-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center mb-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-600 mr-2" />
+                  <p className="text-sm font-medium text-green-800">
+                    Empleado creado exitosamente
+                  </p>
+                </div>
+                <p className="text-sm text-green-700">
+                  {credentials.nombre} {credentials.ap_paterno} ha sido registrado en el sistema.
+                </p>
+              </div>
+
+              {/* Usuario */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nombre de usuario
+                </label>
+                <div className="flex items-center space-x-2">
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={credentials.user}
+                      readOnly
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 font-mono text-sm"
+                    />
+                  </div>
+                  <button
+                    onClick={() => copyToClipboard(credentials.user, 'user')}
+                    className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    title="Copiar usuario"
+                  >
+                    {copied.user ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4 text-gray-600" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Contraseña */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Contraseña
+                </label>
+                <div className="flex items-center space-x-2">
+                  <div className="flex-1 relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={credentials.pass}
+                      readOnly
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 font-mono text-sm pr-10"
+                    />
+                    <button
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 px-3 flex items-center"
+                      title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4 text-gray-600" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-gray-600" />
+                      )}
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => copyToClipboard(credentials.pass, 'pass')}
+                    className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    title="Copiar contraseña"
+                  >
+                    {copied.pass ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4 text-gray-600" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-xs text-blue-700">
+                  <strong>Importante:</strong> Estas credenciales han sido enviadas por email a {credentials.correo_electronico}. 
+                  Asegúrate de copiarlas ahora para entregarlas al empleado.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-lg">
+            <div className="flex justify-end">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                Continuar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Manejar envío del formulario
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -349,8 +627,10 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
         return;
       }
 
-      // Generar credenciales
-      const { user, pass } = generateCredentials();
+      // Generar credenciales únicas
+      setIsGeneratingCredentials(true);
+      const { user, pass } = await generateCredentials();
+      setIsGeneratingCredentials(false);
 
       // Preparar y enviar datos al componente padre
       const empleadoData = {
@@ -370,16 +650,25 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
       };
 
       await onGuardar(empleadoData);
-      setNotificacion({
-        tipo: "exito",
-        titulo: "¡Empleado creado exitosamente!",
-        mensaje: "El empleado ha sido registrado y se han enviado sus credenciales por email. Puedes crear otro empleado.",
-        duracion: 5000,
+      
+      // Guardar las credenciales para mostrar en el modal
+      setGeneratedCredentials({
+        nombre: form.nombres,
+        ap_paterno: form.ap_paterno,
+        correo_electronico: form.correo_electronico,
+        user,
+        pass
       });
-      resetForm(); // Ahora preservará la información de ubicación
+      
+      // Mostrar el modal con las credenciales
+      setShowCredentialsModal(true);
+      
+      // Ya no mostramos la notificación aquí, se maneja en el modal
+      resetForm(); // Preservará la información de ubicación
 
     } catch (error) {
       console.error('❌ Error:', error);
+      setIsGeneratingCredentials(false);
       setNotificacion({
         tipo: "error",
         titulo: "Error al crear empleado",
@@ -439,6 +728,15 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
         notificacion={notificacion} 
         onCerrar={() => setNotificacion(null)} 
       />
+      
+      {/* Modal de credenciales */}
+      {showCredentialsModal && (
+        <CredentialsModal 
+          credentials={generatedCredentials}
+          onClose={handleCloseCredentialsModal}
+        />
+      )}
+      
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-800 flex items-center">
@@ -554,11 +852,15 @@ export default function EmpleadoForm({ onGuardar, onCancelar }) {
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || loading || isGeneratingCredentials}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center"
             >
               <Save className="h-4 w-4 mr-2" />
-              {isSubmitting ? "Guardando..." : "Guardar"}
+              {isGeneratingCredentials 
+                ? "Verificando usuario..." 
+                : isSubmitting || loading 
+                  ? "Guardando..." 
+                  : "Guardar"}
             </button>
           </div>
         </form>
