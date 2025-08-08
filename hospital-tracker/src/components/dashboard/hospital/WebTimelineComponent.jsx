@@ -68,6 +68,13 @@ function getEventIcon(evento) {
 function generarEventosYIntervalosDelResumen(actividades) {
   if (!actividades || actividades.length === 0) return { eventos: [], intervalos: [] };
 
+  console.log(`[DEBUG WEB] Procesando ${actividades.length} actividades:`, actividades.map(a => ({
+    fecha_hora: a.fecha_hora,
+    evento: a.evento,
+    tipo_registro: a.tipo_registro,
+    dentro_geocerca: a.dentro_geocerca
+  })));
+
   const eventos = [];
   const intervalos = [];
   let estadoGeocerca = null;
@@ -84,23 +91,180 @@ function generarEventosYIntervalosDelResumen(actividades) {
 
   const ordenadas = actividades.slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
   let i = 0;
+  
   while (i < ordenadas.length) {
     const act = ordenadas[i];
     const hora = formatHora(act.fecha_hora);
     
-    // Entrada laboral
-    if (i === 0 && act.tipo_registro === 1) {
-      eventos.push({
-        time: new Date(act.fecha_hora),
-        tipo: 'entrada',
-        descripcion: 'Entrada',
-        hora
-      });
-      estadoGeocerca = act.dentro_geocerca;
-      horaIntervalo = act.fecha_hora;
-      estadoActividad = true; // Asumir activo al entrar
+    console.log(`[DEBUG WEB] Procesando registro ${i}: ${formatHora(act.fecha_hora)}, evento=${act.evento}, tipo_registro=${act.tipo_registro}, dentro_geocerca=${act.dentro_geocerca}, estadoGeocerca=${estadoGeocerca}, horaIntervalo=${horaIntervalo ? formatHora(horaIntervalo) : 'null'}`);
+    // PRIORIDAD 1: Manejo de descansos ANTES que todo lo demás
+    if (typeof act.evento === 'number' && act.evento === 2) {
+      if (inicioDescanso === null) {
+        // Primer evento de descanso del período
+        // Cerrar intervalo anterior antes del descanso
+        if (estadoGeocerca !== null && horaIntervalo) {
+          intervalos.push({
+            inicio: new Date(horaIntervalo),
+            fin: new Date(act.fecha_hora),
+            dentro: estadoGeocerca === true,
+            fuera: estadoGeocerca === false,
+            descanso: false,
+            sospechoso: false,
+            activo: estadoActividad,
+            tipo: estadoGeocerca ? (estadoActividad ? 'dentro-activo' : 'dentro-inactivo') : 'fuera',
+            duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+          });
+        }
+        inicioDescanso = act.fecha_hora;
+        eventos.push({
+          time: new Date(act.fecha_hora),
+          tipo: 'descanso',
+          descripcion: 'Inicio descanso',
+          hora
+        });
+        horaIntervalo = null;
+      }
+      
+      // Verificar si es el último evento de descanso mirando hacia adelante
+      const siguientesEventos = ordenadas.slice(i + 1);
+      const proximoDescanso = siguientesEventos.find(siguiente => 
+        typeof siguiente.evento === 'number' && siguiente.evento === 2
+      );
+      
+      // Si no hay más eventos de descanso próximos (dentro de los próximos 10 minutos)
+      let esFinDelDescanso = !proximoDescanso;
+      if (proximoDescanso) {
+        const tiempoHastaProximo = new Date(proximoDescanso.fecha_hora) - new Date(act.fecha_hora);
+        // Si el próximo descanso está a más de 10 minutos, considerarlo un período separado
+        esFinDelDescanso = tiempoHastaProximo > 10 * 60 * 1000;
+      }
+      
+      if (esFinDelDescanso && inicioDescanso !== null) {
+        // Buscar el siguiente evento que NO sea de descanso para determinar cuándo realmente terminó
+        const siguientesEventosNoDescanso = ordenadas.slice(i + 1);
+        const proximoEventoNoDescanso = siguientesEventosNoDescanso.find(siguiente => 
+          typeof siguiente.evento !== 'number' || siguiente.evento !== 2
+        );
+        
+        let finRealDescanso = act.fecha_hora;
+        if (proximoEventoNoDescanso) {
+          finRealDescanso = proximoEventoNoDescanso.fecha_hora;
+        }
+        
+        // Fin de descanso - contabilizar tiempo de descanso desde inicio hasta el siguiente evento no-descanso
+        intervalos.push({
+          inicio: new Date(inicioDescanso),
+          fin: new Date(finRealDescanso),
+          dentro: false,
+          fuera: false,
+          descanso: true,
+          sospechoso: false,
+          activo: true,
+          tipo: 'descanso',
+          duracionTexto: formatIntervalo(inicioDescanso, finRealDescanso)
+        });
+        eventos.push({
+          time: new Date(finRealDescanso),
+          tipo: 'descanso',
+          descripcion: 'Terminó descanso',
+          hora: formatHora(finRealDescanso)
+        });
+        inicioDescanso = null;
+        // Reiniciar el cálculo de trabajo
+        estadoGeocerca = proximoEventoNoDescanso ? proximoEventoNoDescanso.dentro_geocerca : act.dentro_geocerca;
+        horaIntervalo = finRealDescanso;
+        estadoActividad = true; // Asumir activo al salir del descanso
+      }
+      
+      // Durante el descanso, ignorar todos los otros eventos
       i++;
       continue;
+    }
+
+    // Si estaba en descanso pero el evento actual NO es 2, significa que terminó el descanso
+    if (inicioDescanso !== null && (typeof act.evento !== 'number' || act.evento !== 2)) {
+      // Fin de descanso - contabilizar tiempo de descanso y reiniciar trabajo
+      intervalos.push({
+        inicio: new Date(inicioDescanso),
+        fin: new Date(act.fecha_hora),
+        dentro: false,
+        fuera: false,
+        descanso: true,
+        sospechoso: false,
+        activo: true,
+        tipo: 'descanso',
+        duracionTexto: formatIntervalo(inicioDescanso, act.fecha_hora)
+      });
+      eventos.push({
+        time: new Date(act.fecha_hora),
+        tipo: 'descanso',
+        descripcion: 'Terminó descanso',
+        hora
+      });
+      inicioDescanso = null;
+      // Reiniciar el cálculo de trabajo
+      estadoGeocerca = act.dentro_geocerca;
+      horaIntervalo = act.fecha_hora;
+      estadoActividad = true; // Asumir activo al salir del descanso
+      // Continuar procesando este evento normalmente (no hacer continue aquí)
+    }
+
+    // Si está en descanso, ignorar todos los otros eventos
+    if (inicioDescanso !== null) {
+      i++;
+      continue;
+    }
+
+    // PRIORIDAD 2: Manejo de tipo_registro: 0=salida laboral, 1=entrada laboral
+    if (typeof act.tipo_registro === 'number') {
+      if (act.tipo_registro === 0) {
+        // Salida laboral - contabilizar tiempo hasta este punto si estaba trabajando
+        if (estadoGeocerca !== null && horaIntervalo) {
+          intervalos.push({
+            inicio: new Date(horaIntervalo),
+            fin: new Date(act.fecha_hora),
+            dentro: estadoGeocerca === true,
+            fuera: estadoGeocerca === false,
+            descanso: false,
+            sospechoso: false,
+            activo: estadoActividad,
+            tipo: estadoGeocerca ? (estadoActividad ? 'dentro-activo' : 'dentro-inactivo') : 'fuera',
+            duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
+          });
+        }
+        eventos.push({
+          time: new Date(act.fecha_hora),
+          tipo: 'salida',
+          descripcion: 'Salida laboral',
+          hora
+        });
+        // Parar el cálculo hasta que marque entrada nuevamente
+        estadoGeocerca = null;
+        horaIntervalo = null;
+        i++;
+        continue;
+      } else if (act.tipo_registro === 1) {
+        // Entrada laboral - reiniciar el cálculo SOLO si no estaba ya trabajando
+        if (estadoGeocerca === null || i === 0) {
+          eventos.push({
+            time: new Date(act.fecha_hora),
+            tipo: 'entrada',
+            descripcion: 'Entrada laboral',
+            hora
+          });
+          estadoGeocerca = act.dentro_geocerca;
+          horaIntervalo = act.fecha_hora;
+          estadoActividad = true; // Asumir activo al entrar
+        }
+        // Si ya estaba trabajando (estadoGeocerca !== null), NO hacer continue
+        // para que se procesen los eventos 4/5 en este mismo registro
+        if (estadoGeocerca !== null && i > 0) {
+          // No hacer continue aquí, permitir que se procesen otros eventos
+        } else {
+          i++;
+          continue;
+        }
+      }
     }
 
     // Detectar hueco sospechoso (>2h) - PERO solo si NO hay salida laboral que lo justifique
@@ -145,80 +309,20 @@ function generarEventosYIntervalosDelResumen(actividades) {
     }
 
     if (typeof act.evento === 'number') {
-      // PRIORIDAD MÁXIMA: Manejo de descansos
-      if (act.evento === 2) {
-        // Durante el descanso - solo procesar la primera vez que se detecta
-        if (inicioDescanso === null) {
-          // Cerrar intervalo anterior antes del descanso
-          if (estadoGeocerca !== null && horaIntervalo) {
-            intervalos.push({
-              inicio: new Date(horaIntervalo),
-              fin: new Date(act.fecha_hora),
-              dentro: estadoGeocerca === true,
-              fuera: estadoGeocerca === false,
-              descanso: false,
-              sospechoso: false,
-              activo: estadoActividad,
-              tipo: estadoGeocerca ? (estadoActividad ? 'dentro-activo' : 'dentro-inactivo') : 'fuera',
-              duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
-            });
-          }
-          inicioDescanso = act.fecha_hora;
-          eventos.push({
-            time: new Date(act.fecha_hora),
-            tipo: 'descanso',
-            descripcion: 'Inicio descanso',
-            hora
-          });
-          horaIntervalo = null;
-        }
-        // Ignorar los demás eventos=2 (sigue en descanso)
-        // Durante el descanso, ignorar todos los otros eventos
-        i++;
-        continue;
-      } else if (act.evento === 3) {
-        // Fin de descanso
-        if (inicioDescanso) {
-          intervalos.push({
-            inicio: new Date(inicioDescanso),
-            fin: new Date(act.fecha_hora),
-            dentro: false,
-            fuera: false,
-            descanso: true,
-            sospechoso: false,
-            activo: true,
-            tipo: 'descanso',
-            duracionTexto: formatIntervalo(inicioDescanso, act.fecha_hora)
-          });
-          inicioDescanso = null;
-        }
-        eventos.push({
-          time: new Date(act.fecha_hora),
-          tipo: 'descanso',
-          descripcion: 'Fin descanso',
-          hora
-        });
-        estadoGeocerca = act.dentro_geocerca;
-        horaIntervalo = act.fecha_hora;
-        estadoActividad = true; // Asumir activo al salir del descanso
-        i++;
-        continue;
-      }
-
-      // Si está en descanso, ignorar todos los otros eventos
-      if (inicioDescanso !== null) {
-        i++;
-        continue;
-      }
-
-      // Manejo de eventos de actividad (solo si NO está en descanso)
+      // console.log(`[DEBUG WEB] Evento numérico encontrado: ${act.evento} a las ${formatHora(act.fecha_hora)}`);
+      // PRIORIDAD 1: Manejo de eventos de actividad ANTES de geocerca
       if (act.evento === 4 || act.evento === 5) {
         const nuevoEstadoActividad = act.evento === 5; // 5 = activo, 4 = inactivo
         
+        // console.log(`[DEBUG WEB] Evento ${act.evento} (${nuevoEstadoActividad ? 'ACTIVO' : 'INACTIVO'}) a las ${formatHora(act.fecha_hora)}, estadoGeocerca=${estadoGeocerca}, estadoActividad=${estadoActividad}, inicioDescanso=${inicioDescanso}`);
+        
         // Solo procesar si está dentro de geocerca y cambia el estado de actividad
         if (estadoGeocerca === true && nuevoEstadoActividad !== estadoActividad) {
+          // console.log(`[DEBUG WEB] CAMBIO DE ACTIVIDAD: ${estadoActividad ? 'ACTIVO' : 'INACTIVO'} -> ${nuevoEstadoActividad ? 'ACTIVO' : 'INACTIVO'}`);
           // Cerrar intervalo anterior con el estado de actividad anterior
           if (horaIntervalo) {
+            const tipoAnterior = estadoActividad ? 'dentro-activo' : 'dentro-inactivo';
+            // console.log(`[DEBUG WEB] Cerrando intervalo ${tipoAnterior} desde ${formatHora(horaIntervalo)} hasta ${formatHora(act.fecha_hora)}`);
             intervalos.push({
               inicio: new Date(horaIntervalo),
               fin: new Date(act.fecha_hora),
@@ -235,14 +339,22 @@ function generarEventosYIntervalosDelResumen(actividades) {
           estadoActividad = nuevoEstadoActividad;
           horaIntervalo = act.fecha_hora;
         }
+        // Si no está dentro de geocerca, solo actualizar el estado para futuro uso
+        else if (estadoGeocerca !== true) {
+          // console.log(`[DEBUG WEB] Fuera de geocerca, solo actualizando estado actividad para futuro uso`);
+          estadoActividad = nuevoEstadoActividad;
+        }
         i++;
         continue;
       }
 
-      // Manejo de geocerca (solo si NO está en descanso)
+      // PRIORIDAD 2: Manejo de geocerca (después de actividad)
       if (act.evento === 0) {
+        // console.log(`[DEBUG WEB] SALIÓ de geocerca a las ${formatHora(act.fecha_hora)}, estadoActividad=${estadoActividad}`);
         // Salió de geocerca
         if (estadoGeocerca === true && horaIntervalo) {
+          const tipoIntervalo = estadoActividad ? 'dentro-activo' : 'dentro-inactivo';
+          // console.log(`[DEBUG WEB] Cerrando intervalo ${tipoIntervalo} por salida de geocerca`);
           intervalos.push({
             inicio: new Date(horaIntervalo),
             fin: new Date(act.fecha_hora),
@@ -265,6 +377,7 @@ function generarEventosYIntervalosDelResumen(actividades) {
         horaIntervalo = act.fecha_hora;
         estadoActividad = true; // Reset a activo cuando sale
       } else if (act.evento === 1) {
+        // console.log(`[DEBUG WEB] ENTRÓ a geocerca a las ${formatHora(act.fecha_hora)}`);
         // Entró a la geocerca
         if (estadoGeocerca === false && horaIntervalo) {
           intervalos.push({
@@ -317,43 +430,168 @@ function generarEventosYIntervalosDelResumen(actividades) {
       if (act.dentro_geocerca) estadoActividad = true; // Asumir activo al entrar
     }
 
-    // Salida laboral
-    if (i === ordenadas.length - 1 && act.tipo_registro === 0) {
-      if (horaIntervalo && act.fecha_hora !== horaIntervalo && estadoGeocerca !== null) {
-        intervalos.push({
-          inicio: new Date(horaIntervalo),
-          fin: new Date(act.fecha_hora),
-          dentro: estadoGeocerca === true,
-          fuera: estadoGeocerca === false,
-          descanso: false,
-          sospechoso: false,
-          activo: estadoActividad,
-          tipo: estadoGeocerca ? (estadoActividad ? 'dentro-activo' : 'dentro-inactivo') : 'fuera',
-          duracionTexto: formatIntervalo(horaIntervalo, act.fecha_hora)
-        });
-      }
-      eventos.push({
-        time: new Date(act.fecha_hora),
-        tipo: 'salida',
-        descripcion: 'Salida',
-        hora
-      });
-    }
     i++;
   }
 
+  // Manejo del intervalo final si quedó uno abierto (no hubo salida laboral final)
+  if (horaIntervalo && estadoGeocerca !== null && inicioDescanso === null) {
+    const ultimaActividad = ordenadas[ordenadas.length - 1];
+    intervalos.push({
+      inicio: new Date(horaIntervalo),
+      fin: new Date(ultimaActividad.fecha_hora),
+      dentro: estadoGeocerca === true,
+      fuera: estadoGeocerca === false,
+      descanso: false,
+      sospechoso: false,
+      activo: estadoActividad,
+      tipo: estadoGeocerca ? (estadoActividad ? 'dentro-activo' : 'dentro-inactivo') : 'fuera',
+      duracionTexto: formatIntervalo(horaIntervalo, ultimaActividad.fecha_hora)
+    });
+  }
+
+  console.log(`[DEBUG WEB] Intervalos generados:`, intervalos.map(i => ({
+    tipo: i.tipo,
+    activo: i.activo,
+    inicio: formatHora(i.inicio.toISOString()),
+    fin: formatHora(i.fin.toISOString()),
+    duracion: i.duracionTexto
+  })));
+
   return { eventos, intervalos };
+}
+
+// Función para agrupar intervalos consecutivos del mismo tipo básico
+function agruparIntervalosConsecutivos(intervalos, eventos) {
+  if (!intervalos || intervalos.length === 0) return [];
+
+  console.log('[DEBUG AGRUPACION] Iniciando agrupación con intervalos:', intervalos.map(i => ({
+    tipo: i.tipo,
+    inicio: formatHora(i.inicio.toISOString()),
+    fin: formatHora(i.fin.toISOString())
+  })));
+
+  const agrupados = [];
+  let grupoActual = null;
+
+  // Crear un set de timestamps de salidas laborales para detectar interrupciones
+  const salidasLaborales = new Set();
+  eventos.forEach(evento => {
+    if (evento.tipo === 'salida') {
+      console.log('[DEBUG AGRUPACION] Salida laboral detectada en:', formatTime(evento.time));
+      salidasLaborales.add(evento.time.getTime());
+    }
+  });
+
+  intervalos.forEach((intervalo, idx) => {
+    // Determinar el tipo básico (ignorar activo/inactivo para agrupación)
+    let tipoBasico;
+    if (intervalo.tipo === 'descanso' || intervalo.descanso) {
+      tipoBasico = 'descanso';
+    } else if (intervalo.tipo === 'sospechoso' || intervalo.sospechoso) {
+      tipoBasico = 'sospechoso';
+    } else if (intervalo.tipo === 'fuera' || intervalo.fuera) {
+      tipoBasico = 'fuera';
+    } else if (intervalo.tipo === 'dentro-activo' || intervalo.tipo === 'dentro-inactivo' || intervalo.dentro) {
+      tipoBasico = 'dentro';
+    } else {
+      tipoBasico = 'desconocido';
+    }
+
+    // Verificar si hay una salida laboral entre el grupo actual y este intervalo
+    let haySalidaLaboral = false;
+    if (grupoActual) {
+      const finGrupoActual = grupoActual.fin.getTime();
+      const inicioIntervaloActual = intervalo.inicio.getTime();
+      
+      console.log(`[DEBUG AGRUPACION] Verificando salida laboral entre ${formatHora(new Date(finGrupoActual).toISOString())} y ${formatHora(new Date(inicioIntervaloActual).toISOString())}`);
+      
+      // Buscar si hay alguna salida laboral entre estos timestamps (INCLUSIVE en los límites)
+      for (const salidaTimestamp of salidasLaborales) {
+        if (salidaTimestamp >= finGrupoActual && salidaTimestamp <= inicioIntervaloActual) {
+          console.log(`[DEBUG AGRUPACION] ¡Salida laboral encontrada en medio! ${formatHora(new Date(salidaTimestamp).toISOString())}`);
+          haySalidaLaboral = true;
+          break;
+        }
+      }
+    }
+
+    // Si es el primer intervalo, es de un tipo diferente, o hay una salida laboral en el medio
+    if (!grupoActual || grupoActual.tipoBasico !== tipoBasico || haySalidaLaboral) {
+      // Finalizar grupo anterior si existe
+      if (grupoActual) {
+        console.log(`[DEBUG AGRUPACION] Finalizando grupo ${grupoActual.tipoBasico} de ${formatHora(grupoActual.inicio.toISOString())} a ${formatHora(grupoActual.fin.toISOString())}`);
+        agrupados.push(grupoActual);
+      }
+      
+      // Crear nuevo grupo
+      console.log(`[DEBUG AGRUPACION] Creando nuevo grupo ${tipoBasico} desde ${formatHora(intervalo.inicio.toISOString())} (razón: ${!grupoActual ? 'primer intervalo' : grupoActual.tipoBasico !== tipoBasico ? 'tipo diferente' : 'salida laboral en medio'})`);
+      grupoActual = {
+        tipoBasico,
+        inicio: intervalo.inicio,
+        fin: intervalo.fin,
+        intervalosOriginales: [intervalo],
+        // Preservar algunas propiedades del primer intervalo
+        dentro: intervalo.dentro,
+        fuera: intervalo.fuera,
+        descanso: intervalo.descanso,
+        sospechoso: intervalo.sospechoso
+      };
+    } else {
+      // Extender el grupo actual
+      console.log(`[DEBUG AGRUPACION] Extendiendo grupo ${tipoBasico} hasta ${formatHora(intervalo.fin.toISOString())}`);
+      grupoActual.fin = intervalo.fin;
+      grupoActual.intervalosOriginales.push(intervalo);
+    }
+  });
+
+  // Agregar el último grupo
+  if (grupoActual) {
+    console.log(`[DEBUG AGRUPACION] Finalizando último grupo ${grupoActual.tipoBasico} de ${formatHora(grupoActual.inicio.toISOString())} a ${formatHora(grupoActual.fin.toISOString())}`);
+    agrupados.push(grupoActual);
+  }
+
+  console.log('[DEBUG AGRUPACION] Grupos finales:', agrupados.map(g => ({
+    tipo: g.tipoBasico,
+    inicio: formatHora(g.inicio.toISOString()),
+    fin: formatHora(g.fin.toISOString()),
+    duracion: `${Math.floor((g.fin - g.inicio) / 60000)}min`
+  })));
+
+  // Calcular duración total y etiqueta para cada grupo
+  return agrupados.map(grupo => {
+    const diffMs = new Date(grupo.fin) - new Date(grupo.inicio);
+    const min = Math.floor(diffMs / 60000) % 60;
+    const hrs = Math.floor(diffMs / 3600000);
+    const duracionTexto = `${hrs > 0 ? hrs + 'h ' : ''}${min}min`;
+
+    return {
+      ...grupo,
+      duracionTexto,
+      // Para compatibilidad con el código existente
+      tipo: grupo.tipoBasico
+    };
+  });
 }
 
 // Función mejorada para evitar superposición de etiquetas
 function calculateLabelPositions(eventos, displayStart, displayEnd) {
   const MIN_DISTANCE = 120; // Distancia mínima entre etiquetas en px
-  const positions = eventos.map((evento, idx) => ({
-    originalPosition: calculateAbsolutePosition(evento.time, displayStart, displayEnd),
-    index: idx,
-    isAbove: idx % 2 === 0, // Alternar arriba/abajo por defecto
-    adjustedPosition: calculateAbsolutePosition(evento.time, displayStart, displayEnd)
-  }));
+  
+  // Convertir a timestamps para sincronización exacta
+  const displayStartTimestamp = displayStart.getTime();
+  const displayEndTimestamp = displayEnd.getTime();
+  
+  const positions = eventos.map((evento, idx) => {
+    const eventoTimestamp = evento.time.getTime ? evento.time.getTime() : new Date(evento.time).getTime();
+    const position = calculateAbsolutePosition(eventoTimestamp, displayStartTimestamp, displayEndTimestamp);
+    
+    return {
+      originalPosition: position,
+      index: idx,
+      isAbove: idx % 2 === 0, // Alternar arriba/abajo por defecto
+      adjustedPosition: position
+    };
+  });
 
   // Resolver conflictos de superposición
   for (let i = 1; i < positions.length; i++) {
@@ -402,11 +640,9 @@ const WebTimelineComponent = ({ actividades, titulo = "Cronología del Día" }) 
   const timeScale = generateTimeScale(displayStart, displayEnd);
   const { eventos: eventosClave, intervalos } = generarEventosYIntervalosDelResumen(ordenadas);
   
-  // Debug temporal - ver qué intervalos se generan
-  console.log('🔍 DEBUG - Intervalos generados:');
-  intervalos.forEach((intervalo, idx) => {
-    console.log(`${idx}: ${intervalo.tipo} | Descanso: ${intervalo.descanso} | ${formatTime(intervalo.inicio)} - ${formatTime(intervalo.fin)} (${intervalo.duracionTexto})`);
-  });
+  // Agrupar intervalos consecutivos del mismo tipo básico para evitar solapamiento
+  // PERO respetando las salidas laborales como separadores
+  const intervalosAgrupados = agruparIntervalosConsecutivos(intervalos, eventosClave);
   
   // Calcular posiciones mejoradas para evitar superposición
   const labelPositions = calculateLabelPositions(eventosClave, displayStart, displayEnd);
@@ -438,16 +674,70 @@ const WebTimelineComponent = ({ actividades, titulo = "Cronología del Día" }) 
         <div className="relative mb-6">
           {/* Barra base - MÁS ELEGANTE COMO PDF */}
           <div className="w-full h-2 bg-gray-200 rounded-sm relative shadow-sm">
-            {/* Línea conectora entre eventos - MÁS DELGADA */}
-            {eventosClave.length > 1 && (
-              <div
-                className="absolute h-0.5 bg-green-600 top-1/2 transform -translate-y-1/2 rounded-sm"
-                style={{
-                  left: `${calculateAbsolutePosition(eventosClave[0].time, displayStart, displayEnd)}%`,
-                  width: `${calculateAbsolutePosition(eventosClave[eventosClave.length - 1].time, displayStart, displayEnd) - calculateAbsolutePosition(eventosClave[0].time, displayStart, displayEnd)}%`,
-                }}
-              />
-            )}
+            {/* Líneas conectoras segmentadas - RESPETAN SALIDAS LABORALES */}
+            {eventosClave.length > 1 && (() => {
+              const segmentos = [];
+              let inicioSegmento = null;
+              let trabajandoActualmente = true; // Asumimos que empieza trabajando
+              
+              eventosClave.forEach((evento, idx) => {
+                if (evento.tipo === 'entrada') {
+                  // Inicio de nuevo segmento laboral
+                  if (!trabajandoActualmente) {
+                    inicioSegmento = evento;
+                    trabajandoActualmente = true;
+                  }
+                } else if (evento.tipo === 'salida') {
+                  // Fin del segmento laboral actual
+                  if (trabajandoActualmente && inicioSegmento) {
+                    const startPos = calculateAbsolutePosition(inicioSegmento.time, displayStart, displayEnd);
+                    const endPos = calculateAbsolutePosition(evento.time, displayStart, displayEnd);
+                    const width = endPos - startPos;
+                    
+                    segmentos.push(
+                      <div
+                        key={`segment-${idx}`}
+                        className="absolute h-0.5 bg-green-600 top-1/2 transform -translate-y-1/2 rounded-sm"
+                        style={{
+                          left: `${startPos}%`,
+                          width: `${width}%`,
+                        }}
+                      />
+                    );
+                  }
+                  trabajandoActualmente = false;
+                  inicioSegmento = null;
+                } else {
+                  // Otros eventos (geocerca, descanso) - no afectan segmento laboral
+                  if (trabajandoActualmente && !inicioSegmento) {
+                    inicioSegmento = eventosClave[0]; // Usar primer evento si no hay entrada explícita
+                  }
+                }
+              });
+              
+              // Segmento final si termina trabajando
+              if (trabajandoActualmente && inicioSegmento && eventosClave.length > 1) {
+                const ultimoEvento = eventosClave[eventosClave.length - 1];
+                if (ultimoEvento.tipo !== 'salida') {
+                  const startPos = calculateAbsolutePosition(inicioSegmento.time, displayStart, displayEnd);
+                  const endPos = calculateAbsolutePosition(ultimoEvento.time, displayStart, displayEnd);
+                  const width = endPos - startPos;
+                  
+                  segmentos.push(
+                    <div
+                      key="segment-final"
+                      className="absolute h-0.5 bg-green-600 top-1/2 transform -translate-y-1/2 rounded-sm"
+                      style={{
+                        left: `${startPos}%`,
+                        width: `${width}%`,
+                      }}
+                    />
+                  );
+                }
+              }
+              
+              return segmentos;
+            })()}
             
             {/* Intervalos de tiempo dentro/fuera/descanso - MÁS SUTILES */}
             {intervalos.map((intervalo, idx) => {
@@ -484,7 +774,11 @@ const WebTimelineComponent = ({ actividades, titulo = "Cronología del Día" }) 
             {/* Eventos clave con posicionamiento mejorado */}
             {eventosClave.map((evento, idx) => {
               const labelPos = labelPositions[idx];
-              const originalPosition = calculateAbsolutePosition(evento.time, displayStart, displayEnd);
+              // Usar timestamps para sincronización exacta - IGUAL QUE INTERVALOS
+              const eventoTimestamp = evento.time.getTime ? evento.time.getTime() : new Date(evento.time).getTime();
+              const displayStartTimestamp = displayStart.getTime();
+              const displayEndTimestamp = displayEnd.getTime();
+              const originalPosition = calculateAbsolutePosition(eventoTimestamp, displayStartTimestamp, displayEndTimestamp);
               const nodeType = getNodeType(evento);
               const isAbove = labelPos.isAbove;
               
@@ -533,53 +827,41 @@ const WebTimelineComponent = ({ actividades, titulo = "Cronología del Día" }) 
           </div>
         </div>
         
-        {/* Etiquetas de intervalos - EXTREMADAMENTE PEGADAS A LA LÍNEA */}
+        {/* Etiquetas de intervalos - AGRUPADAS PARA EVITAR SOLAPAMIENTO */}
         <div className="relative h-4 -mt-4">
-          {intervalos.map((intervalo, idx) => {
+          {intervalosAgrupados.map((intervalo, idx) => {
             const startPos = calculateAbsolutePosition(intervalo.inicio, displayStart, displayEnd);
             const endPos = calculateAbsolutePosition(intervalo.fin, displayStart, displayEnd);
             const width = endPos - startPos;
             const trueCenterPos = startPos + (width / 2);
             
-            // Solo ajustar si el intervalo es muy pequeño (menos del 5% del ancho total)
-            let finalCenterPos = trueCenterPos;
-            if (width < 5) {
-              // Para intervalos muy pequeños, usar una posición ligeramente ajustada
-              finalCenterPos = Math.max(8, Math.min(92, trueCenterPos));
-            } else {
-              // Para intervalos normales, usar exactamente el centro
-              finalCenterPos = trueCenterPos;
-            }
+            // Solo mostrar etiqueta si el intervalo es lo suficientemente grande (más del 3% del ancho total)
+            if (width < 3) return null;
+            
+            // Para intervalos normales, usar exactamente el centro
+            const finalCenterPos = Math.max(8, Math.min(92, trueCenterPos));
             
             return (
               <div
-                key={`label-${idx}`}
+                key={`label-agrupado-${idx}`}
                 className="absolute text-xs text-center"
                 style={{ left: `${finalCenterPos}%`, transform: 'translateX(-50%)' }}
               >
                 {/* Texto limpio sin fondo, como PDF */}
                 <div className={`font-medium ${
-                  intervalo.tipo === 'descanso' || intervalo.descanso
+                  intervalo.tipoBasico === 'descanso'
                     ? 'text-yellow-700'
-                    : intervalo.tipo === 'dentro-activo'
+                    : intervalo.tipoBasico === 'dentro'
                       ? 'text-green-700'
-                    : intervalo.tipo === 'dentro-inactivo'
-                      ? 'text-green-600'
-                    : intervalo.tipo === 'dentro' || intervalo.dentro
-                      ? 'text-green-700'
-                    : intervalo.tipo === 'sospechoso' || intervalo.sospechoso
+                    : intervalo.tipoBasico === 'sospechoso'
                         ? 'text-gray-700'
                         : 'text-red-700'
                 }`}>
-                  {intervalo.tipo === 'descanso' || intervalo.descanso
+                  {intervalo.tipoBasico === 'descanso'
                     ? 'Descanso'
-                    : intervalo.tipo === 'dentro-activo'
-                      ? 'Dentro (Activo)'
-                    : intervalo.tipo === 'dentro-inactivo'
-                      ? 'Dentro (Inactivo)'
-                    : intervalo.tipo === 'dentro' || intervalo.dentro
+                    : intervalo.tipoBasico === 'dentro'
                       ? 'Dentro'
-                    : intervalo.tipo === 'sospechoso' || intervalo.sospechoso
+                    : intervalo.tipoBasico === 'sospechoso'
                         ? 'Sospechoso'
                         : 'Fuera'}
                 </div>

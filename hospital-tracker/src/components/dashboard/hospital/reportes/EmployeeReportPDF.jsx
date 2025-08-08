@@ -2,8 +2,8 @@ import { pdf } from '@react-pdf/renderer';
 import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer';
 import { format, eachDayOfInterval, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import TimelineComponent from './TimelineComponent';
-import { calcularEstadisticasEmpleadoPorDias, calcularEstadisticasEmpleado } from '../employeeStatsHelper';
+import TimelineComponentSimple from './TimelineComponentSimple';
+import { calcularEstadisticasEmpleadoPorDias, calcularEstadisticasEmpleado, generarResumenDiaMejorado } from '../employeeStatsHelper';
 
 const styles = StyleSheet.create({
   page: {
@@ -590,250 +590,6 @@ const EmployeeInfo = ({ empleado, actividades }) => {
   );
 };
 
-// Función mejorada para generar resumen del día con agrupación jerárquica
-function generarResumenDiaMejorado(actividades) {
-  if (!actividades || actividades.length === 0) return [];
-  
-  const eventos = [];
-  const ordenadas = actividades.slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
-  
-  const formatIntervalo = (inicio, fin) => {
-    // Validar que las fechas sean válidas
-    const fechaInicio = new Date(inicio);
-    const fechaFin = new Date(fin);
-    
-    if (isNaN(fechaInicio.getTime()) || isNaN(fechaFin.getTime())) {
-      return '0min';
-    }
-    
-    const diffMs = fechaFin - fechaInicio;
-    
-    // Validar que la diferencia sea positiva
-    if (diffMs < 0) return '0min';
-    
-    const min = Math.floor(diffMs / 60000) % 60;
-    const hrs = Math.floor(diffMs / 3600000);
-    return `${hrs > 0 ? hrs + 'h ' : ''}${min}min`;
-  };
-
-  // Variables de estado
-  let estadoGeocerca = null;
-  let horaInicioGeocerca = null;
-  let inicioDescanso = null;
-  
-  // Para rastrear actividad dentro de cada período de geocerca
-  let actividadEnPeriodo = []; // Array de {inicio, fin, activo}
-  let estadoActividad = null;
-  let inicioEstadoActividad = null;
-
-  const cerrarPeriodoActividad = (horaFin) => {
-    if (inicioEstadoActividad && estadoActividad !== null) {
-      actividadEnPeriodo.push({
-        inicio: inicioEstadoActividad,
-        fin: horaFin,
-        activo: estadoActividad
-      });
-      inicioEstadoActividad = null;
-      estadoActividad = null;
-    }
-  };
-
-  const calcularTiemposActividad = () => {
-    let tiempoActivo = 0;
-    let tiempoInactivo = 0;
-    
-    actividadEnPeriodo.forEach(periodo => {
-      const fechaInicio = new Date(periodo.inicio);
-      const fechaFin = new Date(periodo.fin);
-      
-      // Validar fechas válidas
-      if (!isNaN(fechaInicio.getTime()) && !isNaN(fechaFin.getTime())) {
-        const duracionMs = fechaFin - fechaInicio;
-        
-        // Solo agregar si la duración es positiva
-        if (duracionMs > 0) {
-          if (periodo.activo) {
-            tiempoActivo += duracionMs;
-          } else {
-            tiempoInactivo += duracionMs;
-          }
-        }
-      }
-    });
-    
-    return { tiempoActivo, tiempoInactivo };
-  };
-
-  const cerrarPeriodoGeocerca = (horaFin, motivo = '') => {
-    if (horaInicioGeocerca && estadoGeocerca === true) {
-      cerrarPeriodoActividad(horaFin); // Cerrar cualquier actividad pendiente
-      
-      const duracionTotal = formatIntervalo(horaInicioGeocerca, horaFin);
-      const { tiempoActivo, tiempoInactivo } = calcularTiemposActividad();
-      
-      // Agregar el período principal de geocerca
-      eventos.push({
-        hora: `${formatHora(horaInicioGeocerca)} - ${formatHora(horaFin)}`,
-        descripcion: `Tiempo dentro de geocerca`,
-        tipo: 'tiempo_dentro',
-        duracion: `(${duracionTotal})`
-      });
-      
-      // Agregar desglose de actividad solo si hay registros de actividad
-      if (tiempoActivo > 0 || tiempoInactivo > 0) {
-        if (tiempoActivo > 0) {
-          const duracionActivo = formatIntervalo(new Date(0), new Date(tiempoActivo));
-          eventos.push({
-            hora: '',
-            descripcion: `    - Tiempo activo`,
-            tipo: 'desglose_activo',
-            duracion: `(${duracionActivo})`
-          });
-        }
-        if (tiempoInactivo > 0) {
-          const duracionInactivo = formatIntervalo(new Date(0), new Date(tiempoInactivo));
-          eventos.push({
-            hora: '',
-            descripcion: `    - Tiempo inactivo`,
-            tipo: 'desglose_inactivo',
-            duracion: `(${duracionInactivo})`
-          });
-        }
-      }
-      
-      // Limpiar para el siguiente período
-      actividadEnPeriodo = [];
-      horaInicioGeocerca = null;
-    }
-  };
-
-  let i = 0;
-  while (i < ordenadas.length) {
-    const act = ordenadas[i];
-    const hora = formatHora(act.fecha_hora);
-    
-    // Entrada laboral
-    if (i === 0 && act.tipo_registro === 1) {
-      eventos.push({
-        hora,
-        descripcion: 'Marcó entrada laboral',
-        tipo: 'entrada',
-        duracion: ''
-      });
-      estadoGeocerca = act.dentro_geocerca;
-      if (estadoGeocerca) {
-        horaInicioGeocerca = act.fecha_hora;
-      }
-      i++;
-      continue;
-    }
-
-    // Detectar hueco sospechoso entre este registro y el anterior (>2 horas)
-    if (i > 0) {
-      const prev = ordenadas[i - 1];
-      const diffMs = new Date(act.fecha_hora) - new Date(prev.fecha_hora);
-      if (diffMs > 2 * 60 * 60 * 1000) {
-        // Cerrar período de geocerca si estaba abierto
-        cerrarPeriodoGeocerca(prev.fecha_hora);
-        
-        // Agregar el hueco sospechoso
-        eventos.push({
-          hora: `${formatHora(prev.fecha_hora)} - ${formatHora(act.fecha_hora)}`,
-          descripcion: 'Tiempo sospechoso (posible cierre de app)',
-          tipo: 'tiempo_sospechoso',
-          duracion: `(${formatIntervalo(prev.fecha_hora, act.fecha_hora)})`
-        });
-        
-        // Reiniciar estado
-        estadoGeocerca = act.dentro_geocerca;
-        if (estadoGeocerca) {
-          horaInicioGeocerca = act.fecha_hora;
-        }
-      }
-    }
-
-    // Eventos de geocerca y descanso
-    if (typeof act.evento === 'number') {
-      if (act.evento === 0) {
-        // Salió de geocerca
-        cerrarPeriodoGeocerca(act.fecha_hora);
-        
-        eventos.push({
-          hora,
-          descripcion: 'Salió de geocerca',
-          tipo: 'geocerca_salida',
-          duracion: ''
-        });
-        estadoGeocerca = false;
-      } else if (act.evento === 1) {
-        // Entró a la geocerca
-        eventos.push({
-          hora,
-          descripcion: 'Entró a geocerca',
-          tipo: 'geocerca_entrada',
-          duracion: ''
-        });
-        estadoGeocerca = true;
-        horaInicioGeocerca = act.fecha_hora;
-      } else if (act.evento === 2) {
-        cerrarPeriodoActividad(act.fecha_hora); // Cerrar actividad antes del descanso
-        eventos.push({
-          hora,
-          descripcion: 'Inicio de descanso',
-          tipo: 'descanso_inicio',
-          duracion: ''
-        });
-        inicioDescanso = act.fecha_hora;
-      } else if (act.evento === 3) {
-        eventos.push({
-          hora,
-          descripcion: 'Fin de descanso',
-          tipo: 'descanso_fin',
-          duracion: ''
-        });
-        inicioDescanso = null;
-      } else if (act.evento === 4 || act.evento === 5) {
-        // Estados de actividad - solo rastrear si está dentro de geocerca
-        if (estadoGeocerca === true) {
-          const nuevoEstadoActividad = act.evento === 5; // 5 = activo, 4 = inactivo
-          
-          if (estadoActividad !== nuevoEstadoActividad) {
-            // Cambió el estado, cerrar el anterior
-            cerrarPeriodoActividad(act.fecha_hora);
-            
-            // Iniciar nuevo período de actividad
-            estadoActividad = nuevoEstadoActividad;
-            inicioEstadoActividad = act.fecha_hora;
-          }
-          // Si es el mismo estado, continúa el período actual
-        }
-      }
-    }
-
-    // Salida laboral
-    if (i === ordenadas.length - 1 && act.tipo_registro === 0) {
-      // Cerrar cualquier período de geocerca pendiente
-      cerrarPeriodoGeocerca(act.fecha_hora);
-      
-      eventos.push({
-        hora,
-        descripcion: 'Marcó salida laboral',
-        tipo: 'salida',
-        duracion: ''
-      });
-    }
-    i++;
-  }
-  
-  // Cerrar cualquier período pendiente al final del día
-  if (horaInicioGeocerca && ordenadas.length > 0) {
-    const ultimaActividad = ordenadas[ordenadas.length - 1];
-    cerrarPeriodoGeocerca(ultimaActividad.fecha_hora);
-  }
-  
-  return eventos;
-}
-
 // Componente mejorado para el resumen del día
 const DaySummary = ({ eventos }) => {
   if (!eventos || eventos.length === 0) return null;
@@ -866,9 +622,13 @@ const DaySummary = ({ eventos }) => {
       <Text style={styles.daySummaryTitle}>Resumen del dia</Text>
       <View style={styles.summaryItemsContainer}>
         {eventos.map((evento, idx) => (
-          <View key={idx} style={[styles.summaryItem, idx % 2 === 1 && styles.summaryItemAlt]}>
+          <View key={idx} style={[
+            styles.summaryItem, 
+            idx % 2 === 1 && styles.summaryItemAlt,
+            (evento.tipo === 'desglose_activo' || evento.tipo === 'desglose_inactivo') && styles.summaryDesglose
+          ]}>
             <Text style={[styles.summaryTime, getEventStyle(evento.tipo)]}>
-              {evento.hora}
+              {(evento.tipo === 'desglose_activo' || evento.tipo === 'desglose_inactivo') ? '' : evento.hora}
             </Text>
             <Text style={styles.summaryDescription}>
               {evento.descripcion}
@@ -909,6 +669,15 @@ const DayTable = ({ fecha, actividades, empleado }) => {
   const ordenadas = actividades.slice().sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
   const eventosResumen = generarResumenDiaMejorado(ordenadas);
   
+  // Debug: Log data before passing to timeline
+  console.log('📋 EmployeeReportPDF preparando timeline:', {
+    fecha,
+    actividadesOriginales: actividades.length,
+    ordenadas: ordenadas.length,
+    primeraOrdenada: ordenadas[0]?.fecha_hora,
+    ultimaOrdenada: ordenadas[ordenadas.length - 1]?.fecha_hora
+  });
+
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>
@@ -922,7 +691,7 @@ const DayTable = ({ fecha, actividades, empleado }) => {
       <View style={{ marginTop: 18 }} /> {/* <-- Espacio agregado aquí */}
       
       {/* Línea de tiempo visual */}
-      <TimelineComponent actividades={ordenadas} />
+      <TimelineComponentSimple actividades={ordenadas} />
       
       {/* Resumen del día mejorado */}
       <DaySummary eventos={eventosResumen} />

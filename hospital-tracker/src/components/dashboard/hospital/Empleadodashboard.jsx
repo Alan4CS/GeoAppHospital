@@ -218,6 +218,10 @@ export default function EmpleadoDashboard({
         case 'sospechoso':
         case 'tiempo_sospechoso':
           return 'text-red-500 font-semibold';
+        case 'desglose_activo':
+          return 'text-emerald-600';
+        case 'desglose_inactivo':
+          return 'text-orange-600';
         default:
           return 'text-gray-700';
       }
@@ -232,11 +236,15 @@ export default function EmpleadoDashboard({
           {eventos.map((evento, idx) => (
             <div key={idx} className={`flex items-center py-2 px-3 rounded ${
               idx % 2 === 1 ? 'bg-gray-100' : 'bg-white'
-            }`}>
+            } ${evento.tipo.startsWith('desglose_') ? 'ml-6 bg-gray-50 border-l-2 border-gray-300' : ''}`}>
               <div className={`text-sm font-bold min-w-[80px] ${getEventColorClass(evento.tipo)}`}>
-                {evento.hora}
+                {evento.tipo.startsWith('desglose_') ? '' : evento.hora}
               </div>
-              <div className="text-sm text-gray-800 flex-1 ml-3">
+              <div className={`text-sm flex-1 ml-3 ${
+                evento.tipo.startsWith('desglose_') ? 'text-gray-700' : 'text-gray-800'
+              }`}>
+                {evento.tipo === 'desglose_activo' && '🟢 '}
+                {evento.tipo === 'desglose_inactivo' && '🟡 '}
                 {evento.descripcion}
               </div>
               {evento.duracion && (
