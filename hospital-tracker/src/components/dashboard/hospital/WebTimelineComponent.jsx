@@ -276,8 +276,9 @@ function generarEventosYIntervalosDelResumen(actividades) {
       const esSalidaLegitima = prev.tipo_registro === 0 || 
                               (prev.tipo_registro === 0 && act.tipo_registro === 1);
       
+      // CRITERIO: Más de 2 horas sin actividad Y sin salida laboral que lo justifique
       if (diffMs > 2 * 60 * 60 * 1000 && !esSalidaLegitima) {
-        // Cerrar intervalo anterior
+        // Cerrar intervalo anterior si existe
         if (horaIntervalo && horaIntervalo !== prev.fecha_hora && estadoGeocerca !== null) {
           intervalos.push({
             inicio: new Date(horaIntervalo),
@@ -286,25 +287,25 @@ function generarEventosYIntervalosDelResumen(actividades) {
             fuera: estadoGeocerca === false,
             descanso: false,
             sospechoso: false,
-            activo: estadoActividad, // Nuevo campo para estado de actividad
+            activo: estadoActividad,
             tipo: estadoGeocerca ? (estadoActividad ? 'dentro-activo' : 'dentro-inactivo') : 'fuera',
             duracionTexto: formatIntervalo(horaIntervalo, prev.fecha_hora)
           });
         }
-        // Intervalo sospechoso SOLO si no está justificado por salida laboral
+        
+        // CREAR INTERVALO SOSPECHOSO
         intervalos.push({
           inicio: new Date(prev.fecha_hora),
           fin: new Date(act.fecha_hora),
           dentro: false,
           fuera: false,
           descanso: false,
-          sospechoso: true,
+          sospechoso: true, // MARCADO COMO SOSPECHOSO
           activo: true,
           tipo: 'sospechoso',
           duracionTexto: formatIntervalo(prev.fecha_hora, act.fecha_hora)
         });
         horaIntervalo = act.fecha_hora;
-        // No cambiar estadoGeocerca ni estadoActividad
       }
     }
 
@@ -754,10 +755,10 @@ const WebTimelineComponent = ({ actividades, titulo = "Cronología del Día" }) 
               
               let colorClass = 'bg-red-500 shadow-sm'; // Por defecto: fuera
               if (esDescanso) colorClass = 'bg-yellow-500 shadow-sm';
-              else if (esSospechoso) colorClass = 'bg-gray-400 opacity-80';
+              else if (esSospechoso) colorClass = 'bg-gray-400 opacity-80'; // COLOR GRIS PARA SOSPECHOSOS
               else if (esDentroActivo) colorClass = 'bg-green-500 shadow-sm';
               else if (esDentroInactivo) colorClass = 'bg-green-300 shadow-sm opacity-70';
-              else if (esDentro) colorClass = 'bg-green-500 shadow-sm'; // Fallback para dentro sin estado
+              else if (esDentro) colorClass = 'bg-green-500 shadow-sm';
 
               return (
                 <div
@@ -854,7 +855,7 @@ const WebTimelineComponent = ({ actividades, titulo = "Cronología del Día" }) 
                     : intervalo.tipoBasico === 'dentro'
                       ? 'text-green-700'
                     : intervalo.tipoBasico === 'sospechoso'
-                        ? 'text-gray-700'
+                        ? 'text-gray-700' // TEXTO GRIS PARA SOSPECHOSOS
                         : 'text-red-700'
                 }`}>
                   {intervalo.tipoBasico === 'descanso'
@@ -862,7 +863,7 @@ const WebTimelineComponent = ({ actividades, titulo = "Cronología del Día" }) 
                     : intervalo.tipoBasico === 'dentro'
                       ? 'Dentro'
                     : intervalo.tipoBasico === 'sospechoso'
-                        ? 'Sospechoso'
+                        ? 'Sospechoso' // ETIQUETA "Sospechoso"
                         : 'Fuera'}
                 </div>
                 <div className="text-gray-600 mt-0.5 text-xs">

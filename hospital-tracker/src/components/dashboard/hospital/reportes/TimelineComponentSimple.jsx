@@ -201,6 +201,8 @@ function agruparIntervalosConsecutivos(intervals, events) {
     let tipoBasico;
     if (interval.type === 'break') {
       tipoBasico = 'break';
+    } else if (interval.type === 'suspicious') {
+      tipoBasico = 'suspicious';
     } else if (interval.type === 'outside') {
       tipoBasico = 'outside';
     } else if (interval.type === 'inside-active' || interval.type === 'inside-inactive') {
@@ -403,6 +405,54 @@ function generateIntervals(actividades, baseTimestamps) {
   };
 
   actividades.forEach((activity, index) => {
+    // Detectar gaps sospechosos ANTES de procesar el estado actual
+    if (index > 0) {
+      const prevActivity = actividades[index - 1];
+      const prevMs = getTimestamp(prevActivity.fecha_hora);
+      const currentMs = getTimestamp(activity.fecha_hora);
+      
+      if (prevMs !== null && currentMs !== null) {
+        const diffMs = currentMs - prevMs;
+        
+        // Verificar si el gap está justificado por salida laboral
+        const esSalidaLegitima = prevActivity.tipo_registro === 0 || 
+                                (prevActivity.tipo_registro === 0 && activity.tipo_registro === 1);
+        
+        // Detectar hueco sospechoso (>2h) - PERO solo si NO hay salida laboral que lo justifique
+        if (diffMs > 2 * 60 * 60 * 1000 && !esSalidaLegitima) {
+          // Cerrar intervalo anterior antes del gap sospechoso
+          if (currentState.intervalStart && currentState.intervalStart !== prevActivity.fecha_hora) {
+            closeCurrentInterval(prevActivity.fecha_hora, baseTimestamps);
+          }
+          
+          // Crear intervalo sospechoso
+          const startMs = getTimestamp(prevActivity.fecha_hora);
+          const endMs = getTimestamp(activity.fecha_hora);
+          
+          if (startMs !== null && endMs !== null) {
+            const startPos = calculatePosition(startMs, baseTimestamps.start, baseTimestamps.end);
+            const endPos = calculatePosition(endMs, baseTimestamps.start, baseTimestamps.end);
+            const width = endPos - startPos;
+            
+            if (Number.isFinite(startPos) && Number.isFinite(endPos) && Number.isFinite(width) && width > 0.01) {
+              intervals.push({
+                startPosition: startPos,
+                endPosition: endPos,
+                width: width,
+                type: 'suspicious',
+                duration: formatDuration(prevActivity.fecha_hora, activity.fecha_hora),
+                startTime: prevActivity.fecha_hora,
+                endTime: activity.fecha_hora
+              });
+            }
+          }
+          
+          // Reiniciar el intervalo normal después del gap
+          currentState.intervalStart = activity.fecha_hora;
+        }
+      }
+    }
+
     // Detectar cambios de estado y cerrar intervalos
     let stateChanged = false;
 
@@ -533,6 +583,7 @@ const VISUAL_CONFIG = {
     'inside-inactive': '#86efac',
     'outside': '#ef4444',
     'break': '#eab308',
+    'suspicious': '#9ca3af',
     'unknown': '#9ca3af'
   },
   opacity: {
@@ -540,6 +591,7 @@ const VISUAL_CONFIG = {
     'inside-inactive': 0.7,
     'outside': 1,
     'break': 1,
+    'suspicious': 0.8,
     'unknown': 0.8
   },
   eventColors: {
@@ -801,6 +853,7 @@ const TimelineComponentSimple = ({ actividades, titulo = "Cronología del Día" 
               'inside': 'Dentro',
               'outside': 'Fuera',
               'break': 'Descanso',
+              'suspicious': 'Sospechoso',
               'unknown': 'Desconocido'
             };
             
@@ -808,6 +861,7 @@ const TimelineComponentSimple = ({ actividades, titulo = "Cronología del Día" 
               'inside': '#15803d',
               'outside': '#b91c1c',
               'break': '#a16207',
+              'suspicious': '#374151',
               'unknown': '#374151'
             };
             
