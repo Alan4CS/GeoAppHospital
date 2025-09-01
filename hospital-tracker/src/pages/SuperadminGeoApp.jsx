@@ -78,18 +78,37 @@ export default function SuperadminGeoApp() {
           "https://geoapphospital-b0yr.onrender.com/api/superadmin/hospitals"
         );
         const data = await response.json();
-        const hospitalesFormateados = data.map((h) => ({
-          nombre: (h.nombre_hospital || "").replace(/\s+/g, " ").trim(),
-          estado: (h.estado || "").trim(),
-          municipio: (h.municipio || h.nombre_municipio || "").trim(),
-          tipoUnidad: (h.tipo_hospital || "").replace(/\s+/g, " ").trim(),
-          region: (h.direccion_hospital || "").replace(/\s+/g, " ").trim(),
-          geocerca: {
-            lat: Number.parseFloat(h.latitud_hospital) || 0,
-            lng: Number.parseFloat(h.longitud_hospital) || 0,
-            radio: h.radio_geo ?? 0,
-          },
-        }));
+        const hospitalesFormateados = data.map((h) => {
+          // Parsear la geocerca del campo radio_geo
+          let geocercaParsed = null;
+          if (h.radio_geo) {
+            try {
+              // Si es string, intentar parsearlo como JSON
+              if (typeof h.radio_geo === 'string') {
+                geocercaParsed = JSON.parse(h.radio_geo.replace(/'/g, '"'));
+              } else {
+                geocercaParsed = h.radio_geo;
+              }
+            } catch (error) {
+              console.warn("Error al parsear geocerca:", error);
+              geocercaParsed = null;
+            }
+          }
+
+          return {
+            id: h.id_hospital,
+            nombre: (h.nombre_hospital || "").replace(/\s+/g, " ").trim(),
+            estado: (h.estado || "").trim(),
+            municipio: (h.municipio || h.nombre_municipio || "").trim(),
+            tipoUnidad: (h.tipo_hospital || "").replace(/\s+/g, " ").trim(),
+            region: (h.direccion_hospital || "").replace(/\s+/g, " ").trim(),
+            geocerca: {
+              lat: Number.parseFloat(h.latitud_hospital) || 0,
+              lng: Number.parseFloat(h.longitud_hospital) || 0,
+              radio: geocercaParsed,
+            },
+          };
+        });
 
         setHospitales(hospitalesFormateados);
       } catch (error) {
@@ -249,9 +268,25 @@ export default function SuperadminGeoApp() {
       (hospital.geocerca.lat !== undefined ||
         hospital.geocerca.lng !== undefined);
 
+    console.log("🏥 Hospital para editar:", hospital);
+    console.log("🎯 Geocerca válida?", geocercaValida);
+    console.log("📍 hospital.geocerca:", hospital.geocerca);
+
     if (geocercaValida) {
-      setGeocerca(hospital.geocerca);
+      // Si hay una geocerca parseada en el campo radio, usarla
+      if (hospital.geocerca.radio && typeof hospital.geocerca.radio === 'object') {
+        console.log("✅ Usando geocerca radio como objeto:", hospital.geocerca.radio);
+        setGeocerca(hospital.geocerca.radio);
+      } else {
+        console.log("⚠️ No hay geocerca radio válida, usando coordenadas básicas");
+        setGeocerca({
+          lat: hospital.geocerca.lat,
+          lng: hospital.geocerca.lng,
+          radio: hospital.geocerca.radio || 0,
+        });
+      }
     } else {
+      console.log("❌ Geocerca no válida, estableciendo valores por defecto");
       setGeocerca({
         lat: 0,
         lng: 0,
@@ -269,20 +304,161 @@ export default function SuperadminGeoApp() {
   };
 
   // Manejador para guardar un hospital (nuevo o editado)
-  const handleGuardarHospital = (nuevoHospital) => {
-    if (editandoHospital && hospitalIndexEditando !== null) {
-      // Actualizar el hospital existente
-      const nuevosHospitales = [...hospitales];
-      nuevosHospitales[hospitalIndexEditando] = nuevoHospital;
-      setHospitales(nuevosHospitales);
-    } else {
-      // Crear un nuevo hospital
-      setHospitales([...hospitales, nuevoHospital]);
-    }
+  const handleGuardarHospital = async (nuevoHospital) => {
+    try {
+      console.log("🏥 Datos del hospital a guardar:", nuevoHospital);
+      
+      // Obtener el ID del municipio si se proporciona el nombre
+      let municipioId = null;
+      if (nuevoHospital.municipio && typeof nuevoHospital.municipio === 'string') {
+        console.log("🔍 Buscando ID del municipio:", nuevoHospital.municipio, "Estado:", nuevoHospital.estado);
+        const municipioResponse = await fetch(
+          `https://geoapphospital-b0yr.onrender.com/api/superadmin/municipio-id?nombre_municipio=${encodeURIComponent(nuevoHospital.municipio)}&estado_id=${nuevoHospital.estado}`
+        );
+        if (municipioResponse.ok) {
+          const municipioData = await municipioResponse.json();
+          municipioId = municipioData.id_municipio;
+          console.log("✅ ID del municipio encontrado:", municipioId);
+        } else {
+          const errorText = await municipioResponse.text();
+          console.error("❌ Error al obtener ID del municipio - Status:", municipioResponse.status);
+          console.error("❌ Error response:", errorText);
+          throw new Error(`Error al obtener ID del municipio: ${errorText}`);
+        }
+      } else if (nuevoHospital.municipio) {
+        municipioId = parseInt(nuevoHospital.municipio); // Convertir a entero
+        console.log("🔢 Municipio ID convertido:", municipioId);
+      }
 
-    // Resetear el estado de edición
-    resetearFormularios();
-    setActiveTab("hospitales");
+      // Validar que municipioId no sea null o NaN
+      if (!municipioId || isNaN(municipioId)) {
+        throw new Error("No se pudo determinar el ID del municipio. Por favor selecciona un municipio válido.");
+      }
+
+      // Validar estado_id
+      const estadoId = parseInt(nuevoHospital.estado);
+      if (!estadoId || isNaN(estadoId)) {
+        throw new Error("No se pudo determinar el ID del estado. Por favor selecciona un estado válido.");
+      }
+
+      console.log("🔧 IDs validados - Estado:", estadoId, "Municipio:", municipioId);
+
+      if (editandoHospital && hospitalEditando?.id) {
+        // Actualizar hospital existente
+        const hospitalData = {
+          nombre_hospital: nuevoHospital.nombre,
+          direccion_hospital: nuevoHospital.region,
+          estado_id: nuevoHospital.estado,
+          id_municipio: municipioId,
+          latitud_hospital: nuevoHospital.lat,
+          longitud_hospital: nuevoHospital.lng,
+          radio_geo: nuevoHospital.geocerca,
+          tipo_hospital: nuevoHospital.tipoUnidad
+        };
+
+        const response = await fetch(
+          `https://geoapphospital-b0yr.onrender.com/api/superadmin/hospitals/${hospitalEditando.id}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(hospitalData),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Error al actualizar el hospital");
+        }
+
+        alert("Hospital actualizado exitosamente");
+      } else {
+        // Crear nuevo hospital
+        const hospitalData = {
+          nombre_hospital: nuevoHospital.nombre,
+          direccion_hospital: nuevoHospital.region,
+          estado_id: nuevoHospital.estado,
+          id_municipio: municipioId,
+          latitud_hospital: nuevoHospital.lat,
+          longitud_hospital: nuevoHospital.lng,
+          radio_geo: nuevoHospital.geocerca,
+          tipo_hospital: nuevoHospital.tipoUnidad
+        };
+
+        const response = await fetch(
+          "https://geoapphospital-b0yr.onrender.com/api/superadmin/hospitals",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(hospitalData),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Error al crear el hospital");
+        }
+
+        alert("Hospital creado exitosamente");
+      }
+
+      // Recargar la lista de hospitales desde el backend
+      await refetchHospitales();
+
+      // Resetear el estado de edición
+      resetearFormularios();
+      setActiveTab("hospitales");
+    } catch (error) {
+      console.error("Error al guardar hospital:", error);
+      alert(error.message);
+    }
+  };
+
+  // Función auxiliar para recargar hospitales
+  const refetchHospitales = async () => {
+    try {
+      const response = await fetch(
+        "https://geoapphospital-b0yr.onrender.com/api/superadmin/hospitals"
+      );
+      const data = await response.json();
+      const hospitalesFormateados = data.map((h) => {
+        // Parsear la geocerca del campo radio_geo
+        let geocercaParsed = null;
+        if (h.radio_geo) {
+          try {
+            // Si es string, intentar parsearlo como JSON
+            if (typeof h.radio_geo === 'string') {
+              geocercaParsed = JSON.parse(h.radio_geo.replace(/'/g, '"'));
+            } else {
+              geocercaParsed = h.radio_geo;
+            }
+          } catch (error) {
+            console.warn("Error al parsear geocerca:", error);
+            geocercaParsed = null;
+          }
+        }
+
+        return {
+          id: h.id_hospital,
+          nombre: (h.nombre_hospital || "").replace(/\s+/g, " ").trim(),
+          estado: (h.estado || "").trim(),
+          municipio: (h.municipio || h.nombre_municipio || "").trim(),
+          tipoUnidad: (h.tipo_hospital || "").replace(/\s+/g, " ").trim(),
+          region: (h.direccion_hospital || "").replace(/\s+/g, " ").trim(),
+          geocerca: {
+            lat: Number.parseFloat(h.latitud_hospital) || 0,
+            lng: Number.parseFloat(h.longitud_hospital) || 0,
+            radio: geocercaParsed,
+          },
+        };
+      });
+      setHospitales(hospitalesFormateados);
+    } catch (error) {
+      console.error("Error al recargar hospitales:", error);
+    }
   };
 
   // Función para copiar al portapapeles

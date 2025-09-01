@@ -30,6 +30,173 @@ router.get("/hospitals", async (req, res) => {
   }
 });
 
+// POST /api/superadmin/hospitals - Crear nuevo hospital
+router.post("/hospitals", async (req, res) => {
+  const {
+    nombre_hospital,
+    direccion_hospital,
+    estado_id,
+    id_municipio,
+    latitud_hospital,
+    longitud_hospital,
+    radio_geo,
+    tipo_hospital
+  } = req.body;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Convertir geocerca object a string si es necesario
+    const radioGeoString = typeof radio_geo === 'object' ? JSON.stringify(radio_geo) : radio_geo;
+
+    const result = await client.query(
+      `INSERT INTO hospitals (
+        nombre_hospital, 
+        direccion_hospital, 
+        estado_id, 
+        id_municipio, 
+        latitud_hospital, 
+        longitud_hospital, 
+        radio_geo, 
+        tipo_hospital,
+        reviewed
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+      RETURNING id_hospital`,
+      [
+        nombre_hospital,
+        direccion_hospital,
+        estado_id,
+        id_municipio,
+        latitud_hospital,
+        longitud_hospital,
+        radioGeoString,
+        tipo_hospital,
+        false
+      ]
+    );
+
+    await client.query("COMMIT");
+    res.status(201).json({ 
+      message: "Hospital creado exitosamente",
+      id_hospital: result.rows[0].id_hospital
+    });
+
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("❌ Error al crear hospital:", error);
+    res.status(500).json({ error: "Error al crear hospital" });
+  } finally {
+    client.release();
+  }
+});
+
+// PUT /api/superadmin/hospitals/:id - Actualizar hospital existente
+router.put("/hospitals/:id", async (req, res) => {
+  const { id } = req.params;
+  const {
+    nombre_hospital,
+    direccion_hospital,
+    estado_id,
+    id_municipio,
+    latitud_hospital,
+    longitud_hospital,
+    radio_geo,
+    tipo_hospital
+  } = req.body;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Convertir geocerca object a string si es necesario
+    const radioGeoString = typeof radio_geo === 'object' ? JSON.stringify(radio_geo) : radio_geo;
+
+    const result = await client.query(
+      `UPDATE hospitals SET
+        nombre_hospital = $1,
+        direccion_hospital = $2,
+        estado_id = $3,
+        id_municipio = $4,
+        latitud_hospital = $5,
+        longitud_hospital = $6,
+        radio_geo = $7,
+        tipo_hospital = $8
+      WHERE id_hospital = $9`,
+      [
+        nombre_hospital,
+        direccion_hospital,
+        estado_id,
+        id_municipio,
+        latitud_hospital,
+        longitud_hospital,
+        radioGeoString,
+        tipo_hospital,
+        id
+      ]
+    );
+
+    if (result.rowCount === 0) {
+      throw new Error("Hospital no encontrado");
+    }
+
+    await client.query("COMMIT");
+    res.status(200).json({ message: "Hospital actualizado exitosamente" });
+
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("❌ Error al actualizar hospital:", error);
+    res.status(500).json({ error: error.message || "Error al actualizar hospital" });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/superadmin/municipio-id - Obtener ID del municipio por nombre y estado
+router.get("/municipio-id", async (req, res) => {
+  const { nombre_municipio, estado_id } = req.query;
+  
+  console.log("🔍 GET /municipio-id - Parámetros recibidos:");
+  console.log("  - nombre_municipio:", nombre_municipio);
+  console.log("  - estado_id:", estado_id);
+  console.log("  - tipo estado_id:", typeof estado_id);
+  
+  try {
+    const query = `SELECT m.id_municipio 
+       FROM municipios m
+       JOIN estados e ON m.id_estado = e.id_estado
+       WHERE m.nombre_municipio = $1 AND m.id_estado = $2`;
+    
+    console.log("🗃️ Ejecutando query:", query);
+    console.log("🗃️ Con parámetros:", [nombre_municipio, estado_id]);
+    
+    const result = await pool.query(query, [nombre_municipio, estado_id]);
+    
+    console.log("📊 Result.rows:", result.rows);
+    
+    if (result.rows.length === 0) {
+      console.log("🚫 No se encontró el municipio");
+      return res.status(404).json({ 
+        error: "Municipio no encontrado",
+        searched: { nombre_municipio, estado_id }
+      });
+    }
+    
+    console.log("✅ Municipio encontrado:", result.rows[0]);
+    res.json({ id_municipio: result.rows[0].id_municipio });
+  } catch (error) {
+    console.error("❌ Error al obtener ID del municipio:", error);
+    console.error("❌ Error details:", error.message);
+    console.error("❌ Error stack:", error.stack);
+    res.status(500).json({ 
+      error: "Error al consultar municipio",
+      details: error.message
+    });
+  }
+});
+
 router.get("/estados", async (req, res) => {
   try {
     const result = await pool.query(`

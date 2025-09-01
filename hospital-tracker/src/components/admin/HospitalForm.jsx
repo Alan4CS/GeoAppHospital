@@ -6,6 +6,7 @@ export default function HospitalForm({
   editandoHospital = false,
   hospitalEditando = null,
   mapCenter,
+  geocerca,
   onCoordsChange,
   onBuscarCoordenadasEstado,
   onGuardar,
@@ -45,20 +46,35 @@ export default function HospitalForm({
       }
 
       if (hospitalEditando.geocerca?.radio) {
-        try {
-          const parsedGeo = JSON.parse(
-            hospitalEditando.geocerca.radio.replace(/'/g, '"')
-          );
-          console.log("📦 Parsed geocerca from .geocerca.radio:", parsedGeo);
-          setGeocercaState(parsedGeo);
-        } catch (err) {
-          console.error("❌ Error parsing geocerca.radio:", err);
+        // Si radio ya es un objeto, usarlo directamente
+        if (typeof hospitalEditando.geocerca.radio === 'object') {
+          console.log("📦 Geocerca radio ya es objeto:", hospitalEditando.geocerca.radio);
+          setGeocercaState(hospitalEditando.geocerca.radio);
+        } else {
+          // Si es string, parsearlo
+          try {
+            const parsedGeo = JSON.parse(
+              hospitalEditando.geocerca.radio.replace(/'/g, '"')
+            );
+            console.log("📦 Parsed geocerca from string:", parsedGeo);
+            setGeocercaState(parsedGeo);
+          } catch (err) {
+            console.error("❌ Error parsing geocerca.radio:", err);
+          }
         }
       } else {
         console.warn("⚠️ hospitalEditando.geocerca.radio viene null o vacío");
       }
     }
   }, [editandoHospital, hospitalEditando]);
+
+  // useEffect adicional para manejar la prop geocerca del padre
+  useEffect(() => {
+    if (geocerca && typeof geocerca === 'object') {
+      console.log("🎯 Geocerca recibida del padre:", geocerca);
+      setGeocercaState(geocerca);
+    }
+  }, [geocerca]);
 
   useEffect(() => {
     const fetchEstados = async () => {
@@ -112,6 +128,14 @@ export default function HospitalForm({
       lat: coords.lat.toString(),
       lng: coords.lng.toString(),
     }));
+  };
+
+  const handleGeocercaChange = (newGeocerca) => {
+    setGeocercaState(newGeocerca);
+    // Comunicar el cambio al componente padre
+    if (onCoordsChange) {
+      onCoordsChange(newGeocerca);
+    }
   };
 
   const handleSubmit = (e) => {
@@ -282,7 +306,7 @@ export default function HospitalForm({
           centerFromOutside={mapCenter}
           initialHospitalCoords={hasCoords ? { lat, lng } : null}
           initialGeocerca={geocercaState}
-          onCoordsChange={setGeocercaState}
+          onCoordsChange={handleGeocercaChange}
           onHospitalCoordsChange={handleHospitalCoordsChange}
           editando={editandoHospital}
         />
