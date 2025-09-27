@@ -100,4 +100,4 @@ npm run dev
 
 ## Contacto y Soporte
 
-Para dudas o soporte, contacta al equipo de desarrollo o revisa la documentación incluida en la carpeta `Documentación`.
+Para dudas más especificas revisa la documentación incluida en los .pdf `Documentación backend, Documentación de la Base de Datos y Documentación frontend`.
