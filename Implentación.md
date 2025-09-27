@@ -7,7 +7,7 @@ GeoAppHospital es una plataforma web para la gestión y monitoreo de hospitales,
 
 - **Frontend:** React, Vite, Tailwind CSS
 - **Backend:** Node.js, Express
-- **Base de Datos:** MySQL
+- **Base de Datos:** PostgreSQL (motor de base de datos principal)
 - **Python:** Scripts para procesamiento y carga de datos
 - **Otros:** PostCSS, ESLint
 
@@ -26,7 +26,9 @@ GeoAppHospital/
 - Node.js (v16+ recomendado)
 - npm o yarn
 - Python 3.8+
-- (Opcional) MongoDB/MySQL/PostgreSQL según configuración de la base de datos
+- PostgreSQL (v12+ recomendado) - Base de datos utilizada en la implementación actual
+
+> **Nota:** El proyecto está desarrollado y configurado para PostgreSQL. Aunque es posible migrar a MySQL u otros motores de base de datos, la implementación actual utiliza PostgreSQL con todas las configuraciones, schemas y queries optimizadas para este motor.
 
 
 ## Despliegue en Línea (Cloud)
@@ -34,7 +36,7 @@ GeoAppHospital/
 Las principales partes del proyecto pueden ser montadas y ejecutadas en línea usando servicios como Render:
 
 - **Backend:** Puede desplegarse en Render como un servicio web. Solo necesitas subir el contenido de `geoapp-backend/` y configurar las variables de entorno (por ejemplo, claves de conexión a la base de datos, puertos, etc.).
-- **Base de Datos:** Render permite crear instancias de bases de datos (por ejemplo, MySQL). Configura la base de datos en Render y actualiza las variables de entorno del backend para apuntar a la URL de la base de datos en la nube.
+- **Base de Datos:** Render permite crear instancias de PostgreSQL. Configura la base de datos PostgreSQL en Render y actualiza las variables de entorno del backend para apuntar a la URL de la base de datos en la nube.
 - **Frontend:** El contenido de `hospital-tracker/` puede desplegarse en Render como una aplicación web estática. Render compilará el proyecto y lo servirá en línea.
 
 Esto permite que el sistema funcione completamente en la nube, sin necesidad de ejecutarlo localmente. Solo asegúrate de que las URLs y credenciales estén correctamente configuradas en los archivos `.env` de cada módulo.
